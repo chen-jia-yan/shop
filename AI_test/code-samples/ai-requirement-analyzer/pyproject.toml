@@ -1,0 +1,13 @@
+[tool.poetry]
+name = "ai-requirement-analyzer"
+version = "1.0.0"
+description = "需求分析 Azure Function"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+azure-functions = "^1.18"
+openai = "^1.30"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"

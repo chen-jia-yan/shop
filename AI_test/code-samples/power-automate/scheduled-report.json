@@ -1,0 +1,83 @@
+{
+  "name": "AI Report Push - Scheduled",
+  "description": "定时报告推送 Flow\n\n每天 UTC 2:00 触发 → 拉取 Dataverse 数据 → 调用报告生成 Function → 推送到 Teams + Outlook",
+  "triggers": [
+    {
+      "type": "Recurrence",
+      "name": "Daily 2:00 AM UTC",
+      "inputs": {
+        "frequency": "Day",
+        "interval": 1,
+        "schedule": {
+          "hours": [2],
+          "minutes": [0]
+        },
+        "timeZone": "UTC"
+      }
+    }
+  ],
+  "actions": [
+    {
+      "step": 1,
+      "name": "从 Dataverse 获取昨日数据",
+      "type": "List_records",
+      "inputs": {
+        "dataverse": "shared_dataverse",
+        "entityName": "ai_testresults",
+        "filter": "@{concat('createdon ge ', formatDateTime(addDays(utcNow(), -1), 'yyyy-MM-ddT00:00:00Z'), ' and createdon lt ', formatDateTime(utcNow(), 'yyyy-MM-ddT00:00:00Z'))}",
+        "$select": "ai_testcaseid,ai_testcasename,ai_status,ai_errormessage,ai_failurecategory,ai_durationms,ai_testrunid"
+      }
+    },
+    {
+      "step": 2,
+      "name": "聚合统计数据",
+      "type": "Compose",
+      "inputs": {
+        "total": "@{length(body('从 Dataverse 获取昨日数据')?['value'])}",
+        "passed": "@{length(filter(body('从 Dataverse 获取昨日数据')?['value'], @item()?['ai_status'] eq 'passed'))}",
+        "failed": "@{length(filter(body('从 Dataverse 获取昨日数据')?['value'], @item()?['ai_status'] eq 'failed'))}",
+        "skipped": "@{length(filter(body('从 Dataverse 获取昨日数据')?['value'], @item()?['ai_status'] eq 'skipped'))}",
+        "duration_seconds": "@{add(...)}"
+      }
+    },
+    {
+      "step": 3,
+      "name": "调用报告生成 Function",
+      "type": "HTTP",
+      "inputs": {
+        "method": "POST",
+        "uri": "https://ai-test-functions.azurewebsites.net/api/generate-report?code=@variables('functionKey')",
+        "body": {
+          "project_name": "AI测试平台",
+          "version": "latest",
+          "environment": "综合",
+          "stats": "@{outputs('聚合统计数据')}",
+          "failures": "@{variables('failureList')}"
+        }
+      }
+    },
+    {
+      "step": 4,
+      "name": "推送到 Teams 频道",
+      "type": "Post_message_in_a_chat_or_channel",
+      "inputs": {
+        "chatType": "Channel",
+        "team": "质量保障",
+        "channel": "每日报告",
+        "message": "@{outputs('调用报告生成 Function')?['data']?['markdown_report']}",
+        "messageType": "markdown"
+      }
+    },
+    {
+      "step": 5,
+      "name": "附件报告到 SharePoint",
+      "type": "Create_file",
+      "inputs": {
+        "dataset": "sharepoint_site",
+        "folderPath": "/sites/QA/Shared Documents/测试报告",
+        "name": "@{concat('测试报告_', formatDateTime(utcNow(), 'yyyyMMdd'), '.md')}",
+        "content": "@{outputs('调用报告生成 Function')?['data']?['markdown_report']}"
+      }
+    }
+  ]
+}

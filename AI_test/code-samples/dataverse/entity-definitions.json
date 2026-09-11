@@ -1,0 +1,179 @@
+{
+  "entities": [
+    {
+      "logicalName": "ai_testproject",
+      "displayName": "测试项目",
+      "description": "测试项目/应用，一个项目包含多轮测试执行",
+      "attributes": [
+        { "logicalName": "ai_testprojectid", "type": "UniqueIdentifier", "isPrimaryKey": true },
+        { "logicalName": "ai_name", "type": "String", "maxLength": 200, "displayName": "项目名称" },
+        { "logicalName": "ai_version", "type": "String", "maxLength": 50, "displayName": "当前版本" },
+        { "logicalName": "ai_description", "type": "Memo", "displayName": "项目描述" },
+        { "logicalName": "ai_owner", "type": "String", "maxLength": 100, "displayName": "负责人" },
+        { "logicalName": "ai_azuredocspipelineid", "type": "Integer", "displayName": "Azure DevOps Pipeline ID" },
+        { "logicalName": "ai_statecode", "type": "Picklist", "options": [
+          { "value": 0, "label": "Active" },
+          { "value": 1, "label": "Inactive" }
+        ], "displayName": "状态" }
+      ],
+      "keys": [
+        { "name": "ai_name_unique", "attributes": ["ai_name"] }
+      ]
+    },
+    {
+      "logicalName": "ai_testrun",
+      "displayName": "测试执行批次",
+      "description": "一次测试执行记录，关联 Pipeline Run",
+      "attributes": [
+        { "logicalName": "ai_testrunid", "type": "UniqueIdentifier", "isPrimaryKey": true },
+        { "logicalName": "ai_name", "type": "String", "maxLength": 100, "displayName": "执行名称" },
+        { "logicalName": "ai_testprojectid", "type": "Lookup", "target": "ai_testproject", "displayName": "所属项目" },
+        { "logicalName": "ai_pipelinerunid", "type": "String", "maxLength": 100, "displayName": "Pipeline Run ID" },
+        { "logicalName": "ai_environment", "type": "Picklist", "options": [
+          { "value": 0, "label": "Development" },
+          { "value": 1, "label": "Testing" },
+          { "value": 2, "label": "Staging" },
+          { "value": 3, "label": "Production" }
+        ], "displayName": "执行环境" },
+        { "logicalName": "ai_testtype", "type": "Picklist", "options": [
+          { "value": 0, "label": "Smoke" },
+          { "value": 1, "label": "Regression" },
+          { "value": 2, "label": "Full" }
+        ], "displayName": "测试类型" },
+        { "logicalName": "ai_startedat", "type": "DateTime", "displayName": "开始时间" },
+        { "logicalName": "ai_completedat", "type": "DateTime", "displayName": "完成时间" },
+        { "logicalName": "ai_totalcases", "type": "Integer", "displayName": "总用例数" },
+        { "logicalName": "ai_passed", "type": "Integer", "displayName": "通过数" },
+        { "logicalName": "ai_failed", "type": "Integer", "displayName": "失败数" },
+        { "logicalName": "ai_skipped", "type": "Integer", "displayName": "跳过数" },
+        { "logicalName": "ai_passrate", "type": "Decimal", "precision": 2, "displayName": "通过率(%)" },
+        { "logicalName": "ai_status", "type": "Picklist", "options": [
+          { "value": 0, "label": "Running" },
+          { "value": 1, "label": "Completed" },
+          { "value": 2, "label": "Failed" },
+          { "value": 3, "label": "Cancelled" }
+        ], "displayName": "执行状态" }
+      ]
+    },
+    {
+      "logicalName": "ai_testcase",
+      "displayName": "测试用例",
+      "description": "AI 生成的测试用例，关联到具体需求",
+      "attributes": [
+        { "logicalName": "ai_testcaseid", "type": "UniqueIdentifier", "isPrimaryKey": true },
+        { "logicalName": "ai_name", "type": "String", "maxLength": 300, "displayName": "用例标题" },
+        { "logicalName": "ai_testprojectid", "type": "Lookup", "target": "ai_testproject", "displayName": "所属项目" },
+        { "logicalName": "ai_requirementid", "type": "String", "maxLength": 50, "displayName": "关联需求编号" },
+        { "logicalName": "ai_priority", "type": "Picklist", "options": [
+          { "value": 0, "label": "P0" },
+          { "value": 1, "label": "P1" },
+          { "value": 2, "label": "P2" }
+        ], "displayName": "优先级" },
+        { "logicalName": "ai_category", "type": "Picklist", "options": [
+          { "value": 0, "label": "功能" },
+          { "value": 1, "label": "性能" },
+          { "value": 2, "label": "安全" },
+          { "value": 3, "label": "兼容性" },
+          { "value": 4, "label": "可靠性" }
+        ], "displayName": "测试类型" },
+        { "logicalName": "ai_precondition", "type": "Memo", "displayName": "前置条件" },
+        { "logicalName": "ai_testdata", "type": "Memo", "displayName": "测试数据" },
+        { "logicalName": "ai_steps", "type": "Memo", "displayName": "测试步骤（JSON数组）" },
+        { "logicalName": "ai_expected", "type": "Memo", "displayName": "预期结果（JSON数组）" },
+        { "logicalName": "ai_automationflag", "type": "Boolean", "displayName": "是否可自动化" },
+        { "logicalName": "ai_tags", "type": "String", "maxLength": 500, "displayName": "标签（逗号分隔）" },
+        { "logicalName": "ai_sourcetype", "type": "Picklist", "options": [
+          { "value": 0, "label": "AI 生成" },
+          { "value": 1, "label": "手动创建" },
+          { "value": 2, "label": "导入" }
+        ], "displayName": "来源" },
+        { "logicalName": "ai_generatedprompt", "type": "Memo", "displayName": "AI 生成时的原始 Prompt" }
+      ]
+    },
+    {
+      "logicalName": "ai_testresult",
+      "displayName": "测试执行结果",
+      "description": "单条用例的执行结果，含失败分析和截图",
+      "attributes": [
+        { "logicalName": "ai_testresultid", "type": "UniqueIdentifier", "isPrimaryKey": true },
+        { "logicalName": "ai_testrunid", "type": "Lookup", "target": "ai_testrun", "displayName": "所属执行批次" },
+        { "logicalName": "ai_testcaseid", "type": "Lookup", "target": "ai_testcase", "displayName": "用例" },
+        { "logicalName": "ai_testcasename", "type": "String", "maxLength": 300, "displayName": "用例名称（冗余）" },
+        { "logicalName": "ai_status", "type": "Picklist", "options": [
+          { "value": 0, "label": "Pending" },
+          { "value": 1, "label": "Running" },
+          { "value": 2, "label": "Passed" },
+          { "value": 3, "label": "Failed" },
+          { "value": 4, "label": "Skipped" },
+          { "value": 5, "label": "Error" }
+        ], "displayName": "执行状态" },
+        { "logicalName": "ai_errormessage", "type": "Memo", "displayName": "错误信息" },
+        { "logicalName": "ai_failurecategory", "type": "Picklist", "options": [
+          { "value": 0, "label": "元素定位失败" },
+          { "value": 1, "label": "超时" },
+          { "value": 2, "label": "断言失败" },
+          { "value": 3, "label": "环境问题" },
+          { "value": 4, "label": "脚本错误" },
+          { "value": 5, "label": "浏览器异常" },
+          { "value": 6, "label": "AI 判定" }
+        ], "displayName": "失败分类（AI分析）" },
+        { "logicalName": "ai_failurereason", "type": "Memo", "displayName": "根因（AI分析）" },
+        { "logicalName": "ai_fixsuggestion", "type": "Memo", "displayName": "修复建议（AI分析）" },
+        { "logicalName": "ai_isflaky", "type": "Boolean", "displayName": "是否 Flaky" },
+        { "logicalName": "ai_confidence", "type": "Decimal", "precision": 4, "displayName": "AI分析置信度" },
+        { "logicalName": "ai_durationms", "type": "Integer", "displayName": "执行耗时(ms)" },
+        { "logicalName": "ai_screenshots", "type": "String", "maxLength": 2000, "displayName": "截图 URL（JSON数组）" },
+        { "logicalName": "ai_tracefile", "type": "String", "maxLength": 500, "displayName": "Playwright Trace URL" },
+        { "logicalName": "ai_startedat", "type": "DateTime", "displayName": "执行开始时间" },
+        { "logicalName": "ai_completedat", "type": "DateTime", "displayName": "完成时间" },
+        { "logicalName": "ai_retrycount", "type": "Integer", "displayName": "重试次数" }
+      ]
+    },
+    {
+      "logicalName": "ai_testreport",
+      "displayName": "测试报告",
+      "description": "AI 生成的测试报告，含摘要和统计数据",
+      "attributes": [
+        { "logicalName": "ai_testreportid", "type": "UniqueIdentifier", "isPrimaryKey": true },
+        { "logicalName": "ai_name", "type": "String", "maxLength": 200, "displayName": "报告标题" },
+        { "logicalName": "ai_testrunid", "type": "Lookup", "target": "ai_testrun", "displayName": "关联执行批次" },
+        { "logicalName": "ai_testprojectid", "type": "Lookup", "target": "ai_testproject", "displayName": "关联项目" },
+        { "logicalName": "ai_aisummary", "type": "Memo", "displayName": "AI 摘要" },
+        { "logicalName": "ai_recommendations", "type": "Memo", "displayName": "AI 建议" },
+        { "logicalName": "ai_markdowncontent", "type": "Memo", "displayName": "完整 Markdown 报告" },
+        { "logicalName": "ai_passrate", "type": "Decimal", "precision": 2, "displayName": "通过率" },
+        { "logicalName": "ai_generatedat", "type": "DateTime", "displayName": "生成时间" }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "type": "1:N",
+      "from": "ai_testproject",
+      "to": "ai_testrun",
+      "fromAttribute": "ai_testprojectid",
+      "toAttribute": "ai_testprojectid"
+    },
+    {
+      "type": "1:N",
+      "from": "ai_testrun",
+      "to": "ai_testresult",
+      "fromAttribute": "ai_testrunid",
+      "toAttribute": "ai_testrunid"
+    },
+    {
+      "type": "1:N",
+      "from": "ai_testcase",
+      "to": "ai_testresult",
+      "fromAttribute": "ai_testcaseid",
+      "toAttribute": "ai_testcaseid"
+    },
+    {
+      "type": "1:N",
+      "from": "ai_testrun",
+      "to": "ai_testreport",
+      "fromAttribute": "ai_testrunid",
+      "toAttribute": "ai_testrunid"
+    }
+  ]
+}

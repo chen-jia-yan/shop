@@ -1,0 +1,84 @@
+{
+  "name": "Copilot Studio Trigger - On Demand Test",
+  "description": "Copilot Studio 触发的按需测试 Flow\n\n用户通过 Teams Copilot 要求「跑一下登录模块的冒烟测试」→\n本 Flow 接收请求 → 触发 Azure DevOps Pipeline → 等待结果 → 返回摘要给 Copilot",
+  "triggers": [
+    {
+      "type": "Power_Apps",
+      "name": "从 Copilot Studio 调用",
+      "inputs": {
+        "triggerType": "PowerApp",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "module": { "type": "string", "description": "测试模块" },
+            "testType": { "type": "string", "enum": ["smoke", "regression", "full"] },
+            "environment": { "type": "string" },
+            "requestId": { "type": "string" }
+          }
+        }
+      }
+    }
+  ],
+  "actions": [
+    {
+      "step": 1,
+      "name": "触发 Azure DevOps Pipeline",
+      "type": "HTTP",
+      "inputs": {
+        "method": "POST",
+        "uri": "https://dev.azure.com/{org}/{project}/_apis/pipelines/{pipelineId}/runs?api-version=7.0",
+        "body": {
+          "parameters": {
+            "module": "@{triggerBody()?['module']}",
+            "testType": "@{triggerBody()?['testType']}",
+            "environment": "@{triggerBody()?['environment']}"
+          }
+        }
+      }
+    },
+    {
+      "step": 2,
+      "name": "轮询等待 Pipeline 完成",
+      "type": "Until",
+      "inputs": {
+        "expression": "@{equals(outputs('检查Pipeline状态')?['status'], 'completed')}",
+        "limit": {
+          "count": 60,
+          "timeout": "PT30M"
+        }
+      },
+      "actions": [
+        {
+          "type": "HTTP",
+          "name": "检查 Pipeline 状态",
+          "inputs": {
+            "method": "GET",
+            "uri": "@{concat('https://dev.azure.com/{org}/{project}/_apis/build/builds/', outputs('触发AzureDevOpsPipeline')?['id'], '?api-version=7.0')}"
+          }
+        },
+        {
+          "type": "Delay",
+          "name": "每 30 秒检查一次",
+          "inputs": {
+            "interval": 30,
+            "unit": "Second"
+          }
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "name": "返回结果给 Copilot Studio",
+      "type": "Respond_to_Power_App_Or_Flow",
+      "inputs": {
+        "response": {
+          "requestId": "@{triggerBody()?['requestId']}",
+          "status": "@{outputs('检查Pipeline状态')?['result']}",
+          "passed": "@{outputs('检查Pipeline状态')?['parameters']?['passed']}",
+          "failed": "@{variables('failedCount')}",
+          "summary": "@{variables('pipelineSummary')}"
+        }
+      }
+    }
+  ]
+}

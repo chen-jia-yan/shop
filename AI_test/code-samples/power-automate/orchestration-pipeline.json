@@ -1,0 +1,150 @@
+{
+  "name": "AI Test Orchestration - Main Pipeline",
+  "description": "主测试编排流程\n\n当 Azure DevOps Pipeline 完成测试执行后触发，串联整个后处理链路：\n收集结果 → 失败分析 → 报告生成 → 通知干系人",
+  "triggers": [
+    {
+      "type": "When_a_HTTP_request_is_received",
+      "name": "Azure DevOps Pipeline Callback",
+      "inputs": {
+        "method": "POST",
+        "relativePath": "/test-orchestration/callback",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pipelineRunId": { "type": "string" },
+            "projectName": { "type": "string" },
+            "version": { "type": "string" },
+            "environment": { "type": "string" },
+            "status": { "type": "string", "enum": ["completed", "failed"] }
+          }
+        }
+      }
+    }
+  ],
+  "actions": [
+    {
+      "step": 1,
+      "name": "获取测试结果数据",
+      "type": "HTTP",
+      "description": "从 Dataverse 拉取本次 Pipeline 的执行结果",
+      "inputs": {
+        "method": "GET",
+        "uri": "@{concat('https://org.crm.dynamics.com/api/data/v9.2/ai_testruns?$filter=pipelineRunId eq ', triggerBody().pipelineRunId, '&$expand=ai_testresults')}",
+        "headers": {
+          "Authorization": "@{variables('dataverseAuth')}",
+          "Content-Type": "application/json"
+        }
+      },
+      "runAfter": {}
+    },
+    {
+      "step": 2,
+      "name": "并行分析失败的测试",
+      "type": "Scope",
+      "description": "对每个失败用例并行调用 Azure Function 分析失败原因",
+      "actions": [
+        {
+          "type": "Apply_to_each",
+          "name": "遍历失败用例",
+          "inputs": {
+            "items": "@{body('获取测试结果数据')?['value']}",
+            "filter": "@{item()?['status'] eq 'failed'}"
+          },
+          "actions": [
+            {
+              "type": "HTTP",
+              "name": "调用失败分析 Function",
+              "inputs": {
+                "method": "POST",
+                "uri": "https://ai-test-functions.azurewebsites.net/api/analyze-failure?code=@variables('functionKey')",
+                "body": {
+                  "error": "@{item()?['errorMessage']}",
+                  "testcaseId": "@{item()?['testcaseId']}",
+                  "screenshots": "@{item()?['screenshots']}",
+                  "history": "@{variables('getTestHistory')?[item()?['testcaseId']]}"
+                }
+              }
+            },
+            {
+              "type": "Update_record",
+              "name": "更新 Dataverse 失败分析结果",
+              "inputs": {
+                "dataverse": "shared_dataverse",
+                "entityName": "ai_testresults",
+                "recordId": "@{item()?['ai_testresultid']}",
+                "columns": {
+                  "ai_failurecategory": "@{outputs('调用失败分析 Function')?['data']?['root_cause_category']}",
+                  "ai_failurereason": "@{outputs('调用失败分析 Function')?['data']?['root_cause']}",
+                  "ai_fixsuggestion": "@{outputs('调用失败分析 Function')?['data']?['suggestion']}",
+                  "ai_isflaky": "@{outputs('调用失败分析 Function')?['data']?['is_flaky']}"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "name": "生成测试报告",
+      "type": "HTTP",
+      "description": "调用报告生成 Function 聚合数据",
+      "inputs": {
+        "method": "POST",
+        "uri": "https://ai-test-functions.azurewebsites.net/api/generate-report?code=@variables('functionKey')",
+        "body": {
+          "project_name": "@{triggerBody()?['projectName']}",
+          "version": "@{triggerBody()?['version']}",
+          "environment": "@{triggerBody()?['environment']}",
+          "stats": "@{variables('computedStats')}",
+          "failures": "@{variables('failureList')}"
+        }
+      },
+      "runAfter": ["并行分析失败的测试"]
+    },
+    {
+      "step": 4,
+      "name": "通知干系人",
+      "type": "Parallel",
+      "description": "多渠道通知",
+      "actions": [
+        {
+          "type": "Post_message_in_a_chat_or_channel",
+          "name": "推送到 Teams 测试通知频道",
+          "inputs": {
+            "chatType": "Channel",
+            "team": "质量保障",
+            "channel": "AI测试通知",
+            "message": "@{outputs('生成测试报告')?['data']?['markdown_report']}",
+            "messageType": "markdown"
+          }
+        },
+        {
+          "type": "Send_an_email",
+          "name": "邮件通知项目干系人",
+          "inputs": {
+            "to": "@{variables('stakeholderEmails')}",
+            "subject": "@{concat(triggerBody()?['projectName'], ' ', triggerBody()?['version'], ' 测试报告')}",
+            "body": "@{outputs('生成测试报告')?['data']?['ai_summary']}",
+            "importance": "Normal"
+          }
+        }
+      ],
+      "runAfter": ["生成测试报告"]
+    },
+    {
+      "step": 5,
+      "name": "更新 Pipeline 状态回 Azure DevOps",
+      "type": "HTTP",
+      "description": "回写分析结论到 ADO，让 PR 通过/失败",
+      "inputs": {
+        "method": "POST",
+        "uri": "@{concat('https://dev.azure.com/{org}/{project}/_apis/build/builds/', triggerBody()?['pipelineRunId'], '/tags?api-version=7.0')}",
+        "body": {
+          "tags": ["AI-分析完成"]
+        }
+      },
+      "runAfter": ["通知干系人"]
+    }
+  ]
+}

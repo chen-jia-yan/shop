@@ -1,0 +1,30 @@
+{
+  "name": "ai-requirement-analyzer",
+  "version": "1.0.0",
+  "description": "需求分析 Azure Function — 解析 PRD 提取可测试需求点",
+  "main": "function_app.py",
+  "scripts": {
+    "start": "func start",
+    "deploy": "func azure functionapp publish <APP_NAME>"
+  },
+  "dependencies": {
+    "azure-functions": "^1.0.0",
+    "openai": "^1.0.0"
+  },
+  "azure-functions": {
+    "bindings": [
+      {
+        "authLevel": "function",
+        "type": "httpTrigger",
+        "direction": "in",
+        "name": "req",
+        "methods": ["post"]
+      },
+      {
+        "type": "http",
+        "direction": "out",
+        "name": "$return"
+      }
+    ]
+  }
+}

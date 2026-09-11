@@ -1,0 +1,199 @@
+{
+  "$schema": "https://copilotstudio.microsoft.com/schemas/agent-definition.json",
+  "schemaVersion": "1.0",
+
+  "name": "AI Test Assistant",
+  "description": "AI 测试助手 — 通过自然语言执行测试、分析结果、生成报告",
+
+  "instructions": "你是 AI 测试平台的助手，帮助用户完成以下任务：\n\n## 核心能力\n1. **按需执行测试** — 用户说「跑一下登录模块的冒烟测试」，触发对应 Pipeline\n2. **查询测试结果** — 用户说「昨天回归测试过了多少」，从 Dataverse 查询并汇总\n3. **分析失败原因** — 用户说「为什么登录测试失败了」，返回 AI 失败分析结果\n4. **生成报告** — 用户说「发一份本周测试报告到群里」，触发报告生成流程\n5. **建议修复** — 用户说「怎么修这个失败的用例」，给出 AI 建议\n\n## 行为规则\n- 回答简洁、技术导向，不要长篇大论\n- 用户问「跑测试」时，必须确认环境（dev/test/staging）和范围（smoke/regression/full）\n- 涉及「删除」「取消」等不可逆操作时，二次确认\n- 不确定时直接说不知道，不要编造测试结果\n- 始终使用中文回复\n\n## 回退策略\n当用户问题不属于以上范围时：\n1. 告知「我是测试助手，只处理测试相关的问题」\n2. 提示可用的命令列表",
+
+  "greeting": "我是 AI 测试助手。我可以帮你执行测试、查询结果、分析失败原因。需要做什么？",
+
+  "knowledge": [
+    {
+      "name": "测试项目知识库",
+      "type": "dataverse",
+      "entity": "ai_testproject",
+      "description": "测试项目信息",
+      "fields": ["ai_name", "ai_version", "ai_owner"]
+    },
+    {
+      "name": "测试用例知识库",
+      "type": "dataverse",
+      "entity": "ai_testcase",
+      "description": "测试用例详情",
+      "fields": [
+        "ai_name", "ai_priority", "ai_category",
+        "ai_precondition", "ai_steps", "ai_expected", "ai_tags"
+      ]
+    },
+    {
+      "name": "测试执行结果",
+      "type": "dataverse",
+      "entity": "ai_testresult",
+      "description": "最近执行结果（方便用户查失败原因）",
+      "fields": [
+        "ai_testcasename", "ai_status", "ai_errormessage",
+        "ai_failurecategory", "ai_failurereason", "ai_fixsuggestion"
+      ]
+    },
+    {
+      "name": "测试报告",
+      "type": "dataverse",
+      "entity": "ai_testreport",
+      "description": "历史测试报告",
+      "fields": ["ai_name", "ai_aisummary", "ai_passrate", "ai_generatedat"]
+    },
+    {
+      "name": "技术文档",
+      "type": "sharepoint",
+      "path": "/sites/QA/Shared Documents/测试规范"
+    }
+  ],
+
+  "actions": [
+    {
+      "name": "run_test",
+      "displayName": "执行测试",
+      "description": "触发指定模块的测试执行",
+      "trigger": "用户要求执行测试",
+      "type": "powerAutomate",
+      "flowId": "ai-trigger-on-demand-test",
+      "parameters": [
+        {
+          "name": "module",
+          "displayName": "测试模块",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "name": "testType",
+          "displayName": "测试类型",
+          "required": true,
+          "type": "string",
+          "enum": ["smoke", "regression", "full"]
+        },
+        {
+          "name": "environment",
+          "displayName": "环境",
+          "required": true,
+          "type": "string",
+          "enum": ["dev", "test", "staging"]
+        }
+      ],
+      "response": {
+        "statusField": "status",
+        "summaryField": "summary"
+      }
+    },
+    {
+      "name": "query_test_results",
+      "displayName": "查询测试结果",
+      "description": "查询指定测试执行批次的结果",
+      "trigger": "用户查询测试结果",
+      "type": "dataverse",
+      "entity": "ai_testresult",
+      "parameters": [
+        {
+          "name": "runId",
+          "displayName": "执行批次 ID",
+          "required": false,
+          "type": "string",
+          "description": "不传则查最新批次"
+        }
+      ]
+    },
+    {
+      "name": "analyze_failure",
+      "displayName": "分析失败原因",
+      "description": "对指定失败用例进行深度分析",
+      "trigger": "用户询问失败原因",
+      "type": "powerAutomate",
+      "flowId": "ai-analyze-failure",
+      "parameters": [
+        {
+          "name": "testResultId",
+          "displayName": "测试结果 ID",
+          "required": true,
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "generate_daily_report",
+      "displayName": "生成报告",
+      "description": "生成并推送测试报告",
+      "trigger": "用户要求生成报告",
+      "type": "powerAutomate",
+      "flowId": "ai-generate-report",
+      "parameters": [
+        {
+          "name": "projectName",
+          "displayName": "项目名称",
+          "required": false,
+          "type": "string"
+        },
+        {
+          "name": "scope",
+          "displayName": "时间范围",
+          "required": false,
+          "type": "string",
+          "enum": ["today", "yesterday", "this_week", "custom"]
+        }
+      ]
+    }
+  ],
+
+  "topics": [
+    {
+      "name": "测试执行",
+      "triggerPhrases": [
+        "跑一下{module}的{testType}测试",
+        "执行{module}测试",
+        "帮我跑个冒烟",
+        "开始测试",
+        "run test for {module}"
+      ],
+      "action": "run_test"
+    },
+    {
+      "name": "查询结果",
+      "triggerPhrases": [
+        "昨天的测试过了多少",
+        "查询{module}的测试结果",
+        "测试通过率多少",
+        "最近一次测试结果",
+        "show test results"
+      ],
+      "action": "query_test_results"
+    },
+    {
+      "name": "失败分析",
+      "triggerPhrases": [
+        "为什么{testcase}失败了",
+        "{testcase}失败原因",
+        "分析这个失败",
+        "why did {testcase} fail",
+        "failure analysis for {testcase}"
+      ],
+      "action": "analyze_failure"
+    },
+    {
+      "name": "报告生成",
+      "triggerPhrases": [
+        "生成一份测试报告",
+        "发报告",
+        "周报整理好了吗",
+        "今天测试报告",
+        "generate report"
+      ],
+      "action": "generate_daily_report"
+    }
+  ],
+
+  "security": {
+    "authentication": "Microsoft Entra ID",
+    "allowedUsers": ["team:QA Team"],
+    "dataLossPrevention": "restricted"
+  }
+}

@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Test · 智能测试平台 — 完整设计手册</title>
+<style>
+:root{
+  --bg:#0a0e14; --bg2:#0e1420; --panel:#131a26; --panel2:#18212f;
+  --line:#232f42; --line2:#2e3c52; --cyan:#35e0d0; --cyan-dim:#1a7a70;
+  --amber:#ffb84d; --amber2:#ff8a3d; --red:#ff5c6c; --violet:#9d8cff;
+  --green:#5ee08a; --ink:#e8eef7; --ink2:#9aa9bf; --ink3:#5c6b80;
+  --mono:'JetBrains Mono','SFMono-Regular',Menlo,Consolas,monospace;
+  --sans:'Sora','PingFang SC','Microsoft YaHei',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(53,224,208,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(53,224,208,.03) 1px,transparent 1px);background-size:44px 44px}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.4;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E")}
+.wrap{position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:0 32px}
+
+/* 导航 */
+nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);background:rgba(10,14,20,.72);border-bottom:1px solid var(--line)}
+.nav-in{max-width:1200px;margin:0 auto;padding:14px 32px;display:flex;align-items:center;gap:28px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;letter-spacing:.5px}
+.brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--cyan),var(--violet));display:grid;place-items:center;font-family:var(--mono);font-size:15px;color:#041014;font-weight:800;box-shadow:0 0 22px rgba(53,224,208,.5)}
+.brand small{display:block;color:var(--ink3);font-weight:500;font-size:11px;letter-spacing:2px}
+.nav-links{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.nav-links a{color:var(--ink2);text-decoration:none;font-size:13px;padding:8px 14px;border-radius:8px;transition:.2s;white-space:nowrap}
+.nav-links a:hover{color:var(--ink);background:var(--panel2)}
+.nav-links a.on{color:var(--cyan);background:rgba(53,224,208,.08)}
+
+/* Hero */
+.hero{padding:80px 0 56px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;letter-spacing:2px;color:var(--cyan);border:1px solid var(--cyan-dim);padding:6px 14px;border-radius:999px;background:rgba(53,224,208,.06)}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.hero h1{font-size:clamp(36px,6vw,62px);line-height:1.05;font-weight:800;letter-spacing:-1px;margin:24px 0 16px}
+.hero h1 .grad{background:linear-gradient(100deg,var(--cyan),var(--violet) 55%,var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--ink2);font-size:17px;max-width:700px;line-height:1.7}
+.hero .stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}
+
+/* ===== 通用组件 ===== */
+section{padding:56px 0}
+.sec-head{margin-bottom:36px}
+.sec-head .tag{font-family:var(--mono);color:var(--amber);font-size:12px;letter-spacing:3px;text-transform:uppercase}
+.sec-head h2{font-size:clamp(26px,3.5vw,38px);font-weight:800;margin:10px 0 8px;letter-spacing:-.5px}
+.sec-head p{color:var(--ink2);font-size:15px;max-width:640px;line-height:1.6}
+
+.stat{border:1px solid var(--line);background:var(--panel);border-radius:13px;padding:14px 18px;min-width:120px}
+.stat .num{font-family:var(--mono);font-size:28px;font-weight:700;color:var(--cyan)}
+.stat .lbl{color:var(--ink3);font-size:11px;margin-top:3px;letter-spacing:.5px}
+.btn{display:inline-flex;align-items:center;gap:10px;text-decoration:none;font-weight:600;font-size:15px;padding:13px 24px;border-radius:11px;transition:.2s;cursor:pointer}
+.btn.primary{background:linear-gradient(100deg,var(--cyan),var(--violet));color:#041014;box-shadow:0 8px 26px rgba(53,224,208,.3);border:none}
+.btn.primary:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(53,224,208,.45)}
+.btn.ghost{border:1px solid var(--line2);color:var(--ink);background:transparent}
+.btn.ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+
+/* 标签 */
+.badge{display:inline-block;font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:5px;margin-right:6px;margin-bottom:4px;letter-spacing:.5px}
+.badge.cyan{background:rgba(53,224,208,.12);color:var(--cyan);border:1px solid rgba(53,224,208,.25)}
+.badge.amber{background:rgba(255,184,77,.12);color:var(--amber);border:1px solid rgba(255,184,77,.25)}
+.badge.red{background:rgba(255,92,108,.12);color:var(--red);border:1px solid rgba(255,92,108,.25)}
+.badge.violet{background:rgba(157,140,255,.12);color:var(--violet);border:1px solid rgba(157,140,255,.25)}
+.badge.green{background:rgba(94,224,138,.12);color:var(--green);border:1px solid rgba(94,224,138,.25)}
+
+/* 模块详情卡片 */
+.module-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:0;margin-bottom:20px;overflow:hidden}
+.module-card .m-header{padding:20px 24px;cursor:pointer;display:flex;align-items:center;gap:16px;transition:.2s;border-bottom:1px solid transparent}
+.module-card .m-header:hover{background:var(--panel2)}
+.module-card.open .m-header{border-bottom-color:var(--line)}
+.module-card .m-icon{font-size:32px;flex-shrink:0}
+.module-card .m-info{flex:1;min-width:0}
+.module-card .m-info h3{font-size:18px;margin-bottom:4px}
+.module-card .m-info .m-sub{color:var(--ink3);font-size:13px;font-family:var(--mono)}
+.module-card .m-arrow{color:var(--ink3);font-size:18px;transition:.3s;flex-shrink:0}
+.module-card.open .m-arrow{transform:rotate(180deg);color:var(--cyan)}
+.module-card .m-body{display:none;padding:24px;border-top:1px solid var(--line)}
+.module-card.open .m-body{display:block}
+.m-body h4{font-size:15px;margin:20px 0 10px;color:var(--amber);display:flex;align-items:center;gap:8px}
+.m-body h4:first-child{margin-top:0}
+.m-body p,.m-body li{color:var(--ink2);line-height:1.75;font-size:14px}
+.m-body ul{margin:8px 0;padding-left:20px}
+.m-body ul li{margin-bottom:6px}
+.m-body .highlight-box{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:16px;margin:12px 0}
+.m-body .highlight-box .hl-title{font-family:var(--mono);font-size:12px;color:var(--cyan);margin-bottom:8px;letter-spacing:1px}
+.m-body .flow-steps{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0;font-family:var(--mono);font-size:13px}
+.m-body .flow-steps span{padding:6px 12px;border-radius:7px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink2)}
+.m-body .flow-steps .arr{color:var(--cyan);border:none;background:transparent;padding:0 4px}
+
+/* 两栏布局 */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:768px){.grid2{grid-template-columns:1fr}}
+
+/* 表格 */
+.info-table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+.info-table th{text-align:left;color:var(--ink3);font-weight:500;font-size:11px;letter-spacing:1px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.info-table td{padding:8px 12px;border-bottom:1px solid var(--line);color:var(--ink2)}
+.info-table tr:last-child td,.info-table tr:last-child th{border-bottom:none}
+
+/* 架构层 */
+.arch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:24px}
+.layer{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;position:relative;overflow:hidden;transition:.25s}
+.layer:hover{border-color:var(--violet);transform:translateY(-3px)}
+.layer .band{position:absolute;left:0;top:0;height:4px;width:100%}
+.layer h4{font-size:16px;margin:10px 0 4px}
+.layer .role{color:var(--ink3);font-size:11px;letter-spacing:1px;margin-bottom:12px}
+.layer ul{list-style:none;display:flex;flex-wrap:wrap;gap:6px}
+.layer li{font-family:var(--mono);font-size:11px;padding:5px 10px;border-radius:7px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink2)}
+
+/* 流水线 */
+.pipeline{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:24px 0}
+@media(max-width:900px){.pipeline{grid-template-columns:repeat(2,1fr)}}
+.stage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px 12px;text-align:center;cursor:pointer;transition:.25s;overflow:hidden}
+.stage:hover{border-color:var(--cyan);transform:translateY(-4px);box-shadow:0 10px 28px rgba(0,0,0,.4)}
+.stage .idx{font-family:var(--mono);font-size:10px;color:var(--ink3);letter-spacing:1px;margin-bottom:6px}
+.stage .ic{font-size:26px;margin-bottom:8px}
+.stage .nm{font-weight:700;font-size:13px}
+.stage .arrow{position:absolute;right:-6px;top:50%;transform:translateY(-50%);color:var(--cyan);z-index:3;font-size:14px}
+@media(max-width:900px){.stage .arrow{display:none}}
+.stage.active{border-color:var(--amber);background:linear-gradient(180deg,rgba(255,184,77,.08),transparent)}
+.stage .flow{position:absolute;bottom:0;left:0;height:3px;background:linear-gradient(90deg,var(--cyan),var(--amber));transition:width .4s ease}
+
+/* 技术栈 */
+.tech{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.tech span{font-family:var(--mono);font-size:12px;padding:8px 14px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--ink2);transition:.2s}
+.tech span:hover{border-color:var(--cyan);color:var(--cyan)}
+
+/* 教程 */
+.tutorial{display:flex;flex-direction:column;gap:0}
+.t-step{display:grid;grid-template-columns:60px 1fr;gap:22px;padding:26px 0;border-bottom:1px solid var(--line)}
+.t-step:last-child{border-bottom:none}
+.t-step .t-num{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:17px;background:var(--panel2);border:1px solid var(--line2);color:var(--cyan)}
+.t-step h4{font-size:17px;margin-bottom:6px}
+.t-step p{color:var(--ink2);line-height:1.7;font-size:14px}
+.t-step .chip{display:inline-block;font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:5px;background:rgba(157,140,255,.12);color:var(--violet);margin-top:8px;margin-right:6px}
+
+/* 指标 */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.metric{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:18px;text-align:center}
+.metric .m-val{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--amber)}
+.metric .m-lbl{color:var(--ink3);font-size:11px;margin-top:5px;letter-spacing:.5px}
+
+/* 终端 */
+.console{background:#070a10;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,.5);margin-top:20px}
+.console .titlebar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.console .body{padding:18px;font-family:var(--mono);font-size:13px;line-height:1.8;min-height:300px;max-height:400px;overflow-y:auto}
+.console .line{white-space:pre-wrap}
+.console .line .t{color:var(--ink3)}
+.console .line .prompt{color:var(--green)}
+.console .line .out{color:var(--cyan)}
+.console .line .warn{color:var(--amber)}
+.console .line .err{color:var(--red)}
+.console .line .ok{color:var(--green)}
+.cursor{display:inline-block;width:8px;height:15px;background:var(--cyan);vertical-align:middle;animation:blink 1s infinite}
+.playbar{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.run-btn{font-family:var(--mono);font-size:13px;padding:10px 20px;border-radius:9px;cursor:pointer;border:1px solid var(--cyan);background:rgba(53,224,208,.1);color:var(--cyan);font-weight:600;transition:.2s}
+.run-btn:hover{background:rgba(53,224,208,.2)}
+.run-btn.stop{border-color:var(--red);color:var(--red);background:rgba(255,92,108,.08)}
+
+/* 数据流 */
+.flow-demo{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:32px;position:relative;overflow:hidden;margin:20px 0}
+.track{position:relative;height:60px;margin:24px 0}
+.rail{position:absolute;left:0;right:0;top:50%;height:2px;background:var(--line)}
+.packet{position:absolute;top:50%;transform:translate(-50%,-50%);width:16px;height:16px;border-radius:50%;background:var(--cyan);box-shadow:0 0 16px var(--cyan);animation:travel 6s linear infinite}
+@keyframes travel{0%{left:0%}45%{left:100%;opacity:1}50%{left:100%;opacity:0}55%{left:0%;opacity:0}60%{left:0%;opacity:1}100%{left:0%}}
+.nodes{display:flex;justify-content:space-between;margin-top:-15px}
+.node{text-align:center;width:75px}
+.node .dotn{width:30px;height:30px;margin:0 auto 6px;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);display:grid;place-items:center;font-size:14px}
+.node span{font-size:10px;color:var(--ink3)}
+
+/* 设计决策卡片 */
+.decision-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin:20px 0}
+.decision-card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:20px}
+.decision-card h4{font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.decision-card p{color:var(--ink2);font-size:13px;line-height:1.7}
+
+footer{border-top:1px solid var(--line);padding:36px 0;text-align:center;color:var(--ink3);font-size:12px}
+footer .mono{font-family:var(--mono)}
+
+.reveal{opacity:0;transform:translateY(30px);transition:.7s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:none}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-in">
+    <div class="brand"><div class="logo">AT</div><div>AI·Test<small>智能测试平台</small></div></div>
+    <div class="nav-links">
+      <a href="#modules" class="on">模块详解</a><a href="#arch">架构</a><a href="#decisions">设计决策</a><a href="#demo">演示</a><a href="#tutorial">教程</a><a href="#metrics">指标</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+<header class="hero">
+  <span class="eyebrow"><span class="dot"></span>LIVE · 测试观察台</span>
+  <h1>AI 驱动的<br><span class="grad">端到端智能测试平台</span></h1>
+  <p>基于微软生态构建。让大语言模型接管「需求分析 → 用例生成 → 评审 → 脚本生成 → 执行 → 失败分析 → 报告」整条测试链路。本文档深入每个模块的<strong>设计决策、实现难点、亮点与踩坑经验</strong>，是一份可落地的施工蓝图，而非概念演示。</p>
+  <div class="stats">
+    <div class="stat"><div class="num">7</div><div class="lbl">流水线阶段</div></div>
+    <div class="stat"><div class="num">11</div><div class="lbl">Dataverse 实体</div></div>
+    <div class="stat"><div class="num">9</div><div class="lbl">Copilot 技能</div></div>
+    <div class="stat"><div class="num">20+</div><div class="lbl">Azure 资源</div></div>
+    <div class="stat"><div class="num">50+</div><div class="lbl">并发浏览器实例</div></div>
+    <div class="stat"><div class="num">$2.4K</div><div class="lbl">月费估算</div></div>
+  </div>
+  <div style="margin-top:28px;display:flex;gap:12px;flex-wrap:wrap">
+    <a href="#modules" class="btn primary">模块详解 ↓</a>
+    <a href="#demo" class="btn ghost">运行演示 →</a>
+  </div>
+</header>
+
+<!-- ===== 模块详解 ===== -->
+<section id="modules">
+  <div class="sec-head"><div class="tag">Core Modules</div><h2>八大核心模块详解</h2><p>点击每个模块展开，查看完整的设计决策、实现难点、亮点与踩坑经验。这不是概念概览，而是可落地的施工手册。</p></div>
+
+  <!-- 模块1：需求分析 -->
+  <div class="module-card">
+    <div class="m-header" onclick="this.parentElement.classList.toggle('open')">
+      <div class="m-icon">📋</div>
+      <div class="m-info"><h3>需求分析模块</h3><div class="m-sub">PRD 文档 → AI 解析 → 结构化测试点</div></div>
+      <div class="m-arrow">▼</div>
+    </div>
+    <div class="m-body">
+      <h4>🎯 为什么这样设计</h4>
+      <p>测试人员最大的时间黑洞不是写用例，而是<strong>读需求</strong>——一份 50 页的 PRD，逐字读完再提取测试点，半天就没了。所以这个模块不是"辅助阅读"，而是<strong>AI 直接产出结构化测试点，人只做确认</strong>。这就是为什么它排在流水线第一位：它是整个链条的入口，这里出错，后面全错。</p>
+      <div class="highlight-box"><div class="hl-title">架构决策</div>选用 Azure AI Document Intelligence 做文档预处理（而非直接丢全文给 GPT-4o），原因是：PDF 里的表格、图片、分栏布局，直接塞给 LLM 会丢失结构信息。先用 Document Intelligence 转成结构化 Markdown，再送给 GPT-4o 做语义理解，准确率提升 30%+。</div>
+      <h4>⚠️ 难点</h4>
+      <ul>
+        <li><strong>长文档截断</strong>：GPT-4o 上下文窗口 128K，但一份 200 页的 PRD 可能超。需要做分段 + 摘要 + 合并，分段策略本身就可能丢失跨章节的关联信息。</li>
+        <li><strong>需求质量评分的主观性</strong>：AI 评分"完整性/无歧义性/可测试性"本身就有歧义——不同 prompt 模板打出的分可能差 20 分。需要校准集。</li>
+        <li><strong>与 Azure DevOps 的双向同步</strong>：DevOps 里的 User Story 可能随时被 PM 修改，平台里的解析结果会过时。需要 Webhook 监听变更事件，触发重新解析。</li>
+      </ul>
+      <h4>💡 亮点</h4>
+      <ul>
+        <li><strong>置信度分层</strong>：每个提取的测试点都带 <code>confidence</code> 字段（0.0~1.0），低于 0.7 的标记为「待人工确认」，高置信度的直接放行。这避免了「AI 全对或全错」的二元困境。</li>
+        <li><strong>历史需求相似度匹配</strong>：新需求来了，AI Search 先检索有没有类似的历史需求，如果有，直接复用之前的测试点结构，减少重复工作。</li>
+      </ul>
+      <h4>🕳️ 可能踩的坑</h4>
+      <ul>
+        <li>需求文档里嵌了截图，但截图里的文字 Document Intelligence 识别不出来（手写、特殊字体），导致 AI 分析遗漏。</li>
+        <li>PM 用「应该」「大概」「可能」这类模糊词，AI 无法判断，需要人介入。</li>
+        <li>DevOps 同步延迟：如果 PM 改需求的同时测试已经在跑，结果可能对不上。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 模块2：用例生成 -->
+  <div class="module-card">
+    <div class="m-header" onclick="this.parentElement.classList.toggle('open')">
+      <div class="m-icon">🧪</div>
+      <div class="m-info"><h3>测试用例生成模块</h3><div class="m-sub">测试点 → RAG 检索 → GPT-4o 生成 → 用例清单</div></div>
+      <div class="m-arrow">▼</div>
+    </div>
+    <div class="m-body">
+      <h4>🎯 为什么这样设计</h4>
+      <p>单纯让 AI 硬想用例，它会产出大量<strong>格式正确但毫无价值的废话</strong>——"验证登录功能正常"这种用例谁都会写。真正有价值的是「结合历史用例库 + 需求上下文」生成的<strong>有针对性</strong>的用例。所以这里用了 RAG 模式：<span class="badge cyan">AI Search 向量检索</span> → 召回相似历史用例 → 注入 Prompt → GPT-4o 生成。</p>
+      <div class="highlight-box"><div class="hl-title">策略选择器</div>Azure Function 根据需求特征自动推荐测试策略：涉及数值范围 → 边界值分析；多条件组合 → 判定表；状态流转 → 状态迁移。测试人员可以在 Power Apps 中切换策略，但默认推荐已经覆盖 90% 的场景。</div>
+      <h4>⚠️ 难点</h4>
+      <ul>
+        <li><strong>Token 溢出</strong>：一条需求可能生成 50+ 条用例，每条用例 5-10 个步骤，一次性输出可能超 max_tokens。解决方案是分批生成（每批 20 条），但分批可能导致上下文断裂。</li>
+        <li><strong>用例去重</strong>：AI 生成的新用例和已有用例可能有 80% 的语义重叠。用 AI Search 向量相似度做去重，阈值设太高误杀，设太低留冗余。</li>
+        <li><strong>Prompt 模板的选择</strong>：功能测试、API 测试、UI 测试、性能测试、安全测试 5 类模板，各有不同的输出结构。选错模板，生成的用例结构对不上 Dataverse 表字段。</li>
+      </ul>
+      <h4>💡 亮点</h4>
+      <ul>
+        <li><strong>温度双轨</strong>：生成用例用 temperature=0.3（保证稳定性），但「边界条件头脑风暴」用 temperature=0.8（鼓励发散），两种模式在同一个 Function 里切换。</li>
+        <li><strong>AI 自动标注 testDataType</strong>：Positive / Negative / Boundary / Error 四类，AI 生成时就标注好，不用人再分类。</li>
+      </ul>
+      <h4>🕳️ 可能踩的坑</h4>
+      <ul>
+        <li>生成的用例里「预期结果」字段为空——AI 觉得「显而易见」就省略了，但人执行时需要明确的验证点。</li>
+        <li>RAG 检索到的历史用例质量差（本身就是垃圾用例），AI 会「学习」这些坏模式。</li>
+        <li>批量生成时，第 1 批和第 3 批的风格可能不一致（因为每批是独立的 API 调用）。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 模块3：用例评审 -->
+  <div class="module-card">
+    <div class="m-header" onclick="this.parentElement.classList.toggle('open')">
+      <div class="m-icon">👁️</div>
+      <div class="m-info"><h3>用例评审模块</h3><div class="m-sub">AI 四维度打分 → 低分拦截 → 人工评审 → 反馈闭环</div></div>
+      <div class="m-arrow">▼</div>
+    </div>
+    <div class="m-body">
+      <h4>🎯 为什么这样设计</h4>
+      <p>传统评审的痛点是：<strong>评审人花 80% 时间在挑低级错误</strong>（步骤不完整、预期结果缺失、重复用例），只剩 20% 精力关注业务逻辑。这个设计把 AI 放在人工评审之前——AI 先筛一遍低级问题，评分低于 60 分的直接退回，不进入人工队列。人工只关注「业务逻辑是否正确」。</p>
+      <div class="highlight-box"><div class="hl-title">四维度评分体系</div>完整性（步骤是否完整、预期结果是否明确）· 正确性（逻辑是否自洽、与需求是否一致）· 可执行性（是否有明确的执行条件）· 冗余度（与本模块其他用例/历史用例是否重复）。每个维度独立打分，加权平均，低于阈值直接拦截。</div>
+      <h4>⚠️ 难点</h4>
+      <ul>
+        <li><strong>AI 评审的「正确性」判断不可靠</strong>：AI 可以判断用例逻辑是否自洽，但「与需求是否一致」这个维度需要理解业务上下文，AI 经常误判。</li>
+        <li><strong>冗余度检测的误杀</strong>：两条用例虽然相似但覆盖不同场景，AI 可能判定为重复。</li>
+        <li><strong>评审反馈闭环的冷启动</strong>：评审人的修改和驳回记录要作为 AI 的训练数据，但初期数据量不够，AI 不会变聪明。</li>
+      </ul>
+      <h4>💡 亮点</h4>
+      <ul>
+        <li><strong>低于阈值直接退回</strong>：完整性 &lt; 60 分的用例不进入人工队列，减少无效评审。退回时附 AI 具体修改建议，不是笼统的「请修改」。</li>
+        <li><strong>评审反馈闭环</strong>：每次人工驳回时记录原因（结构化 code + message），定期汇总后用于 prompt 优化，形成「越用越准」的正循环。</li>
+      </ul>
+      <h4>🕳️ 可能踩的坑</h4>
+      <ul>
+        <li>评审人直接「全部通过」而不看 AI 建议——需要设计「必须逐条确认」的交互，不能一键通过。</li>
+        <li>AI 建议过于保守，什么都说「建议补充」，导致通过率过低。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 模块4：脚本生成 -->
+  <div class="module-card">
+    <div class="m-header" onclick="this.parentElement.classList.toggle('open')">
+      <div class="m-icon">⚙️</div>
+      <div class="m-info"><h3>自动化脚本生成模块</h3><div class="m-sub">用例 → GPT-4o-mini → Playwright 脚本 → 冒烟验证</div></div>
+      <div class="m-arrow">▼</div>
+    </div>
+    <div class="m-body">
+      <h4>🎯 为什么这样设计</h4>
+      <p>脚本生成是成本最敏感的一环——一个项目有几百条用例，每条都要生成脚本。如果用 GPT-4o，Token 费用会爆。所以<strong>这里用 GPT-4o-mini</strong>（成本是 GPT-4o 的 1/10），并且生成后自动跑冒烟验证（只验证脚本能跑起来，不验证逻辑正确性）。</p>
+      <div class="highlight-box"><div class="hl-title">三种生成策略</div>UI 测试：优先 Playwright，支持三种定位方式——先录后改（Playwright Codegen 录制 → AI 优化）、AI 根据截图+描述推断选择器、手动补充 selector。API 测试：直接生成 Playwright APIRequestContext 代码。数据验证：SQL 查询或 API 断言代码。三种策略共用一个代码生成 prompt 模板，但注入不同的上下文。</div>
+      <h4>⚠️ 难点</h4>
+      <ul>
+        <li><strong>元素定位是最大痛点</strong>：AI 生成的 selector（如 <code>page.locator('#login-btn')</code>）在真实页面上可能不存在。需要 Page Object Map 表（Dataverse ElementMap）做定位映射。</li>
+        <li><strong>生成代码的 lint 通过率</strong>：AI 生成的 TypeScript 可能语法错误，需要 ESLint + TypeScript 编译检查，失败后自动修复 1-2 轮。</li>
+        <li><strong>代码风格一致性</strong>：AI 每次生成的代码风格不同，需要从项目已有脚本中提取代码风格（通过 AI Search 检索），注入 prompt 要求一致。</li>
+      </ul>
+      <h4>💡 亮点</h4>
+      <ul>
+        <li><strong>冒烟验证 + 自修复循环</strong>：生成后自动在 sandbox 跑一次，失败则让 AI 自己修 1-2 轮，仍失败才标记人工介入。这能自动修复约 60% 的简单问题。</li>
+        <li><strong>Page Object 自动维护</strong>：当 UI 变更导致脚本失败时，失败分析模块触发 POM 更新建议，AI 生成新的定位策略。</li>
+      </ul>
+      <h4>🕳️ 可能踩的坑</h4>
+      <ul>
+        <li>GPT-4o-mini 对复杂业务逻辑的代码生成能力不足，生成的脚本逻辑有 bug 但语法正确（冒烟通过 ≠ 逻辑正确）。</li>
+        <li>ElementMap 表维护成本高：每个页面每个元素都要手动录入，初期工作量巨大。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 模块5：测试执行 -->
+  <div class="module-card">
+    <div class="m-header" onclick="this.parentElement.classList.toggle('open')">
+      <div class="m-icon">🚀</div>
+      <div class="m-info"><h3>测试执行模块</h3><div class="m-sub">Power Automate 调度 → 容器化 Playwright 执行 → 实时回传</div></div>
+      <div class="m-arrow">▼</div>
+    </div>
+    <div class="m-body">
+      <h4>🎯 为什么这样设计</h4>
+      <p>执行模块的架构选择是<strong>Azure Functions + 容器化 Playwright</strong>，而不是传统的 VM 上跑 Jenkins Agent。原因：Functions 按需付费，没任务时不花钱；容器化保证每次执行环境一致；支持水平扩展（50+ 并行实例）。</p>
+      <div class="highlight-box"><div class="hl-title">执行队列与并行控制</div>执行任务写入 Dataverse 队列 → Power Automate 轮询 → 按优先级和环境分组调度 → Azure Functions 拉取执行。关键设计：同一环境下的脚本串行（避免数据冲突），不同环境间并行。通过 Functions 的 concurrency 控制 + 队列分区实现。</div>
+      <h4>⚠️ 难点</h4>
+      <ul>
+        <li><strong>Playwright 浏览器在 Functions 上的内存消耗</strong>：一个 Chromium 实例约 500MB，Functions 内存上限可能不够，需要 Premium Plan 或 Container Apps。</li>
+        <li><strong>执行超时</strong>：Azure Functions 默认 5 分钟超时（消耗计划），长测试需要 Premium Plan（无限制）或 Durable Functions。</li>
+        <li><strong>实时状态推送</strong>：Power Apps 需要实时看到执行进度，但 Functions 是无状态的。方案是 SignalR Service 推送，或用定时写 Dataverse 状态字段 + 前端轮询。</li>
+      </ul>
+      <h4>💡 亮点</h4>
+      <ul>
+        <li><strong>失败自动重试一次</strong>：配置化重试策略，第一次失败自动重跑（排除环境问题导致的 flaky）。重试仍失败才进入失败分析。</li>
+        <li><strong>Playwright Trace 保留</strong>：失败时自动保留完整的 Playwright Trace（含 DOM 快照、网络请求、控制台输出），供失败分析模块使用。</li>
+      </ul>
+      <h4>🕳️ 可能踩的坑</h4>
+      <ul>
+        <li>Functions 冷启动 + 下载浏览器二进制，首次执行可能耗时 2-3 分钟。需要预热或使用 Always Ready 实例。</li>
+        <li>并行执行时，测试数据互相污染（比如两个脚本同时操作同一个测试账号）。需要环境隔离 + 数据隔离策略。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 模块6：失败分析 -->
+  <div class="module-card">
+    <div class="m-header" onclick="this.parentElement.classList.toggle('open')">
+      <div class="m-icon">🔍</div>
+      <div class="m-info"><h3>失败分析模块</h3><div class="m-sub">失败分类 → AI 根因推理 → 自修复 → 自动提单</div></div>
+      <div class="m-arrow">▼</div>
+    </div>
+    <div class="m-body">
+      <h4>🎯 为什么这样设计</h4>
+      <p>这是整个平台 <strong>AI 最核心的环节</strong>。传统自动化测试最大的痛点是：跑完 1000 条，失败 50 条，3 个人花一整天排查。AI 能做到的是：<strong>自动分类 + 归因 + 历史匹配 + 自修复尝试 + 自动提单</strong>。五步流水线，每一步都在降低人的工作量。</p>
+      <div class="highlight-box"><div class="hl-title">五类失败分类（关键设计）</div>
+        <table class="info-table">
+          <tr><th>类别</th><th>说明</th><th>自动修复</th></tr>
+          <tr><td><span class="badge amber">SCRIPT_BUG</span></td><td>脚本问题：selector 失效、等待不足</td><td><span class="badge green">高</span></td></tr>
+          <tr><td><span class="badge red">ENV_ISSUE</span></td><td>环境问题：服务不可用、数据被清理</td><td><span class="badge red">低</span></td></tr>
+          <tr><td><span class="badge red">PRODUCT_BUG</span></td><td>业务逻辑缺陷：预期与实际不符</td><td><span class="badge red">低（需人工）</span></td></tr>
+          <tr><td><span class="badge violet">FLAKY</span></td><td>偶发失败：上次成功，本次失败</td><td><span class="badge amber">中（重试）</span></td></tr>
+          <tr><td><span class="badge cyan">DATA_ISSUE</span></td><td>测试数据问题：被污染、未初始化</td><td><span class="badge amber">中</span></td></tr>
+        </table>
+      </div>
+      <h4>⚠️ 难点</h4>
+      <ul>
+        <li><strong>多模态分析</strong>：失败原因可能在截图里（按钮没渲染）、trace 里（网络请求超时）、日志里（异常堆栈）。GPT-4o 需要同时消化这三种输入，但截图 + trace 的 token 消耗巨大。</li>
+        <li><strong>Flaky 检测</strong>：判断一个失败是 flaky 还是稳定缺陷，需要对比历史执行记录。同一用例最近 5 次执行中 3 次成功 2 次失败 → flaky。但阈值设置是门学问。</li>
+        <li><strong>历史匹配的冷启动</strong>：初期没有足够的历史失败记录，向量检索什么都找不到。</li>
+      </ul>
+      <h4>💡 亮点</h4>
+      <ul>
+        <li><strong>关键字预分类 + LLM 兜底</strong>：先用正则匹配错误信息（如 "TimeoutError" → SCRIPT_BUG），命中率 70%。未命中才调 GPT-4o，节省 Token。</li>
+        <li><strong>自修复仅限 SCRIPT_BUG</strong>：AI 尝试修改脚本（更新 selector 或等待条件），重新执行一次。成功则标记「自动修复」，不产生告警。失败则标记人工。</li>
+        <li><strong>自动创建 Bug 草稿</strong>：确认是 PRODUCT_BUG 后，AI 生成包含失败步骤、截图、日志片段、根因分析的 Bug 描述，推送到 Azure DevOps，由人工确认后提交。</li>
+      </ul>
+      <h4>🕳️ 可能踩的坑</h4>
+      <ul>
+        <li>AI 分类错误：把 PRODUCT_BUG 误判为 SCRIPT_BUG，然后「自修复」改了脚本，结果把真正的缺陷掩盖了。</li>
+        <li>Flaky 判定阈值设太高，真正的间歇性缺陷被当作 flaky 忽略。</li>
+        <li>自动提单的 Bug 描述太长，开发人员不读。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 模块7：报告生成 -->
+  <div class="module-card">
+    <div class="m-header" onclick="this.parentElement.classList.toggle('open')">
+      <div class="m-icon">📊</div>
+      <div class="m-info"><h3>报告生成模块</h3><div class="m-sub">数据聚合 → AI 摘要 → 多格式导出 → Teams/Outlook 分发</div></div>
+      <div class="m-arrow">▼</div>
+    </div>
+    <div class="m-body">
+      <h4>🎯 为什么这样设计</h4>
+      <p>测试报告不是「一堆数字堆砌」，而是<strong>给不同角色看不同内容</strong>。测试经理要趋势和风险，开发要具体失败信息，PM 要覆盖度。所以设计了四种报告类型（执行报告/回归报告/需求覆盖报告/质量报告），每种有不同的数据源和 AI 摘要策略。</p>
+      <div class="highlight-box"><div class="hl-title">AI 摘要生成</div>GPT-4o 基于执行数据和趋势，生成自然语言摘要：「本次回归测试通过率 92.3%，较上周下降 3.1%，主要失败集中在订单模块...」「建议优先修复的 3 个高风险缺陷：...」「长期未覆盖的高风险需求：...」。这比人手动写摘要准且快。</div>
+      <h4>⚠️ 难点</h4>
+      <ul>
+        <li><strong>数据聚合的性能</strong>：一次回归测试可能有 1000+ 条结果，跨 Dataverse 和 Azure SQL 聚合，需要优化查询。</li>
+        <li><strong>报告格式一致性</strong>：HTML 在线查看和 PDF 导出的渲染效果要一致，用同一套模板引擎。</li>
+      </ul>
+      <h4>💡 亮点</h4>
+      <ul>
+        <li><strong>GPT-4o-mini 降本</strong>：报告摘要用 mini 模型（图表数据摘要），成本低但效果够用。</li>
+        <li><strong>定时推送</strong>：每天早上 9 点自动生成昨日报告，推送到 Teams 频道和邮件。</li>
+      </ul>
+      <h4>🕳️ 可能踩的坑</h4>
+      <ul>
+        <li>AI 摘要过于乐观：全部通过时说「一切正常」，但忽略了通过率下降的趋势。</li>
+        <li>PDF 导出中文乱码，需要配置中文字体。</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 模块8：智能体交互 -->
+  <div class="module-card">
+    <div class="m-header" onclick="this.parentElement.classList.toggle('open')">
+      <div class="m-icon">🤖</div>
+      <div class="m-info"><h3>智能体交互模块</h3><div class="m-sub">Copilot Studio → 自然语言 → 全平台操作入口</div></div>
+      <div class="m-arrow">▼</div>
+    </div>
+    <div class="m-body">
+      <h4>🎯 为什么这样设计</h4>
+      <p>用户不需要学 Power Apps 的操作路径。打开 Teams 就能控制整个测试平台——「给 RQ-001 生成用例」「执行回归测试」「上周的报告出了没」。这不是锦上添花，是<strong>降低使用门槛的核心手段</strong>。</p>
+      <div class="highlight-box"><div class="hl-title">Agent 拓扑</div>主 Agent（Copilot Studio）→ 9 个 Topic（对应 8 个模块 + 通用问答）→ 每个 Topic 内部通过 Power Automate Flow 调用后端 API 或查询 Dataverse → 复杂任务（如失败分析）走 Azure Function 多步分析。Fallback 走 Generative AI 兜底。</div>
+      <h4>⚠️ 难点</h4>
+      <ul>
+        <li><strong>意图识别准确率</strong>：Copilot Studio 的 NLU 对中文测试术语的识别有限，需要大量训练语料。</li>
+        <li><strong>多轮对话上下文</strong>：用户说「再生成一次」，Agent 需要知道「再」指的是哪条需求、什么用例类型。</li>
+        <li><strong>权限传递</strong>：Agent 的身份是「当前用户」，操作权限必须与其 Azure AD 角色一致。</li>
+      </ul>
+      <h4>💡 亮点</h4>
+      <ul>
+        <li><strong>Proactive Messaging</strong>：测试完成、失败率超阈值、报告就绪等事件，主动推送 Teams 卡片消息，而不是等用户来问。</li>
+        <li><strong>自然语言查询</strong>：「上周订单模块的失败率是多少」→ Agent 自动查询 Dataverse + Azure SQL，汇总后返回自然语言答案。</li>
+      </ul>
+      <h4>🕳️ 可能踩的坑</h4>
+      <ul>
+        <li>Copilot Studio 的 Token 消耗不可控，复杂查询可能触发多次 API 调用，费用飙升。</li>
+        <li>Teams 消息频率太高，用户会关通知。</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 架构 ===== -->
+<section id="arch">
+  <div class="sec-head"><div class="tag">Architecture</div><h2>五层架构</h2><p>表现层 → 应用层 → 服务层 → 数据层 → 集成层。微软生态原生串联，每一层都有明确的技术选型理由。</p></div>
+  <div class="arch-grid" id="arch-grid"></div>
+  <div class="highlight-box">
+    <div class="hl-title">架构核心逻辑</div>
+    <p style="color:var(--ink2);font-size:14px;line-height:1.7">Power Apps 触发 → Power Automate 协调 → Azure Functions 执行 AI 逻辑 → 结果写回 Dataverse / SQL → Power Automate 推送通知。关键分层原则：<strong>Power Automate 只做线性编排，复杂 AI 逻辑（多轮对话、循环、条件分支）全部下沉到 Azure Functions</strong>，因为 Flow 写复杂逻辑既难维护又难调试。</p>
+  </div>
+</section>
+
+<!-- ===== 设计决策 ===== -->
+<section id="decisions">
+  <div class="sec-head"><div class="tag">Design Decisions</div><h2>关键设计决策</h2><p>这些决策是整个平台架构的骨架，每一个都经过「为什么不用替代方案」的推敲。</p></div>
+  <div class="decision-grid">
+    <div class="decision-card">
+      <h4>🏗️ Power Platform 而非定制前端</h4>
+      <p>项目深度依赖 Dataverse、Power Automate、Copilot Studio，这些在 Power Platform 内是原生集成。定制 React 前端反而要额外 API 网关层。<strong>代价</strong>：复杂交互需 PCF 组件扩展，版本管理依赖 Power Platform 发布机制。</p>
+    </div>
+    <div class="decision-card">
+      <h4>🔍 AI Search 做 RAG 知识库</h4>
+      <p>测试领域有大量历史数据（相似用例、历史失败），向量搜索 + 关键词混合检索能精准召回，搭配 Azure OpenAI 实现 RAG。<strong>代价</strong>：需设计索引 Schema，初始化时批量向量化存量数据。</p>
+    </div>
+    <div class="decision-card">
+      <h4>🎭 Playwright 为主执行引擎</h4>
+      <p>Playwright 现代化 API、自动等待、多浏览器支持、网络拦截能力全面优于 Selenium。<strong>代价</strong>：需构建 Playwright 执行器服务，旧 Selenium 脚本逐步迁移。</p>
+    </div>
+    <div class="decision-card">
+      <h4>⚡ Azure Functions 而非 Logic Apps</h4>
+      <p>Power Automate 适合线性流程，但 AI 调用涉及多轮对话、循环、条件分支，Functions 的代码灵活性更适合。<strong>代价</strong>：需维护 Functions 代码仓库，部署流水线不能完全低代码化。</p>
+    </div>
+    <div class="decision-card">
+      <h4>🗄️ Dataverse + Azure SQL 双存储</h4>
+      <p>Dataverse 与 Power Platform 原生集成（安全、审计、角色），但复杂查询性能有限。Azure SQL 承载高吞吐执行结果写入和聚合查询。<strong>代价</strong>：两个存储交叉查询需 Function 或 API 桥接。</p>
+    </div>
+    <div class="decision-card">
+      <h4>💰 GPT-4o + mini 分级降本</h4>
+      <p>分析类任务（需求解析、失败分析、评审）用 GPT-4o 保证质量；生成类任务（脚本生成、报告摘要）用 GPT-4o-mini 降本 90%。<strong>原则</strong>：成本敏感的场景用 mini，质量敏感的场景用 4o。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 数据流 ===== -->
+<section id="dataflow">
+  <div class="sec-head"><div class="tag">Data Flow</div><h2>数据流转</h2><p>需求文档从上传到报告产出，数据在多个存储与服务之间流转。核心原则：业务主数据走 Dataverse，高频时序数据走 Azure SQL，非结构化文件走 Blob。</p></div>
+  <div class="flow-demo">
+    <div class="track"><div class="rail"></div><div class="packet"></div></div>
+    <div class="nodes" id="flow-nodes"></div>
+  </div>
+  <div class="highlight-box">
+    <div class="hl-title">存储职责分工</div>
+    <table class="info-table">
+      <tr><th>存储</th><th>职责</th><th>为什么</th></tr>
+      <tr><td>Dataverse</td><td>需求、用例、评审、脚本元数据</td><td>Power Platform 原生，安全角色 + 审计</td></tr>
+      <tr><td>Azure SQL</td><td>执行结果、性能指标、失败模式</td><td>高吞吐写入 + 复杂聚合查询</td></tr>
+      <tr><td>SharePoint</td><td>需求文档、报告 PDF、评审附件</td><td>与 Teams 集成，用户上传体验好</td></tr>
+      <tr><td>Blob Storage</td><td>截图、日志、Playwright trace</td><td>低成本非结构化存储，生命周期管理</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ===== Live Demo ===== -->
+<section id="demo">
+  <div class="sec-head"><div class="tag">Live Demo</div><h2>操作演示</h2><p>模拟一次完整运行：需求上传 → AI 解析 → 用例生成 → 评审 → 脚本生成 → 执行（含失败）→ 失败分析 → 自修复 → 报告。观察终端输出，理解每个环节的 AI 决策。</p></div>
+  <div class="console">
+    <div class="titlebar"><span class="t-dot" style="background:#ff5c6c"></span><span class="t-dot" style="background:#ffb84d"></span><span class="t-dot" style="background:#5ee08a"></span><span class="t-name">test-orchestrator — Azure Functions</span></div>
+    <div class="body" id="console-body"><span class="prompt">$ </span><span class="cursor"></span></div>
+  </div>
+  <div class="playbar">
+    <button class="run-btn" id="run-btn">▶ 开始执行</button>
+    <button class="run-btn stop" id="stop-btn" style="display:none">■ 停止</button>
+    <button class="run-btn" id="reset-btn">↺ 重置</button>
+  </div>
+</section>
+
+<!-- ===== 教程 ===== -->
+<section id="tutorial">
+  <div class="sec-head"><div class="tag">Tutorial</div><h2>快速上手</h2><p>从环境准备到部署上线，六个关键步骤落地这套平台。</p></div>
+  <div class="tutorial" id="tutorial-list"></div>
+</section>
+
+<!-- ===== 指标 ===== -->
+<section id="metrics">
+  <div class="sec-head"><div class="tag">Performance</div><h2>性能目标</h2><p>AI 用例生成 &lt; 30s，脚本生成 &lt; 60s，页面加载 &lt; 3s，并发 50+ 浏览器实例，平台可用性 99.9%。</p></div>
+  <div class="metrics" id="metrics-grid"></div>
+</section>
+
+<!-- ===== 技术栈 ===== -->
+<section>
+  <div class="sec-head"><div class="tag">Stack</div><h2>技术栈</h2></div>
+  <div class="tech" id="tech-list"></div>
+</section>
+
+<footer>
+  <div class="mono">AI-Powered Intelligent Testing Platform</div>
+  <div style="margin-top:8px">Power Apps · Copilot Studio · Power Automate · Azure OpenAI · Dataverse · Playwright</div>
+  <div style="margin-top:6px;color:var(--ink3);font-size:11px">基于微软生态 · 端到端全流程自动化 · 可落地的施工蓝图</div>
+</footer>
+</div>
+
+<script>
+/* ============ 架构卡片 ============ */
+const archLayers = [
+  {band:'linear-gradient(90deg,#35e0d0,#9d8cff)', title:'表现层', role:'Power Platform UI', items:['Power Apps','Power Pages','Copilot Studio','Teams 应用']},
+  {band:'linear-gradient(90deg,#9d8cff,#35e0d0)', title:'应用层', role:'流程编排', items:['Power Automate','Azure Functions']},
+  {band:'linear-gradient(90deg,#ff8a3d,#ffb84d)', title:'服务层', role:'AI 与引擎', items:['Azure OpenAI','Azure AI Search','Playwright','Selenium']},
+  {band:'linear-gradient(90deg,#ffb84d,#5ee08a)', title:'数据层', role:'数据存储', items:['Dataverse','Azure SQL','SharePoint','Blob Storage']},
+  {band:'linear-gradient(90deg,#5ee08a,#ff5c6c)', title:'集成层', role:'外部系统', items:['Azure DevOps','Jira','Teams','Outlook']},
+];
+document.getElementById('arch-grid').innerHTML = archLayers.map(l=>
+  `<div class="layer"><div class="band" style="background:${l.band}"></div><div class="role">${l.role}</div><h4>${l.title}</h4><ul>${l.items.map(i=>`<li>${i}</li>`).join('')}</ul></div>`
+).join('');
+
+/* ============ 数据流 ============ */
+document.getElementById('flow-nodes').innerHTML = ['📄 需求文档','🧠 AI 解析','🗄️ Dataverse','🔎 AI Search','🚀 Playwright','📊 报告'].map(n=>{
+  const sp = n.indexOf(' ');
+  return `<div class="node"><div class="dotn">${n.slice(0,sp)}</div><span>${n.slice(sp+1)}</span></div>`;
+}).join('');
+
+/* ============ 教程 ============ */
+document.getElementById('tutorial-list').innerHTML = [
+  {n:'01', t:'环境准备', p:'创建 Azure 订阅，开通 Power Platform 三套环境（dev/test/prod），初始化 Azure DevOps 项目结构与本地开发工具。', chips:['Azure 订阅','Power Platform','DevOps']},
+  {n:'02', t:'基础设施搭建', p:'按资源 SKU 清单创建资源，规划 VNet 与 Private Endpoint 网络隔离，配置 Blob 容器结构与 Key Vault 密钥。', chips:['VNet','Private Endpoint','Key Vault']},
+  {n:'03', t:'数据层建设', p:'建 6 张核心 Dataverse 表并配置安全角色，规划 SharePoint 站点，部署 Azure SQL 时序表承载执行结果。', chips:['Dataverse','SharePoint','Azure SQL']},
+  {n:'04', t:'AI 服务集成', p:'部署 GPT-4o 模型，配置 AI Search 索引，封装统一 AI 调用层与 Prompt 模板管理。', chips:['Azure OpenAI','AI Search','Prompt 管理']},
+  {n:'05', t:'核心功能开发', p:'实现 8 个模块——从需求管理到报告大屏。流水线插件化设计，每个模块可独立部署和替换。', chips:['用例生成','执行引擎','失败分析']},
+  {n:'06', t:'部署上线', p:'按 10 步部署顺序发布，配置 Application Insights 监控与告警，制定回滚方案与运维巡检。', chips:['CI/CD','监控告警','回滚']},
+].map(t=>`<div class="t-step"><div class="t-num">${t.n}</div><div><h4>${t.t}</h4><p>${t.p}</p>${t.chips.map(c=>`<span class="chip">${c}</span>`).join('')}</div></div>`).join('');
+
+/* ============ 指标 ============ */
+document.getElementById('metrics-grid').innerHTML = [
+  {v:'< 30s', l:'AI 用例生成 / 份需求'},{v:'< 60s', l:'脚本生成 / 套'},{v:'< 3s', l:'Power Apps 首屏加载'},
+  {v:'50+', l:'并行浏览器实例'},{v:'< 10s', l:'报告生成'},{v:'99.9%', l:'平台可用性'},
+].map(m=>`<div class="metric"><div class="m-val">${m.v}</div><div class="m-lbl">${m.lbl}</div></div>`).join('');
+
+/* ============ 技术栈 ============ */
+document.getElementById('tech-list').innerHTML = ['Power Apps','Power Pages','Copilot Studio','Power Automate','Azure Functions','Dataverse','SharePoint','Azure SQL','Azure Blob Storage','Azure OpenAI','Azure AI Search','Playwright','Selenium','Azure DevOps','Jira','Teams','Outlook','Entra ID'].map(t=>`<span>${t}</span>`).join('');
+
+/* ============ 控制台演示 ============ */
+const body = document.getElementById('console-body');
+const runBtn = document.getElementById('run-btn');
+const stopBtn = document.getElementById('stop-btn');
+const resetBtn = document.getElementById('reset-btn');
+let running = false, stopped = false, timers = [];
+
+const demoLines = [
+  ['prompt','$ 收到需求文档: login-module-PRD.docx (2.4 MB)'],
+  ['t','  → 文档预处理（AI Document Intelligence）...'],
+  ['out','  ✓ 提取文本 47KB，识别表格 3 个，结构转换完成'],
+  ['t','  → 调用 Azure OpenAI GPT-4o 解析需求...'],
+  ['out','  ✓ 提取测试点 12 个（P0×3 / P1×5 / P2×4），置信度均 ≥ 0.82'],
+  ['t','  → AI Search 检索相似历史需求...'],
+  ['out','  ✓ 找到 2 个相似需求，复用 5 个测试点结构'],
+  ['t','  → 生成测试用例（RAG + GPT-4o）...'],
+  ['out','  ✓ 生成 48 条用例（正向 30 / 边界 10 / 异常 8）'],
+  ['warn','  ⚠ 2 条用例置信度 < 0.7，已标记「待人工确认」'],
+  ['t','  → AI 四维度评审...'],
+  ['ok','  ✓ 完整性 92% / 正确性 88% / 可执行性 95% / 冗余度 7%'],
+  ['warn','  ⚠ TC-045 完整性 51%（预期结果缺失），已自动退回，附修改建议'],
+  ['ok','  ✓ 评审通过 46 条，通过率 95.8%'],
+  ['t','  → 生成 Playwright 脚本（GPT-4o-mini）...'],
+  ['out','  ✓ 生成 46 个 .spec.ts，ESLint 通过率 100%'],
+  ['t','  → 冒烟验证...'],
+  ['ok','  ✓ 44 个脚本冒烟通过，2 个失败'],
+  ['warn','  ⚠ TC-023 冒烟失败：TypeError: page.locator is not a function'],
+  ['t','  → AI 自修复尝试（第 1 轮）...'],
+  ['ok','  ✓ TC-023 修复成功！已更新 import 声明'],
+  ['t','  → 重新冒烟验证...'],
+  ['ok','  ✓ TC-023 冒烟通过'],
+  ['t','  → 调度执行（并行 50 实例，Playwright 容器化）...'],
+  ['ok','  ✓ 执行完成：通过 44 / 失败 2 / 跳过 0'],
+  ['err','  ✗ TC-023 失败：定位器超时（#login-btn 未找到，等待 30s）'],
+  ['err','  ✗ TC-041 失败：断言失败（期望 200，实际 500 Internal Server Error）'],
+  ['t','  → AI 失败分析（关键字预分类 + GPT-4o 多模态）...'],
+  ['warn','  ⚠ TC-023：关键字匹配 → TimeoutError → SCRIPT_BUG（置信度 92%）'],
+  ['out','  ✓ TC-041：关键字未命中 → GPT-4o 分析截图+日志 → PRODUCT_BUG（置信度 87%）'],
+  ['t','  → 历史匹配（AI Search 向量检索）...'],
+  ['warn','  ⚠ TC-023 匹配到 3 次历史同类失败，判定为 flaky'],
+  ['out','  ✓ TC-041 无历史匹配，判定为新发现缺陷'],
+  ['t','  → 自动修复 + 提单...'],
+  ['ok','  ✓ TC-023 自修复成功（更新等待策略），重跑已通过'],
+  ['out','  ✓ TC-041 已创建 Azure DevOps Bug #4821，附根因分析 + 截图 + 日志'],
+  ['t','  → 生成报告（GPT-4o-mini 摘要）...'],
+  ['ok','  ✓ 报告已生成：通过率 95.7%，1 个新缺陷，1 个 flaky 已自修复'],
+  ['ok','  ✓ 已推送 Teams 卡片 + Outlook 邮件'],
+  ['prompt','$ 任务完成。总耗时 4 分 08 秒，Token 消耗 18,432，成本 $0.14。'],
+];
+
+function appendLine(type, text){
+  const div = document.createElement('div');
+  div.className = 'line';
+  div.innerHTML = `<span class="${type}">${text}</span>`;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+}
+function clearPrompt(){ body.innerHTML = `<span class="prompt">$ </span><span class="cursor"></span>`; }
+function runDemo(){
+  if(running) return;
+  running = true; stopped = false;
+  runBtn.style.display='none'; stopBtn.style.display='inline-flex';
+  body.innerHTML = '';
+  let i = 0;
+  const step = ()=>{
+    if(stopped){ finish(false); return; }
+    if(i >= demoLines.length){ finish(true); return; }
+    const [t,txt] = demoLines[i];
+    appendLine(t,txt);
+    i++;
+    timers.push(setTimeout(step, t==='t' ? 260 : 440));
+  };
+  step();
+}
+function finish(complete){
+  running = false;
+  runBtn.style.display='inline-flex'; stopBtn.style.display='none';
+  const div = document.createElement('div');
+  div.className='line';
+  div.innerHTML = complete ? `<span class="prompt">$ </span><span class="cursor"></span>` : `<span class="warn">■ 已手动停止</span>`;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+}
+function resetDemo(){
+  stopped = true; running = false;
+  timers.forEach(t=>clearTimeout(t)); timers=[];
+  runBtn.style.display='inline-flex'; stopBtn.style.display='none';
+  clearPrompt();
+}
+runBtn.onclick = runDemo;
+stopBtn.onclick = ()=>{ stopped=true; };
+resetBtn.onclick = resetDemo;
+clearPrompt();
+
+/* ============ 滚动 reveal ============ */
+const io = new IntersectionObserver(es=>{
+  es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+},{threshold:.12});
+document.querySelectorAll('.sec-head,.layer,.flow-demo,.console,.metric,.t-step,.decision-card,.module-card').forEach(el=>{
+  el.classList.add('reveal'); io.observe(el);
+});
+
+/* ============ 导航高亮 ============ */
+const links = document.querySelectorAll('.nav-links a');
+const sections = ['modules','arch','decisions','demo','tutorial','metrics'].map(id=>document.getElementById(id));
+window.addEventListener('scroll',()=>{
+  let cur = 'modules';
+  sections.forEach(s=>{ if(s && s.getBoundingClientRect().top < 120) cur = s.id; });
+  links.forEach(l=>l.classList.toggle('on', l.getAttribute('href')==='#'+cur));
+});
+</script>
+</body>
+</html>

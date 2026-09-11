@@ -1,0 +1,180 @@
+{
+  "appName": "AI 测试驾驶舱 (Dashboard)",
+  "appType": "Model-Driven App",
+  "description": "测试执行仪表盘 — 通过 Power Apps 模型驱动应用展示测试数据，\n集成 AI 分析结果展示。",
+
+  "dashboards": [
+    {
+      "name": "执行概览",
+      "type": "Power BI 嵌入式 / 自定义页面",
+      "components": [
+        {
+          "title": "通过率趋势",
+          "type": "Chart",
+          "dataSource": "ai_testrun",
+          "chartType": "Line",
+          "series": "ai_completedat",
+          "value": "ai_passrate",
+          "refreshInterval": 300,
+          "filter": "ai_status eq 1"
+        },
+        {
+          "title": "失败分布",
+          "type": "Chart",
+          "dataSource": "ai_testresult",
+          "chartType": "Pie",
+          "series": "ai_failurecategory",
+          "value": "count"
+        },
+        {
+          "title": "最近执行",
+          "type": "SubGrid",
+          "dataSource": "ai_testrun",
+          "view": "最近执行记录",
+          "sortBy": "ai_completedat desc",
+          "rowLimit": 10
+        },
+        {
+          "title": "Flaky 用例 Top 10",
+          "type": "SubGrid",
+          "dataSource": "ai_testresult",
+          "view": "Flaky 用例",
+          "filter": "ai_isflaky eq true",
+          "sortBy": "ai_testcasename"
+        }
+      ]
+    }
+  ],
+
+  "customPages": [
+    {
+      "name": "AI 需求分析",
+      "type": "Custom Page",
+      "description": "上传 PRD 文档 → 调用 AI 分析 → 展示提取的需求点 → 一键生成用例",
+      "controls": [
+        {
+          "type": "Button",
+          "name": "上传文档",
+          "formula": "UploadFile(prdUploadControl)",
+          "description": "触发文件上传"
+        },
+        {
+          "type": "Button",
+          "name": "开始分析",
+          "formula": "AnalyzePRD.Run(prdContent.Text)",
+          "description": "调用 Azure Function 分析需求"
+        },
+        {
+          "type": "Gallery",
+          "name": "需求点列表",
+          "dataSource": "analyzeResult.requirements",
+          "fields": ["id", "title", "priority", "category", "test_focus"]
+        },
+        {
+          "type": "Button",
+          "name": "一键生成用例",
+          "formula": "GenerateTestCases.Run(SelectedItems(@reqGallery))",
+          "description": "选中需求点 → 调用 Function 生成用例 → 写入 Dataverse"
+        }
+      ]
+    },
+    {
+      "name": "失败分析详情",
+      "type": "Custom Page",
+      "description": "展示单条失败用例的 AI 分析结果",
+      "controls": [
+        {
+          "type": "DisplayForm",
+          "name": "失败详情",
+          "dataSource": "ai_testresult",
+          "fields": [
+            "ai_testcasename",
+            "ai_errormessage",
+            "ai_failurecategory",
+            "ai_failurereason",
+            "ai_fixsuggestion",
+            "ai_isflaky",
+            "ai_confidence"
+          ]
+        },
+        {
+          "type": "Image",
+          "name": "失败截图",
+          "dataSource": "ThisItem.ai_screenshots",
+          "formula": "JSON.Parse(ThisItem.ai_screenshots)[0] ?? ''"
+        },
+        {
+          "type": "Button",
+          "name": "查看 Trace",
+          "visible": "!IsBlank(ThisItem.ai_tracefile)",
+          "formula": "NavigateTo(TraceViewer, { traceUrl: ThisItem.ai_tracefile })"
+        },
+        {
+          "type": "Button",
+          "name": "重新分析",
+          "formula": "ReAnalyzeFailure.Run(ThisItem.ai_testresultid)",
+          "description": "调 Function 重新 AI 分析"
+        },
+        {
+          "type": "Button",
+          "name": "分享到 Teams",
+          "formula": "ShareToTeams.Run(\n  ThisItem.ai_testcasename,\n  ThisItem.ai_failurereason,\n  ThisItem.ai_fixsuggestion\n)",
+          "description": "将分析结果发到 Teams 频道"
+        }
+      ]
+    }
+  ],
+
+  "views": [
+    {
+      "name": "待修复用例",
+      "entity": "ai_testresult",
+      "type": "View",
+      "description": "展示需要人工介入的失败用例",
+      "columns": [
+        { "name": "ai_testcasename", "width": 200 },
+        { "name": "ai_failurecategory", "width": 120 },
+        { "name": "ai_failurereason", "width": 300 },
+        { "name": "ai_fixsuggestion", "width": 300 },
+        { "name": "ai_confidence", "width": 80 },
+        { "name": "ai_isflaky", "width": 60 },
+        { "name": "ai_retrycount", "width": 80 },
+        { "name": "ai_completedat", "width": 150 }
+      ],
+      "filter": "ai_status eq 3 and (ai_isflaky eq false or ai_isflaky eq null)",
+      "sortBy": "ai_completedat desc"
+    },
+    {
+      "name": "Flaky 用例",
+      "entity": "ai_testresult",
+      "type": "View",
+      "description": "AI 标记的 Flaky 用例，需要关注",
+      "columns": [
+        { "name": "ai_testcasename", "width": 200 },
+        { "name": "ai_failurecategory", "width": 120 },
+        { "name": "ai_failurereason", "width": 300 },
+        { "name": "ai_flaky_reason", "width": 200 },
+        { "name": "ai_completedat", "width": 150 }
+      ],
+      "filter": "ai_isflaky eq true",
+      "sortBy": "ai_completedat desc"
+    },
+    {
+      "name": "最近执行记录",
+      "entity": "ai_testrun",
+      "type": "View",
+      "columns": [
+        { "name": "ai_name", "width": 200 },
+        { "name": "ai_testtype", "width": 100 },
+        { "name": "ai_environment", "width": 100 },
+        { "name": "ai_totalcases", "width": 80 },
+        { "name": "ai_passed", "width": 60 },
+        { "name": "ai_failed", "width": 60 },
+        { "name": "ai_passrate", "width": 80 },
+        { "name": "ai_status", "width": 100 },
+        { "name": "ai_completedat", "width": 150 }
+      ],
+      "sortBy": "ai_completedat desc"
+    }
+  ]
+}

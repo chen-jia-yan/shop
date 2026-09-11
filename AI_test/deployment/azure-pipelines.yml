@@ -1,0 +1,721 @@
+# Azure DevOps CI/CD Pipeline - AI Test Platform
+# 完整 YAML 定义，覆盖 CI 构建、多环境部署、Power Platform 部署、AI 模型部署
+
+# 触发条件
+trigger:
+  branches:
+    include:
+      - develop
+      - test
+      - staging
+      - main
+      - feature/*
+  paths:
+    exclude:
+      - docs/*
+      - '*.md'
+      - .vscode/*
+
+pr:
+  branches:
+    include:
+      - develop
+      - test
+
+# 变量
+variables:
+  - name: azureSubscription
+    value: 'Azure-AITest-ServiceConnection'
+  - name: resourceGroupShared
+    value: rg-aittest-shared
+  - name: containerRegistryName
+    value: acraittest001
+  - name: imageRepository
+    value: ai-test-functions
+  - name: dockerfilePath
+    value: '$(Build.SourcesDirectory)/src/AI_Functions/Dockerfile'
+  - name: tag
+    value: '$(Build.BuildNumber)'
+  - name: vmImageName
+    value: 'ubuntu-latest'
+  - name: powerPlatformSolutionName
+    value: ait_TestPlatform
+
+stages:
+  # ============================================================
+  # 第一阶段：构建
+  # ============================================================
+  - stage: Build
+    displayName: '构建阶段'
+    jobs:
+      - job: BuildAndTest
+        displayName: '编译与测试'
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          # 1. Python 环境准备
+          - task: UsePythonVersion@0
+            displayName: '设置 Python 3.11'
+            inputs:
+              versionSpec: '3.11'
+              addToPath: true
+
+          # 2. 安装依赖
+          - script: |
+              cd src/AI_Functions
+              python -m venv .venv
+              source .venv/bin/activate
+              pip install --upgrade pip
+              pip install -r requirements.txt
+              pip install -r requirements-dev.txt
+            displayName: '安装 Python 依赖'
+
+          # 3. 代码质量检查
+          - script: |
+              source src/AI_Functions/.venv/bin/activate
+              flake8 src/AI_Functions --max-line-length=120 --exclude=.venv
+            displayName: 'Flake8 代码检查'
+            continueOnError: true
+
+          # 4. 类型检查
+          - script: |
+              source src/AI_Functions/.venv/bin/activate
+              mypy src/AI_Functions --ignore-missing-imports
+            displayName: 'Mypy 类型检查'
+            continueOnError: true
+
+          # 5. 运行单元测试
+          - script: |
+              source src/AI_Functions/.venv/bin/activate
+              pytest src/AI_Functions/tests/ \
+                --junitxml=test-results.xml \
+                --cov=src/AI_Functions \
+                --cov-report=xml \
+                --cov-report=html
+            displayName: '运行单元测试'
+
+          # 6. 发布测试结果
+          - task: PublishTestResults@2
+            displayName: '发布测试结果'
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/test-results.xml'
+              mergeTestResults: true
+              failOnFailedTests: true
+
+          # 7. 发布代码覆盖率
+          - task: PublishCodeCoverageResults@2
+            displayName: '发布代码覆盖率'
+            inputs:
+              summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+              pathToSources: '$(System.DefaultWorkingDirectory)/src/AI_Functions'
+
+          # 8. Docker Build & Push
+          - task: Docker@2
+            displayName: '构建并推送 Docker Image'
+            inputs:
+              containerRegistry: '$(azureSubscription)'
+              repository: '$(imageRepository)'
+              command: 'buildAndPush'
+              Dockerfile: '$(dockerfilePath)'
+              tags: |
+                $(tag)
+                latest
+
+          # 9. 发布 Power Platform Solution 制品
+          - task: CopyFiles@2
+            displayName: '复制 Power Platform Solution'
+            inputs:
+              SourceFolder: '$(Build.SourcesDirectory)/deployment/solutions'
+              Contents: '**'
+              TargetFolder: '$(Build.ArtifactStagingDirectory)/solutions'
+
+          # 10. 发布 Pipeline Artifacts
+          - task: PublishPipelineArtifact@1
+            displayName: '发布构建制品'
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)'
+              artifactName: 'drop'
+
+  # ============================================================
+  # 第二阶段：部署到 Dev 环境
+  # ============================================================
+  - stage: DeployDev
+    displayName: '部署到 Dev 环境'
+    dependsOn: Build
+    condition: |
+      and(
+        succeeded(),
+        or(
+          eq(variables['Build.SourceBranch'], 'refs/heads/develop'),
+          eq(variables['Build.SourceBranch'], 'refs/heads/feature/*')
+        )
+      )
+    variables:
+      - group: 'AITest-Dev-VariableGroup'
+    jobs:
+      - deployment: DeployFunctions
+        displayName: '部署 Azure Functions'
+        environment: 'dev'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+
+                # 2.1 Azure Functions 部署
+                - task: AzureFunctionAppContainer@1
+                  displayName: '部署 Functions 容器'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appName: 'func-aittest-dev-001'
+                    resourceGroupName: 'rg-aittest-dev'
+                    imageName: '$(containerRegistryName).azurecr.io/$(imageRepository):$(tag)'
+
+                # 2.2 配置 Functions 应用设置
+                - task: AzureAppServiceSettings@1
+                  displayName: '配置 Functions 环境变量'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appName: 'func-aittest-dev-001'
+                    resourceGroupName: 'rg-aittest-dev'
+                    appSettings:
+                      - AZURE_OPENAI_ENDPOINT: $(AZURE_OPENAI_ENDPOINT)
+                      - AZURE_OPENAI_DEPLOYMENT: $(AZURE_OPENAI_DEPLOYMENT)
+                      - AZURE_OPENAI_EMBEDDING_DEPLOYMENT: $(AZURE_OPENAI_EMBEDDING_DEPLOYMENT)
+                      - AZURE_AI_SEARCH_ENDPOINT: $(AZURE_AI_SEARCH_ENDPOINT)
+                      - AZURE_AI_SEARCH_KEY: $(AZURE_AI_SEARCH_KEY)
+                      - AZURE_SQL_CONNECTION_STRING: $(AZURE_SQL_CONNECTION_STRING)
+                      - SERVICE_BUS_CONNECTION: $(SERVICE_BUS_CONNECTION)
+                      - APPINSIGHTS_INSTRUMENTATIONKEY: $(APPINSIGHTS_INSTRUMENTATIONKEY)
+                      - LOG_LEVEL: Debug
+
+      - job: DeployPowerPlatform
+        displayName: '部署 Power Platform Solution'
+        dependsOn: DeployFunctions
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          # 2.3 Power Platform Build Tools - 导入 Solution
+          - task: PowerPlatformToolInstaller@2
+            displayName: '安装 Power Platform Tools'
+            inputs:
+              defaultVersion: true
+
+          - task: PowerPlatformImportSolution@2
+            displayName: '导入 Solution 到 Dev'
+            inputs:
+              authenticationType: 'PowerPlatformSPN'
+              servicePrincipalId: $(PP_SP_ID)
+              servicePrincipalTenantId: $(PP_TENANT_ID)
+              servicePrincipalSecret: $(PP_SP_SECRET)
+              environmentUrl: $(PP_DEV_ENVIRONMENT_URL)
+              solutionInputFile: '$(Pipeline.Workspace)/drop/solutions/$(powerPlatformSolutionName)_managed.zip'
+              useDeploymentSettingsFile: false
+              overwriteUnmanagedCustomizations: true
+              publishWorkflows: true
+              skipProvisionRuntimeDependencies: false
+              asyncOperation: true
+              maxAsyncWaitTime: '60'
+
+          # 2.4 更新环境变量
+          - task: PowerPlatformSetSolutionVariables@1
+            displayName: '设置 Power Platform 环境变量'
+            inputs:
+              authenticationType: 'PowerPlatformSPN'
+              servicePrincipalId: $(PP_SP_ID)
+              servicePrincipalTenantId: $(PP_TENANT_ID)
+              servicePrincipalSecret: $(PP_SP_SECRET)
+              environmentUrl: $(PP_DEV_ENVIRONMENT_URL)
+              solutionName: $(powerPlatformSolutionName)
+              variables: |
+                - key: ait_AzureOpenAIEndpoint
+                  value: $(AZURE_OPENAI_ENDPOINT)
+                - key: ait_LogLevel
+                  value: Debug
+
+      - job: RunDatabaseMigration
+        displayName: '数据库迁移'
+        dependsOn: DeployFunctions
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          # 2.5 数据库迁移
+          - task: SqlAzure@1
+            displayName: '执行 SQL 迁移脚本'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              ServerName: 'sqlsvr-aittest-dev.database.windows.net'
+              DatabaseName: 'sqldb-aittest-dev'
+              SqlUsername: '$(SQL_ADMIN_USER)'
+              SqlPassword: '$(SQL_ADMIN_PASS)'
+              deployType: 'SqlTask'
+              SqlFile: '$(Pipeline.Workspace)/drop/database/migrations/$(Build.BuildNumber).sql'
+
+      - job: SmokeTest
+        displayName: '冒烟测试'
+        dependsOn:
+          - DeployFunctions
+          - DeployPowerPlatform
+          - RunDatabaseMigration
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          # 2.6 冒烟测试
+          - script: |
+              echo "Running Dev environment smoke tests..."
+              HEALTH_URL="https://func-aittest-dev-001.azurewebsites.net/api/health"
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" $HEALTH_URL)
+              if [ "$STATUS" != "200" ]; then
+                echo "Health check failed: HTTP $STATUS"
+                exit 1
+              fi
+              echo "Health check passed: HTTP $STATUS"
+            displayName: '检查 Functions 健康状态'
+
+  # ============================================================
+  # 第三阶段：部署到 Test 环境
+  # ============================================================
+  - stage: DeployTest
+    displayName: '部署到 Test 环境'
+    dependsOn: DeployDev
+    condition: |
+      and(
+        succeeded(),
+        eq(variables['Build.SourceBranch'], 'refs/heads/test')
+      )
+    variables:
+      - group: 'AITest-Test-VariableGroup'
+    jobs:
+      - deployment: DeployFunctions
+        displayName: '部署 Azure Functions'
+        environment: 'test'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+
+                - task: AzureFunctionAppContainer@1
+                  displayName: '部署 Functions 容器'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appName: 'func-aittest-test-001'
+                    resourceGroupName: 'rg-aittest-test'
+                    imageName: '$(containerRegistryName).azurecr.io/$(imageRepository):$(tag)'
+
+                - task: AzureAppServiceSettings@1
+                  displayName: '配置 Functions 环境变量'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appName: 'func-aittest-test-001'
+                    resourceGroupName: 'rg-aittest-test'
+                    appSettings:
+                      - AZURE_OPENAI_ENDPOINT: $(AZURE_OPENAI_ENDPOINT)
+                      - AZURE_OPENAI_DEPLOYMENT: $(AZURE_OPENAI_DEPLOYMENT)
+                      - AZURE_AI_SEARCH_ENDPOINT: $(AZURE_AI_SEARCH_ENDPOINT)
+                      - AZURE_SQL_CONNECTION_STRING: $(AZURE_SQL_CONNECTION_STRING)
+                      - SERVICE_BUS_CONNECTION: $(SERVICE_BUS_CONNECTION)
+                      - APPINSIGHTS_INSTRUMENTATIONKEY: $(APPINSIGHTS_INSTRUMENTATIONKEY)
+                      - LOG_LEVEL: Info
+
+      - job: DeployPowerPlatform
+        displayName: '部署 Power Platform Solution'
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: PowerPlatformToolInstaller@2
+            displayName: '安装 Power Platform Tools'
+
+          - task: PowerPlatformImportSolution@2
+            displayName: '导入 Solution 到 Test'
+            inputs:
+              authenticationType: 'PowerPlatformSPN'
+              servicePrincipalId: $(PP_SP_ID)
+              servicePrincipalTenantId: $(PP_TENANT_ID)
+              servicePrincipalSecret: $(PP_SP_SECRET)
+              environmentUrl: $(PP_TEST_ENVIRONMENT_URL)
+              solutionInputFile: '$(Pipeline.Workspace)/drop/solutions/$(powerPlatformSolutionName)_managed.zip'
+              overwriteUnmanagedCustomizations: false
+              publishWorkflows: true
+              asyncOperation: true
+              maxAsyncWaitTime: '60'
+
+      - job: IntegrationTest
+        displayName: '集成测试'
+        dependsOn: DeployFunctions
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - script: |
+              echo "Running integration tests..."
+              source src/AI_Functions/.venv/bin/activate 2>/dev/null || true
+
+              # 检查各 API 端点
+              BASE_URL="https://func-aittest-test-001.azurewebsites.net"
+              ENDPOINTS=(
+                "/api/health"
+                "/api/testcases/generate"
+                "/api/reports/analyze"
+              )
+
+              for endpoint in "${ENDPOINTS[@]}"; do
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL$endpoint" -X POST -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "000")
+                echo "$endpoint: HTTP $STATUS"
+              done
+            displayName: '接口集成测试'
+
+  # ============================================================
+  # 第四阶段：部署到 Staging 环境（需审批）
+  # ============================================================
+  - stage: DeployStaging
+    displayName: '部署到 Staging 环境'
+    dependsOn: DeployTest
+    condition: |
+      and(
+        succeeded(),
+        eq(variables['Build.SourceBranch'], 'refs/heads/staging')
+      )
+    variables:
+      - group: 'AITest-Staging-VariableGroup'
+    jobs:
+      - deployment: DeployFunctions
+        displayName: '部署 Azure Functions'
+        environment: 'staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+
+                - task: AzureFunctionAppContainer@1
+                  displayName: '部署 Functions 容器到 Staging Slot'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appName: 'func-aittest-staging-001'
+                    resourceGroupName: 'rg-aittest-staging'
+                    imageName: '$(containerRegistryName).azurecr.io/$(imageRepository):$(tag)'
+                    slotName: 'staging'
+
+                - task: AzureAppServiceSettings@1
+                  displayName: '配置 Functions 环境变量'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appName: 'func-aittest-staging-001'
+                    resourceGroupName: 'rg-aittest-staging'
+                    slotName: 'staging'
+                    appSettings:
+                      - AZURE_OPENAI_ENDPOINT: $(AZURE_OPENAI_ENDPOINT)
+                      - AZURE_OPENAI_DEPLOYMENT: gpt-4o
+                      - AZURE_AI_SEARCH_ENDPOINT: $(AZURE_AI_SEARCH_ENDPOINT)
+                      - AZURE_SQL_CONNECTION_STRING: $(AZURE_SQL_CONNECTION_STRING)
+                      - APPINSIGHTS_INSTRUMENTATIONKEY: $(APPINSIGHTS_INSTRUMENTATIONKEY)
+                      - LOG_LEVEL: Info
+
+      - job: SmoketTestInSlot
+        displayName: 'Slot 冒烟测试'
+        dependsOn: DeployFunctions
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - script: |
+              echo "Running smoke tests in staging slot..."
+              BASE_URL="https://func-aittest-staging-001-staging.azurewebsites.net"
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/health")
+              if [ "$STATUS" != "200" ]; then
+                echo "Staging slot health check failed: HTTP $STATUS"
+                exit 1
+              fi
+              echo "Staging slot health check passed: HTTP $STATUS"
+            displayName: 'Staging Slot 健康检查'
+
+      - job: SlotSwap
+        displayName: 'Slot Swap 至生产'
+        dependsOn: SmoketTestInSlot
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          - task: AzureAppServiceManage@0
+            displayName: '交换 Staging Slot 到 Production'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              resourceGroupName: 'rg-aittest-staging'
+              webAppName: 'func-aittest-staging-001'
+              sourceSlot: 'staging'
+              swapWithProduction: true
+
+  # ============================================================
+  # 第五阶段：部署到 Prod 环境（须手动触发 + 审批）
+  # ============================================================
+  - stage: DeployProd
+    displayName: '部署到 Prod 环境'
+    dependsOn: DeployStaging
+    condition: |
+      and(
+        succeeded(),
+        eq(variables['Build.SourceBranch'], 'refs/heads/main')
+      )
+    variables:
+      - group: 'AITest-Prod-VariableGroup'
+    jobs:
+      - deployment: DeployFunctions
+        displayName: '部署 Azure Functions'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: drop
+
+                # 5.1 Functions 容器部署到 Staging Slot
+                - task: AzureFunctionAppContainer@1
+                  displayName: '部署 Functions 容器到 Staging Slot'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appName: 'func-aittest-prod-001'
+                    resourceGroupName: 'rg-aittest-prod'
+                    imageName: '$(containerRegistryName).azurecr.io/$(imageRepository):$(tag)'
+                    slotName: 'staging'
+
+                # 5.2 配置 Functions 环境变量
+                - task: AzureAppServiceSettings@1
+                  displayName: '配置 Functions 环境变量'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appName: 'func-aittest-prod-001'
+                    resourceGroupName: 'rg-aittest-prod'
+                    slotName: 'staging'
+                    appSettings:
+                      - AZURE_OPENAI_ENDPOINT: $(AZURE_OPENAI_ENDPOINT)
+                      - AZURE_OPENAI_DEPLOYMENT: gpt-4o
+                      - AZURE_OPENAI_EMBEDDING_DEPLOYMENT: text-embedding-3-small
+                      - AZURE_AI_SEARCH_ENDPOINT: $(AZURE_AI_SEARCH_ENDPOINT)
+                      - AZURE_SQL_CONNECTION_STRING: $(AZURE_SQL_CONNECTION_STRING)
+                      - SERVICE_BUS_CONNECTION: $(SERVICE_BUS_CONNECTION)
+                      - APPINSIGHTS_INSTRUMENTATIONKEY: $(APPINSIGHTS_INSTRUMENTATIONKEY)
+                      - LOG_LEVEL: Info
+                      - ENVIRONMENT: production
+
+      - job: PreProdValidation
+        displayName: '预生产验证'
+        dependsOn: DeployFunctions
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          # 5.3 预生产冒烟测试
+          - script: |
+              echo "Running pre-production validation..."
+              BASE_URL="https://func-aittest-prod-001-staging.azurewebsites.net"
+
+              # 健康检查
+              HEALTH=$(curl -s "$BASE_URL/api/health")
+              echo "Health: $HEALTH"
+
+              # 关键路径测试
+              TEST_RESULT=$(curl -s -X POST "$BASE_URL/api/testcases/generate" \
+                -H "Content-Type: application/json" \
+                -d '{"requirement": "用户登录功能","language": "python","type": "unit"}' \
+                -w "\n%{http_code}")
+              HTTP_CODE=$(echo "$TEST_RESULT" | tail -1)
+              echo "Test generation: HTTP $HTTP_CODE"
+
+              if [ "$HTTP_CODE" != "200" ]; then
+                echo "Pre-production validation FAILED"
+                exit 1
+              fi
+              echo "Pre-production validation PASSED"
+            displayName: '预生产验证测试'
+
+      - job: SlotSwap
+        displayName: 'Production Slot Swap'
+        dependsOn: PreProdValidation
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          # 5.4 Slot Swap
+          - task: AzureAppServiceManage@0
+            displayName: 'Slot Swap'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              resourceGroupName: 'rg-aittest-prod'
+              webAppName: 'func-aittest-prod-001'
+              sourceSlot: 'staging'
+              swapWithProduction: true
+
+      - job: PostDeployValidation
+        displayName: '部署后验证'
+        dependsOn: SlotSwap
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          # 5.5 部署后验证
+          - script: |
+              echo "Post-deployment validation..."
+              BASE_URL="https://func-aittest-prod-001.azurewebsites.net"
+
+              # 检查生产端点
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/health")
+              echo "Production health: HTTP $STATUS"
+
+              if [ "$STATUS" != "200" ]; then
+                echo "Production validation FAILED"
+                exit 1
+              fi
+
+              # 检查 Application Insights 上报
+              echo "Production validation PASSED"
+            displayName: '生产环境验证'
+
+      - job: DeployPowerPlatformProd
+        displayName: '部署 Power Platform 到生产'
+        dependsOn: SlotSwap
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          # 5.6 导出 Managed Solution 从 Staging
+          - task: PowerPlatformToolInstaller@2
+            displayName: '安装 Power Platform Tools'
+
+          - task: PowerPlatformExportSolution@2
+            displayName: '从 Staging 导出 Solution'
+            inputs:
+              authenticationType: 'PowerPlatformSPN'
+              servicePrincipalId: $(PP_SP_ID)
+              servicePrincipalTenantId: $(PP_TENANT_ID)
+              servicePrincipalSecret: $(PP_SP_SECRET)
+              environmentUrl: $(PP_STAGING_ENVIRONMENT_URL)
+              solutionName: $(powerPlatformSolutionName)
+              managed: true
+              solutionOutputFile: '$(Build.ArtifactStagingDirectory)/solutions/$(powerPlatformSolutionName)_managed.zip'
+
+          - task: PowerPlatformImportSolution@2
+            displayName: '导入 Solution 到生产环境'
+            inputs:
+              authenticationType: 'PowerPlatformSPN'
+              servicePrincipalId: $(PP_SP_ID)
+              servicePrincipalTenantId: $(PP_TENANT_ID)
+              servicePrincipalSecret: $(PP_SP_SECRET)
+              environmentUrl: $(PP_PROD_ENVIRONMENT_URL)
+              solutionInputFile: '$(Build.ArtifactStagingDirectory)/solutions/$(powerPlatformSolutionName)_managed.zip'
+              overwriteUnmanagedCustomizations: false
+              publishWorkflows: true
+              asyncOperation: true
+              maxAsyncWaitTime: '60'
+
+  # ============================================================
+  # 第六阶段：AI 模型部署（独立于应用部署）
+  # ============================================================
+  - stage: DeployAIModels
+    displayName: '部署 AI 模型'
+    dependsOn: []
+    condition: |
+      or(
+        eq(variables['Build.SourceBranch'], 'refs/heads/staging'),
+        eq(variables['Build.SourceBranch'], 'refs/heads/main')
+      )
+    variables:
+      - group: 'AITest-AI-VariableGroup'
+    jobs:
+      - job: DeployAzureOpenAIModels
+        displayName: '部署 OpenAI 模型'
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          # 6.1 登录 Azure
+          - task: AzureCLI@2
+            displayName: '部署 GPT-4o-mini'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az cognitiveservices account deployment create \
+                  --name $(AZURE_OPENAI_ACCOUNT_NAME) \
+                  --resource-group $(AZURE_OPENAI_RESOURCE_GROUP) \
+                  --deployment-name gpt-4o-mini \
+                  --model-name gpt-4o-mini \
+                  --model-version 2024-07-18 \
+                  --model-format OpenAI \
+                  --sku Standard \
+                  --capacity $(AZURE_OPENAI_CAPACITY) \
+                  --yes
+
+          - task: AzureCLI@2
+            displayName: '部署 GPT-4o'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az cognitiveservices account deployment create \
+                  --name $(AZURE_OPENAI_ACCOUNT_NAME) \
+                  --resource-group $(AZURE_OPENAI_RESOURCE_GROUP) \
+                  --deployment-name gpt-4o \
+                  --model-name gpt-4o \
+                  --model-version 2024-08-06 \
+                  --model-format OpenAI \
+                  --sku Standard \
+                  --capacity $(AZURE_OPENAI_CAPACITY_GPT4) \
+                  --yes
+
+          - task: AzureCLI@2
+            displayName: '部署 Embedding 模型'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az cognitiveservices account deployment create \
+                  --name $(AZURE_OPENAI_ACCOUNT_NAME) \
+                  --resource-group $(AZURE_OPENAI_RESOURCE_GROUP) \
+                  --deployment-name text-embedding-3-small \
+                  --model-name text-embedding-3-small \
+                  --model-version 2 \
+                  --model-format OpenAI \
+                  --sku Standard \
+                  --capacity $(AZURE_OPENAI_CAPACITY) \
+                  --yes
+
+      - job: UpdateAISearchIndex
+        displayName: '更新 AI Search 索引'
+        dependsOn: DeployAzureOpenAIModels
+        pool:
+          vmImage: $(vmImageName)
+        steps:
+          # 6.2 更新 AI Search 索引 Schema
+          - task: AzureCLI@2
+            displayName: '更新 AI Search 索引'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # 索引更新脚本
+                python src/AI_Search/update_index.py \
+                  --search-endpoint $(AZURE_AI_SEARCH_ENDPOINT) \
+                  --search-key $(AZURE_AI_SEARCH_KEY) \
+                  --index-name aitest-knowledge \
+                  --embedding-model text-embedding-3-small
+
+# ============================================================
+# 资源清理（可选，用于非生产环境）
+# 触发：手动 / 定时
+# ============================================================
+#  - stage: CleanupDev
+#    displayName: '清理 Dev 环境资源'
+#    condition: false   # 默认禁用，需手动触发
+#    jobs:
+#      - job: StopFunctions
+#        displayName: '停止 Dev Functions'
+#        steps:
+#          - task: AzureCLI@2
+#            inputs:
+#              azureSubscription: '$(azureSubscription)'
+#              scriptType: 'bash'
+#              scriptLocation: 'inlineScript'
+#              inlineScript: |
+#                az functionapp stop --name func-aittest-dev-001 --resource-group rg-aittest-dev

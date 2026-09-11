@@ -1,0 +1,194 @@
+/**
+ * Power Fx 关键公式示例
+ * ==================
+ * Power Fx 是 Power Apps 底层语言，类似 Excel 公式。
+ * 这里展示 AI 测试平台中使用的核心公式片段。
+ *
+ * 注意：Power Fx 不区分大小写，习惯用 PascalCase。
+ * 这里用代码块展示关键公式，非可运行代码。
+ */
+
+// ==========================================================================
+// 1. 数据源绑定
+// ==========================================================================
+
+// 连接 Dataverse
+// 在 Power Apps 中添加 Dataverse 连接器后，表自动成为数据源
+DataSource: ai_testresult
+DataSource: ai_testrun
+DataSource: ai_testcase
+
+// ==========================================================================
+// 2. 下拉框（选择模块）
+// ==========================================================================
+
+// Items 属性 - 动态加载模块列表
+Distinct(
+  Filter(ai_testcase, ai_testprojectid = drpProject.Selected.ai_testprojectid),
+  ai_category
+)
+
+// ==========================================================================
+// 3. 图表公式 - 按失败分类计数
+// ==========================================================================
+
+// PieChart 的 Items 属性
+GroupBy(
+  Filter(ai_testresult, ai_testrunid = SelectedRunId),
+  "ai_failurecategory",
+  "GroupItems"
+)
+
+// 然后用 CountRows(GroupItems) 作为值
+
+// ==========================================================================
+// 4. 按钮 - 调用 Power Automate Flow
+// ==========================================================================
+
+// 触发「运行测试」Flow
+// Button.OnSelect:
+Set(
+  varFlowResult,
+  AITriggerOnDemandTest.Run(
+    {
+      module: drpModule.Selected.Value,
+      testType: drpTestType.Selected.Value,
+      environment: drpEnvironment.Selected.Value
+    }
+  )
+);
+// 成功后跳转到执行详情页
+If(
+  varFlowResult.status = "started",
+  Navigate(
+    TestRunDetailsScreen,
+    ScreenTransition.Fade,
+    { runId: varFlowResult.pipelineRunId }
+  ),
+  Notify("触发失败: " & varFlowResult.error, NotificationType.Error)
+)
+
+// ==========================================================================
+// 5. 彩条 — 通过率可视化
+// ==========================================================================
+
+// Rectangle 控件的 Fill 属性
+// 根据通过率变换颜色
+Switch(
+  true,
+  passRate >= 90, RGBA(82, 196, 26, 1),    // 绿色
+  passRate >= 70, RGBA(250, 173, 20, 1),    // 黄色
+  RGBA(245, 34, 45, 1)                      // 红色
+)
+
+// Rectangle 的 Width 属性（相对于父容器）
+passRate / 100 * Parent.Width
+
+// ==========================================================================
+// 6. 标签格式化 — 显示 duration
+// ==========================================================================
+
+// 显示执行时长（毫秒 → 可读格式）
+With(
+  { totalSecs: ThisItem.ai_durationms / 1000 },
+  With(
+    { mins: RoundDown(totalSecs / 60, 0), secs: RoundDown(Mod(totalSecs, 60), 0) },
+    "耗时: " & mins & "分" & secs & "秒"
+  )
+)
+
+// ==========================================================================
+// 7. AI 建议文案格式化（Markdown 子集展示）
+// ==========================================================================
+
+// 假设 ai_fixsuggestion 是纯文本，用 Label 展示
+// 如需富文本展示，可用 HTML Text 控件 + 简单转换
+// Label.HtmlText:
+Substitute(
+  Substitute(
+    Substitute(
+      ThisItem.ai_fixsuggestion,
+      Char(10), "<br>"
+    ),
+    "**", "<strong>"
+  ),
+  "\n", "<br>"
+)
+
+// ==========================================================================
+// 8. 表单验证 — 提报 Bug 到 Azure DevOps
+// ==========================================================================
+
+// 提 Bug 按钮的 OnSelect
+// 调用 Azure DevOps 连接器创建 Work Item
+AzureDevOps.CreateWorkItem(
+  "Bug",
+  {
+    title: "测试失败: " & ThisItem.ai_testcasename,
+    description: [
+      "## 失败分析",
+      "分类: " & ThisItem.ai_failurecategory,
+      "根因: " & ThisItem.ai_failurereason,
+      "建议: " & ThisItem.ai_fixsuggestion,
+      "",
+      "截图: " & ThisItem.ai_screenshots
+    ],
+    priority: Switch(
+      ThisItem.ai_testcase.ai_priority,
+      0, 1,  // P0 → Pri 1
+      1, 2,  // P1 → Pri 2
+      3      // P2 → Pri 3
+    ),
+    assignedTo: drpAssignee.Selected,
+    areaPath: "\\AI测试平台\\自动化测试"
+  }
+)
+
+// ==========================================================================
+// 9. 通知设置
+// ==========================================================================
+
+// 当天失败超过 N 条时显示告警
+// Screen.OnVisible:
+If(
+  CountRows(
+    Filter(
+      ai_testresult,
+      ai_status = 3,
+      ai_completedat >= Today()
+    )
+  ) > 10,
+  Set(varShowAlert, true),
+  Set(varShowAlert, false)
+)
+
+// 告警横幅的 Visible 属性
+varShowAlert
+
+// ==========================================================================
+// 10. 集合操作 — 选中的用例批量操作
+// ==========================================================================
+
+// Gallery 多选模式下的选中项
+// Button.OnSelect — 批量标记为「重新分析」
+ForAll(
+  galTestResults.SelectedItems,
+  AITriggerReAnalyze.Run(ThisRecord.ai_testresultid)
+);
+// 刷新数据源
+Refresh(ai_testresult);
+Notify("已提交 " & CountRows(galTestResults.SelectedItems) & " 条用例重新分析", NotificationType.Information)
+
+// ==========================================================================
+// 11. Timer 控件 — 自动刷新
+// ==========================================================================
+
+// Timer 配置：
+// AutoStart: true
+// Repeat: true
+// Duration: 300000  (5分钟)
+// OnTimerEnd:
+Refresh(ai_testresult);
+Refresh(ai_testrun);
+// 刷新图表数据源
+Refresh(dataTrend);
