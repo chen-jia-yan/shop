@@ -1,6 +1,7 @@
 ## 解析链路
 
 - `pptx_parser.py` 现在怎么处理 PPT:是只把整页/图片栅格化走 OCR,还是已经在遍历 shapes、读文本框?有没有碰过 connector?
+   
 
 - `excel_parser.py` 怎么处理 Excel:表格、图形、图片各走什么;你说的”行级 chunk + 单元格范围”具体怎么切。
 
