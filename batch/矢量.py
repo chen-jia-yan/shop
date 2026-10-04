@@ -3,7 +3,7 @@ flowchart_graph.py — 从 PPT 矢量流程图重建"有向图"(节点+带方向
 只处理原生矢量(形状+连接线);贴图走你现有 OCR,SmartArt 另处理。
 输出可存成 artifact JSON,路径挂到 chunk metadata。
 """
-from pptx import Presentation
+from batch.pptx import Presentation
 from lxml import etree
 
 A = 'http://schemas.openxmlformats.org/drawingml/2006/main'

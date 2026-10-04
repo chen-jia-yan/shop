@@ -5,7 +5,7 @@ diagnose_pptx.py — 判断 PPT 里的图是"原生矢量(形状+连接线)"还�
 依赖: pip install python-pptx lxml
 """
 import sys
-from pptx import Presentation
+from batch.pptx import Presentation
 from lxml import etree
 
 
