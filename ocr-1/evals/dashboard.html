@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG 评估看板</title>
+<style>
+  :root{
+    --accent:#e8631a; --accent-ghost:#fdeee2;
+    --surface:#faf7f1; --card:#fff; --ink:#2a241e; --ink-soft:#6b6358; --line:#eadfce;
+    --good:#3f9d58; --good-soft:#e4f3e8; --warn:#d9972f; --warn-soft:#faf0db;
+    --bad:#cc4b37; --bad-soft:#f8e4e0; --frag:#b9b0a2; --rebuilt:#e8631a;
+    --shadow:0 1px 2px rgba(42,36,30,.05),0 6px 18px rgba(42,36,30,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--surface);color:var(--ink);font-size:14px;line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 32px 72px}
+  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:22px;flex-wrap:wrap}
+  .title h1{margin:0;font-size:22px;font-weight:700}
+  .title p{margin:4px 0 0;color:var(--ink-soft);font-size:13px}
+  .runbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .runbar label{font-size:12px;color:var(--ink-soft)}
+  select,.pill,.filebtn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:7px 11px;box-shadow:var(--shadow)}
+  .pill{display:inline-flex;align-items:center;gap:6px}.pill b{color:var(--accent)}
+  .filebtn{cursor:pointer;color:var(--accent);font-weight:600;border-color:var(--accent-ghost);background:var(--accent-ghost)}
+  .filebtn input{display:none}
+  .legend{display:flex;gap:16px;align-items:center;font-size:12px;color:var(--ink-soft)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .legend .lf{background:var(--frag)}.legend .lr{background:var(--rebuilt)}
+  .cards{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:24px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .card .k{font-size:12px;color:var(--ink-soft);min-height:32px}
+  .card .v{font-size:26px;font-weight:700;margin-top:6px}.card .v small{font-size:13px;font-weight:500;color:var(--ink-soft)}
+  .card .delta{font-size:12px;margin-top:3px;font-weight:600}
+  .delta.up{color:var(--good)}.delta.down{color:var(--bad)}.delta.flat{color:var(--ink-soft)}
+  .card .bar{position:absolute;left:0;top:0;height:3px;width:100%}
+  .b-good{background:var(--good)}.b-warn{background:var(--warn)}.b-bad{background:var(--bad)}.b-none{background:var(--line)}
+  .grid2{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;margin-bottom:22px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
+  .panel h2{margin:0 0 2px;font-size:15px;font-weight:700}
+  .panel .sub{margin:0 0 14px;font-size:12px;color:var(--ink-soft)}
+  .panel .sub b.pass{color:var(--good)}
+  svg{display:block;width:100%;height:auto;overflow:visible}
+  .axis{stroke:var(--line);stroke-width:1}.glabel{font-size:11px;fill:var(--ink-soft)}
+  .vlabel{font-size:10px;fill:var(--ink-soft)}.barval{font-size:10px;font-weight:600}
+  .tablewrap{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .tablewrap .head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px}
+  .tablewrap h2{margin:0;font-size:15px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:11px 20px;border-top:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-soft);font-weight:600;background:#fcfaf6}
+  td.q{max-width:360px}td.q .src{display:block;font-size:11px;color:var(--ink-soft);margin-top:3px}
+  .score{display:inline-flex;align-items:center;gap:6px;font-weight:700}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .d-good{background:var(--good)}.d-warn{background:var(--warn)}.d-bad{background:var(--bad)}.d-none{background:var(--line)}
+  .ab{display:inline-flex;gap:4px;align-items:center;font-weight:700}
+  .ab .f{color:var(--ink-soft)}.ab .arrow{color:var(--accent)}.ab .r{color:var(--accent)}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;font-weight:600}
+  .tag.pass{background:var(--good-soft);color:var(--good)}.tag.fail{background:var(--bad-soft);color:var(--bad)}
+  .tag.warn{background:var(--warn-soft);color:var(--warn)}
+  tbody tr:hover{background:var(--accent-ghost)}
+  .empty{text-align:center;color:var(--ink-soft);padding:48px 20px}
+  .empty b{color:var(--accent)}
+  .note{margin-top:22px;font-size:12px;color:var(--ink-soft);background:var(--accent-ghost);border:1px solid #f3d9c4;border-radius:12px;padding:13px 16px}
+  .note b{color:var(--accent)}
+  footer{margin-top:26px;font-size:11px;color:var(--ink-soft);text-align:center}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="title">
+      <h1>RAG 评估看板</h1>
+      <p>保险知识库 · 检索链路与回答质量评测 · 本地离线报告（数据不出机）</p>
+    </div>
+    <div class="runbar">
+      <label class="filebtn">+ 加载评测结果 (JSON)
+        <input id="fileInput" type="file" accept=".json,application/json" multiple>
+      </label>
+      <label>运行批次</label>
+      <select id="runSel"></select>
+      <label>对比</label>
+      <select id="cmpSel"></select>
+      <span class="pill">样本 <b id="sampleN">—</b> 题</span>
+    </div>
+  </header>
+
+  <div id="emptyState" class="empty">
+    <p style="font-size:16px">还没有加载数据。</p>
+    <p>点右上角 <b>加载评测结果 (JSON)</b>，选 <code>evals/results/</code> 下的一个或多个 <code>*.json</code>（多选可画趋势和对比）。<br>
+    纯本地解析，不联网、不上传。</p>
+  </div>
+
+  <div id="dash" class="hidden">
+    <div class="cards" id="cards"></div>
+
+    <div class="grid2">
+      <div class="panel">
+        <h2>A/B 对比 · 碎片组 vs 复原组</h2>
+        <p class="sub">同一检索命中，分别用<b>原始碎块</b>与<b>复原产物</b>作上下文送裁判。各维度 1–5 分。</p>
+        <div class="legend" style="margin-bottom:8px">
+          <span><i class="lf"></i>碎片组（基线）</span><span><i class="lr"></i>复原组</span>
+        </div>
+        <div id="abChart"></div>
+      </div>
+      <div class="panel">
+        <h2>趋势 · 答案质量总分</h2>
+        <p class="sub" id="trendSub">近几轮评测，<b class="pass">通过线 ≥4.0</b>。</p>
+        <div id="trendChart"></div>
+      </div>
+    </div>
+
+    <div class="tablewrap">
+      <div class="head">
+        <h2>逐题明细</h2>
+        <span class="pill" id="counts"></span>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:34%">问题 / 期望来源</th>
+          <th>总分 (碎片→复原)</th><th>忠实度</th><th>完整性</th><th>落脚</th><th>判定</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <b>读法：</b>总分头条看<b>复原组</b>的答案质量（忠实/相关/完整/正确）；<b>落脚率</b>只作检索诊断，不拉低头条分。
+      碎片→复原的箭头显示“同一命中、换上下文”带来的增益。全部只读评测，数据留在本地，不上传。
+    </div>
+  </div>
+
+  <footer>本地评估看板 · 纯 SVG 图表，离线可开，无外部依赖</footer>
+</div>
+
+<script>
+"use strict";
+const NS="http://www.w3.org/2000/svg";
+const DIMS=[
+  {key:"faithfulness",label:"忠实度"},
+  {key:"answer_relevance",label:"相关性"},
+  {key:"completeness",label:"完整性"},
+  {key:"correctness",label:"正确性"},
+  {key:"answer_quality",label:"总分"}
+];
+const PASS=4.0;
+let RUNS=[]; // sorted ascending by time
+
+const $=id=>document.getElementById(id);
+const num=v=>(typeof v==="number"&&isFinite(v))?v:null;
+const fmt=(v,d=1)=>v==null?"—":v.toFixed(d);
+function el(tag,attrs,txt){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(txt!=null)e.textContent=txt;return e;}
+function scoreClass(v){if(v==null)return"none";return v>=4?"good":v>=3?"warn":"bad";}
+function rateClass(v){if(v==null)return"none";return v>=.7?"good":v>=.5?"warn":"bad";}
+function runLabel(r){return (r.run_id||"run")+(r.started_at?" · "+r.started_at.slice(0,16).replace("T"," "):"");}
+
+$("fileInput").addEventListener("change",e=>{
+  const files=[...e.target.files];let left=files.length;if(!left)return;
+  files.forEach(f=>{
+    const fr=new FileReader();
+    fr.onload=()=>{
+      try{const o=JSON.parse(fr.result);o._name=f.name;if(!o.run_id)o.run_id=f.name.replace(/\.json$/i,"");
+        RUNS=RUNS.filter(r=>r.run_id!==o.run_id);RUNS.push(o);}
+      catch(err){alert("解析失败: "+f.name+"\n"+err.message);}
+      if(--left===0){sortRuns();refreshSelectors();render();}
+    };
+    fr.readAsText(f);
+  });
+  e.target.value="";
+});
+function sortRuns(){RUNS.sort((a,b)=>String(a.started_at||a.run_id).localeCompare(String(b.started_at||b.run_id)));}
+
+function refreshSelectors(){
+  const rs=$("runSel"),cs=$("cmpSel");
+  rs.innerHTML="";cs.innerHTML="<option value='-1'>无</option>";
+  RUNS.forEach((r,i)=>{
+    rs.appendChild(new Option(runLabel(r),i));
+    cs.appendChild(new Option(runLabel(r),i));
+  });
+  rs.value=RUNS.length-1;
+  cs.value=RUNS.length>=2?RUNS.length-2:"-1";
+}
+$("runSel").addEventListener("change",render);
+$("cmpSel").addEventListener("change",render);
+
+function render(){
+  if(!RUNS.length){$("emptyState").classList.remove("hidden");$("dash").classList.add("hidden");return;}
+  $("emptyState").classList.add("hidden");$("dash").classList.remove("hidden");
+  const cur=RUNS[+$("runSel").value]||RUNS[RUNS.length-1];
+  const ci=+$("cmpSel").value;const cmp=(ci>=0&&RUNS[ci])?RUNS[ci]:null;
+  $("sampleN").textContent=cur.sample_size??(cur.questions?cur.questions.length:"—");
+  renderCards(cur,cmp);renderAB(cur);renderTrend();renderTable(cur);
+}
+
+function renderCards(cur,cmp){
+  const a=cur.aggregate||{};const b=cmp?(cmp.aggregate||{}):{};
+  const defs=[
+    {k:"answer_quality",label:"答案质量总分",rate:false},
+    {k:"faithfulness",label:"忠实度 / groundedness",rate:false},
+    {k:"answer_relevance",label:"答案相关性",rate:false},
+    {k:"completeness",label:"完整性",rate:false},
+    {k:"correctness",label:"正确性",rate:false},
+    {k:"toehold_rate",label:"检索落脚率 toehold",rate:true}
+  ];
+  $("cards").innerHTML=defs.map(d=>{
+    const v=num(a[d.k]);const pv=num(b[d.k]);
+    const cls=d.rate?rateClass(v):scoreClass(v);
+    const disp=v==null?"—":(d.rate?Math.round(v*100):fmt(v));
+    const unit=v==null?"":(d.rate?"%":"<small>/5</small>");
+    let delta="";
+    if(v!=null&&pv!=null){
+      const diff=v-pv;const dc=diff>0.001?"up":diff<-0.001?"down":"flat";
+      const arrow=diff>0.001?"▲":diff<-0.001?"▼":"▬";
+      const dv=d.rate?(Math.round(diff*100)+"pt"):(diff>0?"+":"")+diff.toFixed(1);
+      delta=`<div class="delta ${dc}">${arrow} ${dv} vs 对比轮</div>`;
+    }else{delta=`<div class="delta flat">—</div>`;}
+    return `<div class="card"><div class="bar b-${cls}"></div>
+      <div class="k">${d.label}</div>
+      <div class="v">${disp}${unit}</div>${delta}</div>`;
+  }).join("");
+}
+
+function renderAB(cur){
+  const ab=cur.ab||{};const F=ab.fragment||{};const R=ab.rebuilt||{};
+  const W=560,H=260,top=20,bot=204,left=46,right=540;
+  const y=v=>bot-(v-1)*((bot-top)/4);
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"A/B 分组柱状图"});
+  for(let g=0;g<=4;g++){const yy=top+g*((bot-top)/4);
+    svg.appendChild(el("line",{class:"axis",x1:left,y1:yy,x2:right,y2:yy}));
+    svg.appendChild(el("text",{class:"vlabel",x:left-6,y:yy+4,"text-anchor":"end"},String(5-g)));}
+  svg.appendChild(el("line",{class:"axis",x1:left,y1:bot,x2:right,y2:bot,"stroke-width":"1.5"}));
+  const n=DIMS.length,span=(right-left-16)/n,bw=20;
+  DIMS.forEach((d,i)=>{
+    const cx=left+16+i*span+span/2;
+    const fv=num(F[d.key]),rv=num(R[d.key]);
+    const x1=cx-bw-2,x2=cx+2;
+    if(fv!=null){svg.appendChild(el("rect",{x:x1,y:y(fv),width:bw,height:bot-y(fv),rx:2,fill:"var(--frag)"}));
+      svg.appendChild(el("text",{class:"barval",x:x1+bw/2,y:y(fv)-5,"text-anchor":"middle",fill:"var(--ink-soft)"},fmt(fv)));}
+    if(rv!=null){svg.appendChild(el("rect",{x:x2,y:y(rv),width:bw,height:bot-y(rv),rx:2,fill:"var(--rebuilt)"}));
+      svg.appendChild(el("text",{class:"barval",x:x2+bw/2,y:y(rv)-5,"text-anchor":"middle",fill:"var(--accent)"},fmt(rv)));}
+    svg.appendChild(el("text",{class:"glabel",x:cx,y:bot+16,"text-anchor":"middle"},d.label));
+  });
+  $("abChart").replaceChildren(svg);
+}
+
+function renderTrend(){
+  const W=420,H=260,top=24,bot=204,left=40,right=410;
+  const data=RUNS.map(r=>({t:r.run_id,v:num((r.aggregate||{}).answer_quality),
+    lab:(r.started_at||r.run_id).slice(5,10)||r.run_id}));
+  const y=v=>bot-(v-1)*((bot-top)/4);
+  const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"趋势折线图"});
+  for(let g=0;g<=4;g++){const yy=top+g*((bot-top)/4);
+    svg.appendChild(el("line",{class:"axis",x1:left,y1:yy,x2:right,y2:yy}));
+    svg.appendChild(el("text",{class:"vlabel",x:left-6,y:yy+4,"text-anchor":"end"},String(5-g)));}
+  svg.appendChild(el("line",{x1:left,y1:y(PASS),x2:right,y2:y(PASS),stroke:"var(--good)","stroke-width":1,"stroke-dasharray":"4 4",opacity:".7"}));
+  svg.appendChild(el("text",{class:"vlabel",x:right-2,y:y(PASS)-6,"text-anchor":"end",fill:"var(--good)"},"通过线"));
+  const pts=data.filter(d=>d.v!=null);
+  const n=data.length;const xOf=i=>n<=1?(left+right)/2:left+20+i*((right-left-40)/(n-1));
+  if(pts.length){
+    let poly="";data.forEach((d,i)=>{if(d.v!=null)poly+=`${xOf(i)},${y(d.v)} `;});
+    svg.appendChild(el("polyline",{fill:"none",stroke:"var(--accent)","stroke-width":2.5,points:poly.trim()}));
+    svg.appendChild(el("polyline",{fill:"var(--accent)",opacity:".07",stroke:"none",
+      points:poly.trim()+` ${xOf(data.length-1)},${bot} ${xOf(0)},${bot}`}));
+    data.forEach((d,i)=>{if(d.v==null)return;const last=i===data.length-1;
+      svg.appendChild(el("circle",{cx:xOf(i),cy:y(d.v),r:last?4.5:3.5,fill:"var(--accent)",
+        ...(last?{stroke:"#fff","stroke-width":2}:{})}));
+      if(last||i>=data.length-2)svg.appendChild(el("text",{class:"barval",x:xOf(i),y:y(d.v)-8,"text-anchor":"middle",fill:"var(--accent)"},fmt(d.v)));});
+  }
+  data.forEach((d,i)=>svg.appendChild(el("text",{class:"glabel",x:xOf(i),y:bot+18,"text-anchor":"middle"},d.lab)));
+  $("trendChart").replaceChildren(svg);
+}
+
+const TOE={hit:"✓ 命中",partial:"△ 部分",miss:"✗ 未命中"};
+function renderTable(cur){
+  const qs=cur.questions||[];
+  const c=cur.counts||qs.reduce((a,q)=>{a[q.verdict]=(a[q.verdict]||0)+1;return a;},{});
+  $("counts").innerHTML=`通过 <b style="color:var(--good)">${c.pass||0}</b> · 关注 <b style="color:var(--warn)">${c.warn||0}</b> · 不通过 <b style="color:var(--bad)">${c.fail||0}</b>`;
+  $("rows").innerHTML=qs.map(q=>{
+    const F=q.fragment||{},R=q.rebuilt||{};
+    const fq=num(F.answer_quality),rq=num(R.answer_quality);
+    const faith=num(R.faithfulness),comp=num(R.completeness);
+    const tag=q.verdict==="pass"?"pass":q.verdict==="fail"?"fail":"warn";
+    const tagTxt=q.verdict==="pass"?"通过":q.verdict==="fail"?"不通过":"关注";
+    return `<tr>
+      <td class="q">${esc(q.question||q.id||"—")}<span class="src">来源 · ${esc(q.expected_source||"—")}</span></td>
+      <td><span class="ab"><span class="f">${fmt(fq)}</span><span class="arrow">→</span><span class="r">${fmt(rq)}</span></span></td>
+      <td><span class="score"><span class="dot d-${scoreClass(faith)}"></span>${fmt(faith)}</span></td>
+      <td><span class="score"><span class="dot d-${scoreClass(comp)}"></span>${fmt(comp)}</span></td>
+      <td>${TOE[q.toehold]||"—"}</td>
+      <td><span class="tag ${tag}">${tagTxt}</span></td></tr>`;
+  }).join("")||`<tr><td colspan="6" class="empty">该批次无逐题数据。</td></tr>`;
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+// ---------- demo seed（无文件时演示；加载真实 JSON 后被替换）----------
+RUNS=[{
+  run_id:"demo",started_at:"2026-10-09T22:40",sample_size:30,pass_threshold:4.0,
+  aggregate:{answer_quality:4.2,faithfulness:4.4,answer_relevance:4.3,completeness:3.8,correctness:4.1,toehold_rate:0.73},
+  ab:{fragment:{faithfulness:2.9,answer_relevance:3.4,completeness:2.3,correctness:3.1,answer_quality:2.9},
+      rebuilt:{faithfulness:4.4,answer_relevance:4.3,completeness:3.8,correctness:4.1,answer_quality:4.2}},
+  counts:{pass:22,warn:5,fail:3},
+  questions:[
+    {id:"q01",question:"代理店管理の情報はどのシステムへ連携されるか？",expected_source:"4-1 システム関連図 (slide-4)",toehold:"hit",
+     fragment:{answer_quality:2.7},rebuilt:{answer_quality:4.6,faithfulness:4.7,completeness:4.3},verdict:"pass"},
+    {id:"q02",question:"LIFE/J から DMS へのデータ連携タイミングは？",expected_source:"Appendix5 連携タイミング表",toehold:"hit",
+     fragment:{answer_quality:3.1},rebuilt:{answer_quality:4.1,faithfulness:4.2,completeness:3.6},verdict:"pass"},
+    {id:"q03",question:"QlikSense へデータを供給するDBはどれか？",expected_source:"SJIS共通DB → QlikSense",toehold:"partial",
+     fragment:{answer_quality:2.4},rebuilt:{answer_quality:3.6,faithfulness:4.0,completeness:3.2},verdict:"warn"},
+    {id:"q04",question:"募集人登録システムの登録・変更・廃止の頻度は？",expected_source:"登録・変更・廃止 (随時)",toehold:"miss",
+     fragment:{answer_quality:1.9},rebuilt:{answer_quality:2.6,faithfulness:2.4,completeness:2.3},verdict:"fail"}
+  ]
+}];
+refreshSelectors();render();
+</script>
+</body>
+</html>
