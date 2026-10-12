@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG 评估控制台</title>
+<link rel="stylesheet" href="css/styles.css">
+<!--
+  图表库 Chart.js：本地/生产请用官方 CDN（下面这行即可），
+  或下载到本地改成 <script src="js/chart.umd.min.js"></script>
+-->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand" onclick="go('reports')">
+      <div class="brand-mark">◉</div>
+      <div class="brand-name">RagEval<small>评估控制台</small></div>
+    </div>
+    <div class="org-switch">
+      <div class="o-left"><div class="o-ava">A</div><div class="o-name">Acme AI · 知识库问答</div></div>
+      <div class="chev">▾</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">评估</div>
+      <div class="nav-item active" data-nav="reports"><span class="ico">◷</span>评估报告<span class="badge" id="navReports">—</span></div>
+      <div class="nav-item" data-nav="datasets"><span class="ico">▤</span>评估集<span class="badge" id="navDatasets">—</span></div>
+      <div class="nav-item" data-nav="metrics"><span class="ico">◈</span>评分指标</div>
+      <div class="nav-item" data-nav="badcase"><span class="ico">⚠</span>Bad Case<span class="badge" id="navBad">—</span></div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">实验</div>
+      <div class="nav-item" data-nav="reports"><span class="ico">⚗</span>实验对比</div>
+      <div class="nav-item" data-nav="prompts"><span class="ico">◇</span>Prompt 版本</div>
+    </div>
+    <div class="side-foot">
+      <div class="user-chip"><div class="u-ava">JЗ</div><div class="u-meta"><b>Jia Zhang</b><span>admin@acme.ai</span></div></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="crumbs" id="crumbs"></div>
+      <div class="spacer"></div>
+      <div class="search">🔍<input placeholder="搜索…"></div>
+      <div class="menu-wrap" id="exportWrap">
+        <button class="btn" id="exportBtn">↧ 导出报告 ▾</button>
+        <div class="menu" id="exportMenu">
+          <button data-exp="pdf">🖨 导出为 PDF<small>打印</small></button>
+          <button data-exp="csv">▤ 导出 Case 明细<small>CSV</small></button>
+          <div class="mdiv"></div>
+          <button data-exp="bad">⚠ 仅导出 Bad Case<small>CSV</small></button>
+        </div>
+      </div>
+      <button class="btn primary" id="newEvalBtn">▶ 新建评估</button>
+    </div>
+
+    <div class="content">
+
+      <!-- VIEW: 评估报告列表 -->
+      <div class="view show" id="view-reports">
+        <div class="page-head">
+          <div><h1>评估报告</h1><div class="sub">所有历史评估 run · 点击任一行查看完整报告</div></div>
+          <div class="seg"><button class="on">全部</button><button>已完成</button><button>运行中</button></div>
+        </div>
+        <div class="table-card">
+          <div class="table-top"><h3>报告列表</h3><span class="count" id="rptCount">—</span></div>
+          <div class="tscroll">
+          <table>
+            <thead><tr>
+              <th>报告 / Run</th><th>评估集</th><th class="num">综合分</th><th class="num">较上轮</th>
+              <th class="num">Bad</th><th>模型 / 配置</th><th>状态</th><th>完成时间</th>
+            </tr></thead>
+            <tbody id="rptRows"></tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: 单个报告详情（内容由 app.js 填充） -->
+      <div class="view" id="view-report">
+        <button class="btn ghost" onclick="go('reports')">← 返回报告列表</button>
+        <div class="page-head" style="margin-top:10px">
+          <div><h1 id="rptTitle"></h1><div class="sub" id="rptSub"></div></div>
+          <div class="seg"><button class="on">本轮</button><button>对比基线</button></div>
+        </div>
+
+        <div class="summary">
+          <h3>◈ 结论摘要</h3>
+          <div class="verdict" id="summaryVerdict"></div>
+          <div class="cols">
+            <div class="find"><h4>⚠ 主要问题归因</h4><ul id="summaryFindings"></ul></div>
+            <div class="rec"><h4>✓ 改进建议</h4><ul id="summaryRec"></ul></div>
+          </div>
+        </div>
+
+        <div class="score-row">
+          <div class="score-hero">
+            <div class="gauge-wrap"><canvas id="gauge"></canvas>
+              <div class="gauge-val"><b id="gVal">—</b><span>综合评分</span></div></div>
+            <div class="caption" id="gCaption"></div>
+          </div>
+          <div class="metrics" id="metricsRow"></div>
+        </div>
+
+        <div class="grid2">
+          <div class="card"><div class="card-head"><h3>各轮评估得分趋势</h3><span class="hint">最近 10 次 run</span></div>
+            <div class="chart-wrap"><canvas id="trend"></canvas></div>
+            <div class="legend"><div class="lg"><span class="sw" style="background:#1f6feb"></span>综合</div><div class="lg"><span class="sw" style="background:#1a7f52"></span>忠实度</div><div class="lg"><span class="sw" style="background:#b8860b"></span>上下文精确</div></div></div>
+          <div class="card"><div class="card-head"><h3>各指标雷达</h3><span class="hint">本轮 vs 基线</span></div>
+            <div class="chart-wrap"><canvas id="radar"></canvas></div>
+            <div class="legend"><div class="lg"><span class="sw" style="background:#1f6feb"></span>本轮</div><div class="lg"><span class="sw" style="background:#9a9a90"></span>基线</div></div></div>
+        </div>
+
+        <div class="tabs">
+          <button class="on" data-tab="cases">全部 Case<span class="tcount" id="tabAll"></span></button>
+          <button data-tab="bad">Bad Case<span class="tcount" id="tabBad"></span></button>
+        </div>
+        <div class="subpanel show" id="sp-cases">
+          <div class="table-card">
+            <div class="table-top"><h3 id="caseTitle">评估明细（示例）</h3><span class="count" id="caseCount"></span>
+              <div class="filters">
+                <span class="chip on" data-f="all">全部</span>
+                <span class="chip" data-f="faith">◆ 忠实度低</span>
+                <span class="chip" data-f="recall">◆ 召回缺失</span>
+                <span class="chip danger" data-f="bad">⚠ 仅 bad case</span>
+              </div>
+            </div>
+            <div class="tscroll"><table>
+              <thead><tr><th>Case / 问题</th><th class="num">综合</th><th class="num">忠实</th><th class="num">相关</th><th class="num">精确</th><th class="num">召回</th><th>判定</th></tr></thead>
+              <tbody id="rows"></tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: 评估集列表 -->
+      <div class="view" id="view-datasets">
+        <div class="page-head">
+          <div><h1>评估集</h1><div class="sub" id="dsSubCount">点击查看样本明细</div></div>
+          <button class="btn primary" id="uploadBtn">↥ 上传评估集</button>
+        </div>
+        <div class="ds-grid" id="dsGrid"></div>
+      </div>
+
+      <!-- VIEW: 评估集详情 -->
+      <div class="view" id="view-dataset">
+        <button class="btn ghost" onclick="go('datasets')">← 返回评估集</button>
+        <div class="page-head" style="margin-top:10px">
+          <div><h1 id="dsTitle"></h1><div class="sub" id="dsSub"></div></div>
+          <div class="seg"><button class="on">样本</button><button>最近评估</button></div>
+        </div>
+        <div class="kv" id="dsKv"></div>
+        <div class="table-card">
+          <div class="table-top"><h3>样本明细</h3><span class="count" id="dsCount"></span>
+            <div class="filters"><span class="chip on">全部</span><span class="chip">含参考答案</span><span class="chip">待标注</span></div></div>
+          <div class="tscroll"><table>
+            <thead><tr><th>#</th><th>问题 (query)</th><th>参考答案 (ground truth)</th><th>标注</th></tr></thead>
+            <tbody id="dsRows"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- VIEW: 评分指标 -->
+      <div class="view" id="view-metrics">
+        <div class="page-head"><div><h1>评分指标</h1><div class="sub">当前评分器配置 · 综合分 = 各指标加权平均</div></div>
+          <button class="btn">⚙ 编辑权重</button></div>
+        <div id="metricCards"></div>
+      </div>
+
+      <!-- VIEW: Bad Case 汇总 -->
+      <div class="view" id="view-badcase">
+        <div class="page-head"><div><h1>Bad Case 汇总</h1><div class="sub">跨报告聚合的失败样本 · 按失败类型归类</div></div>
+          <div class="seg" id="badSeg"><button class="on" data-grp="type">按类型</button><button data-grp="src">按报告</button></div></div>
+        <div class="kv" id="badKv"></div>
+        <div class="table-card">
+          <div class="table-top"><h3>失败样本</h3><span class="count" id="badCount"></span>
+            <div class="filters">
+              <span class="chip on" data-bf="all">全部</span>
+              <span class="chip" data-bf="忠实">忠实度冲突</span>
+              <span class="chip" data-bf="召回">召回缺失</span>
+              <span class="chip" data-bf="精确">检索噪声</span>
+              <span class="chip" data-bf="相关">答案不完整</span>
+            </div></div>
+          <div class="tscroll"><table>
+            <thead><tr><th>Case / 问题</th><th>来源报告</th><th class="num">综合</th><th>失败类型</th></tr></thead>
+            <tbody id="badRows"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <!-- VIEW: Prompt 版本 -->
+      <div class="view" id="view-prompts">
+        <div class="page-head">
+          <div><h1>Prompt 版本</h1><div class="sub">问答提示词模板的历史版本 · 每版对应一次评估得分，用于判断改动是涨是跌</div></div>
+          <button class="btn primary" id="newPromptBtn">+ 新建版本</button>
+        </div>
+        <div class="pv-list" id="pvList"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- UPLOAD MODAL -->
+  <div class="mask" id="uploadMask">
+    <div class="modal">
+      <div class="modal-head"><h3>↥ 上传评估集</h3><button class="x" data-close="uploadMask">×</button></div>
+      <div class="modal-body">
+        <div class="field"><label>评估集名称</label><input type="text" id="dsName" placeholder="例如 faq-golden-v4"></div>
+        <div class="field">
+          <label>文件格式</label>
+          <div class="fmt-tabs"><button class="on" data-fmt="csv">CSV</button><button data-fmt="jsonl">JSONL</button></div>
+          <div class="dropzone" id="dropzone">
+            <div class="dz-ico">⬆</div>
+            <div class="dz-main">点击选择文件，或拖拽到此处</div>
+            <div class="dz-sub" id="dzSub">支持 .csv · 最大 20MB</div>
+            <input type="file" id="fileInput" accept=".csv,.tsv" style="display:none">
+          </div>
+          <div class="spec" id="spec"></div>
+          <div class="preview" id="preview">
+            <div class="pv-head" id="pvHead">✓ 已解析</div>
+            <div class="tscroll"><table><thead id="pvThead"></thead><tbody id="pvBody"></tbody></table></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" data-close="uploadMask">取消</button>
+        <button class="btn primary" id="confirmUpload">确认导入</button>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <!-- NEW EVAL MODAL -->
+  <div class="mask" id="newEvalMask">
+    <div class="modal">
+      <div class="modal-head"><h3>▶ 新建评估</h3><button class="x" data-close="newEvalMask">×</button></div>
+      <div class="modal-body">
+        <div class="field"><label>评估名称</label><input type="text" id="neName" placeholder="例如 知识库问答评估"></div>
+        <div class="field"><label>评估集</label><select id="neDs"></select>
+          <div class="hintline">选择要跑的数据集，样本数越多耗时越长</div></div>
+        <div class="field"><div class="row2">
+          <div><label>模型</label><select id="neModel">
+            <option>gpt-4o</option><option>gpt-4o-mini</option><option>claude-opus-4-8</option><option>claude-sonnet-5</option>
+          </select></div>
+          <div><label>Prompt 版本</label><select id="nePrompt">
+            <option>v3 (current)</option><option>v2</option><option>v1</option>
+          </select></div>
+        </div></div>
+        <div class="field"><div class="row2">
+          <div><label>检索配置</label><select id="neRetr">
+            <option>bge-reranker · top-8</option><option>bge-reranker · top-5</option><option>no rerank · top-5</option><option>HyDE + rerank · top-8</option>
+          </select></div>
+          <div><label>对比基线</label><select id="neBase">
+            <option>run #142 (最新)</option><option>run #138 (基线)</option><option>不对比</option>
+          </select></div>
+        </div></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" data-close="newEvalMask">取消</button>
+        <button class="btn primary" id="startEval">▶ 启动评估</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW PROMPT VERSION MODAL -->
+  <div class="mask" id="newPromptMask">
+    <div class="modal">
+      <div class="modal-head"><h3>◇ 新建 Prompt 版本</h3><button class="x" data-close="newPromptMask">×</button></div>
+      <div class="modal-body">
+        <div class="field"><label>版本号</label><input type="text" id="npVer" placeholder="v4">
+          <div class="hintline">基于当前版本复制，可直接修改下方内容</div></div>
+        <div class="field"><label>提示词模板（支持 {context} / {question} 占位符）</label>
+          <textarea id="npBody"></textarea></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" data-close="newPromptMask">取消</button>
+        <button class="btn primary" id="savePrompt">保存版本</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
