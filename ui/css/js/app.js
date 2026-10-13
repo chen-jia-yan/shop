@@ -2,8 +2,22 @@
  * app.js — 界面渲染 + 路由（只依赖 api.js，不直接写死数据）
  * 对接后端时无需修改本文件。
  * ===================================================================== */
-Chart.defaults.font.family = '"PingFang SC","Microsoft YaHei",sans-serif';
-Chart.defaults.font.size = 11; Chart.defaults.color = '#5c6676';
+// Chart.js 若未加载成功（CDN 被墙/离线），下面做容错：图表位置显示提示，页面其余功能照常。
+const HAS_CHART = typeof Chart !== 'undefined';
+if (HAS_CHART) {
+  Chart.defaults.font.family = '"PingFang SC","Microsoft YaHei",sans-serif';
+  Chart.defaults.font.size = 11; Chart.defaults.color = '#5c6676';
+}
+function safeChart(canvas, cfg) {
+  if (!canvas) return;
+  if (!HAS_CHART) {
+    const wrap = canvas.parentNode;
+    if (wrap) wrap.innerHTML = '<div style="display:grid;place-items:center;height:100%;min-height:160px;color:#97a0ad;font-size:12.5px;text-align:center;padding:16px">图表库未加载<br><span style="font-size:11px">（请检查 Chart.js 的 CDN 是否可访问）</span></div>';
+    return;
+  }
+  return new Chart(canvas, cfg);
+}
+
 const $ = id => document.getElementById(id);
 function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2200); }
 function openModal(id) { $(id).classList.add('show'); }
