@@ -1,8 +1,8 @@
 /* ============================================================
  * app.js — 知识图谱 UI + 手写力导向布局（只依赖 api.js）
- * 对接后端时无需修改本文件：数据读取走 API.getGraph，
+ * 数据读取走 API.getStats/getSeed/getNeighbors/search，
  * 增删改走 API.createNode / createEdge / updateNode / deleteNode / deleteEdge，
- * 增量同步走 API.pullDelta。
+ * 节点内容走 API.getNodeContent，增量同步走 API.pullDelta。
  * ============================================================ */
 const $ = id => document.getElementById(id);
 const svg = $('graph'), vp = $('viewport'), edgeLayer = $('edgeLayer'), nodeLayer = $('nodeLayer');
@@ -15,9 +15,14 @@ const TYPES = {
   claim:    { name: '理赔', color: '#1aa3a3' },
   customer: { name: '客户', color: '#7a5bd6' },
   channel:  { name: '渠道', color: '#d4a235' },
+  doc:      { name: '文档', color: '#8a94a6' },
 };
 const TKEYS = Object.keys(TYPES);
 let curType = 'product';
+
+/* ---- 大规模配置 ---- */
+const CFG = { MAX_NODES: 700, EXPAND_LIMIT: 24 };   // 可见上限 + 单次展开邻居数
+let addSeq = 0;                                      // 节点加入顺序（超限回收最旧）
 
 /* ---- 状态 ---- */
 let nodes = [], edges = [], selected = null, history = [], changeSeq = 0;
@@ -31,10 +36,10 @@ const byId = id => nodes.find(n => n.id === id);
  * 力导向布局
  * ============================================================ */
 let alpha = 0;
-function reheat(a = 0.9) { alpha = Math.max(alpha, a); }
+function reheat(a = 0.45) { alpha = Math.max(alpha, a); }
 function tick() {
-  alpha *= 0.985; if (alpha < 0.02) alpha = 0;
-  const K_REP = 5200, L = 118, K_SPR = 0.035, GRAV = 0.025, DAMP = 0.86;
+  alpha *= 0.92; if (alpha < 0.04) alpha = 0;
+  const K_REP = 5200, L = 118, K_SPR = 0.035, GRAV = 0.025, DAMP = 0.8;
   for (const n of nodes) { n.vx = n.vx || 0; n.vy = n.vy || 0; }
   for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
     const a = nodes[i], b = nodes[j];
@@ -93,7 +98,7 @@ function render() {
   }
   applyFilterDim(); updateStats(); refreshEdgeSelects();
 }
-function nodeR(n) { const deg = edges.filter(e => e.source === n.id || e.target === n.id).length; return 15 + Math.min(deg * 1.6, 10); }
+function nodeR(n) { const deg = (n.deg != null && n.deg > 0) ? n.deg : edges.filter(e => e.source === n.id || e.target === n.id).length; return 11 + Math.min(Math.sqrt(deg || 1) * 1.6, 13); }
 function mk(tag, attrs) { const el = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const k in attrs) el.setAttribute(k, attrs[k]); return el; }
 
 function positionDom() {
@@ -114,7 +119,8 @@ function bindNode(g, n) {
   let dragging = false, moved = false;
   g.addEventListener('pointerdown', ev => { ev.stopPropagation(); dragging = true; moved = false; g.setPointerCapture(ev.pointerId); n.fixed = true; });
   g.addEventListener('pointermove', ev => { if (!dragging) return; moved = true; const p = toGraph(ev.clientX, ev.clientY); n.x = p.x; n.y = p.y; positionDom(); });
-  g.addEventListener('pointerup', () => { dragging = false; n.fixed = false; reheat(0.4); if (!moved) selectNode(n.id); });
+  g.addEventListener('pointerup', () => { dragging = false; n.fixed = false; reheat(0.18); if (!moved) selectNode(n.id); });
+  g.addEventListener('dblclick', ev => { ev.stopPropagation(); expand(n.id, n.loaded || 0); });
   g.addEventListener('pointerenter', () => highlight(n.id));
   g.addEventListener('pointerleave', () => { if (!selected) highlight(null); });
 }
@@ -150,18 +156,77 @@ function renderDetail() {
   const d = $('detail');
   if (!selected || !byId(selected)) { d.innerHTML = '<div class="detail-empty">点击任意节点查看详情<br>并进行编辑 / 删除</div>'; return; }
   const n = byId(selected), col = TYPES[n.type] ? TYPES[n.type].color : '#8894a5', tyName = TYPES[n.type] ? TYPES[n.type].name : n.type;
-  const nbrs = edges.filter(e => e.source === n.id || e.target === n.id).map(e => { const oid = e.source === n.id ? e.target : e.source; const o = byId(oid); return { o, rel: e.label, dir: e.source === n.id ? '→' : '←' }; }).filter(x => x.o);
+  const nbrs = edges.filter(e => e.source === n.id || e.target === n.id).map(e => { const oid = e.source === n.id ? e.target : e.source; const o = byId(oid); return { o, eid: e.id, rel: e.label, dir: e.source === n.id ? '→' : '←' }; }).filter(x => x.o);
   d.innerHTML = `
     <div class="d-head"><div class="d-ico" style="background:${col}">${tyName[0]}</div>
       <div><h4>${esc(n.label)}</h4><div class="ty">${tyName} · ${nbrs.length} 个关系</div></div></div>
     <div class="d-row"><span class="k">ID</span><span class="v" style="font-family:var(--mono);font-size:11px">${n.id}</span></div>
     <div class="d-row"><span class="k">类型</span><span class="v" style="color:${col}">${tyName}</span></div>
-    <div style="font-size:11px;color:var(--ink-faint);margin:12px 0 4px;font-weight:700;letter-spacing:.05em">相邻节点</div>
-    ${nbrs.length ? nbrs.map(x => `<div class="nbr" data-go="${x.o.id}"><span class="dot" style="background:${TYPES[x.o.type] ? TYPES[x.o.type].color : '#8894a5'}"></span>${esc(x.o.label)}<span class="rel">${x.dir} ${esc(x.rel || '')}</span></div>`).join('') : '<div style="font-size:12px;color:var(--ink-faint)">无相邻节点</div>'}
+    ${n._total != null ? `<div class="d-row"><span class="k">后端总关系</span><span class="v">${n._total}</span></div>` : ''}
+    <div class="d-acts"><button class="btn sm" data-act="expand" style="flex:1">⊕ 展开邻居${(n._total != null && n._total > (n.loaded || nbrs.length)) ? `（还有 ${n._total - (n.loaded || nbrs.length)}）` : ''}</button></div>
+    <div class="sec-sub">相邻节点 <span style="color:var(--ink-faint);font-weight:400">（✕ 删除该关系）</span></div>
+    ${nbrs.length ? nbrs.map(x => `<div class="nbr"><span class="dot" style="background:${TYPES[x.o.type] ? TYPES[x.o.type].color : '#8894a5'}"></span><span class="nbr-go" data-go="${x.o.id}">${esc(x.o.label)}</span><span class="rel">${x.dir} ${esc(x.rel || '')}</span><span class="ex" data-deledge="${x.eid}" title="删除该关系">✕</span></div>`).join('') : '<div style="font-size:12px;color:var(--ink-faint)">无相邻节点</div>'}
+    <div class="sec-sub">关联内容 / 来源切片</div>
+    <div class="ncontent" id="nodeContent"><div class="nc-tip">加载中…</div></div>
     <div class="d-acts"><button class="btn sm" data-act="edit">✎ 重命名/改类型</button><button class="btn sm danger" data-act="del">🗑 删除节点</button></div>`;
   d.querySelectorAll('[data-go]').forEach(el => el.onclick = () => selectNode(el.dataset.go));
+  d.querySelectorAll('[data-deledge]').forEach(el => el.onclick = e => { e.stopPropagation(); deleteEdge(el.dataset.deledge); });
+  d.querySelector('[data-act="expand"]').onclick = () => expand(n.id, n.loaded || 0);
   d.querySelector('[data-act="edit"]').onclick = () => editNode(n.id);
   d.querySelector('[data-act="del"]').onclick = () => deleteNode(n.id);
+  loadNodeContent(n.id, n.label);
+}
+/* 点节点 → 加载它关联的来源文件与切片（RAG 内容） */
+async function loadNodeContent(id, label) {
+  const box = $('nodeContent'); if (!box) return;
+  try {
+    const d = await API.getNodeContent(id, label);
+    if (selected !== id) return;                       // 期间已切换节点
+    const files = d.files || [];
+    box.innerHTML = files.length ? files.map((f, fi) => `
+      <div class="nc-file${fi === 0 ? ' open' : ''}">
+        <div class="nc-fh"><span class="nc-ic">${f.type === 'PDF' ? '📕' : f.type === 'Word' ? '📘' : '📄'}</span><span class="nc-nm">${esc(f.name)}</span><span class="nc-ct">${f.chunks.length} 片</span><span class="nc-cv">▸</span></div>
+        <div class="nc-chunks">${f.chunks.map(c => `<div class="nc-chunk"><div class="nc-ch-h"><span>切片 #${c.idx}</span><span class="nc-score">相似度 ${c.score}</span></div><div class="nc-ch-tx">${esc(c.text)}</div></div>`).join('')}</div>
+      </div>`).join('') : '<div class="nc-tip">暂无关联文件</div>';
+    box.querySelectorAll('.nc-fh').forEach(h => h.onclick = () => h.parentNode.classList.toggle('open'));
+  } catch (e) { box.innerHTML = `<div class="nc-tip">内容加载失败：${esc(e.message)}</div>`; }
+}
+
+/* ============================================================
+ * 按需子图：合入服务端节点/边 + 可见上限回收 + 双击展开邻居
+ * ============================================================ */
+function mergeNode(n, near) {
+  if (byId(n.id)) return byId(n.id);
+  const node = { id: n.id, label: n.label, type: n.type, deg: n.deg || 0,
+    x: (near ? near.x : W / 2) + (Math.random() - .5) * 90, y: (near ? near.y : H / 2) + (Math.random() - .5) * 90, vx: 0, vy: 0, seq: addSeq++ };
+  nodes.push(node); enforceCap(); return node;
+}
+function mergeEdge(e) {
+  if (!e) return; const id = e.id || ('e_' + e.source + '_' + e.target);
+  if (edges.some(x => x.id === id) || !byId(e.source) || !byId(e.target)) return;
+  edges.push({ id, source: e.source, target: e.target, label: e.label || '关联' });
+}
+// 超过可见上限：回收“最旧且非当前选中/其邻居”的节点，保证 SVG 不卡
+function enforceCap() {
+  if (nodes.length <= CFG.MAX_NODES) return;
+  const keep = new Set([selected]); edges.forEach(e => { if (e.source === selected) keep.add(e.target); if (e.target === selected) keep.add(e.source); });
+  const removable = nodes.filter(n => !keep.has(n.id)).sort((a, b) => (a.seq || 0) - (b.seq || 0));
+  const kill = new Set(removable.slice(0, nodes.length - CFG.MAX_NODES).map(n => n.id));
+  if (!kill.size) return;
+  nodes = nodes.filter(n => !kill.has(n.id));
+  edges = edges.filter(e => !kill.has(e.source) && !kill.has(e.target));
+}
+async function expand(id, offset = 0) {
+  const node = byId(id); if (!node) return;
+  try {
+    const res = await API.getNeighbors(id, offset, CFG.EXPAND_LIMIT);
+    let added = 0;
+    for (const n of res.nodes) { if (!byId(n.id)) added++; mergeNode(n, node); }
+    for (const e of res.edges) mergeEdge(e);
+    node.loaded = offset + res.nodes.length; node._total = res.total;
+    render(); reheat(0.4); spawnPulse(node); if (selected === id) renderDetail();
+    toast(added ? `展开 ${added} 个邻居` + (res.total > node.loaded ? `，还有 ${res.total - node.loaded} 个` : '') : '邻居已全部加载');
+  } catch (e) { toast('展开失败：' + e.message); }
 }
 
 /* ============================================================
@@ -174,8 +239,8 @@ function logChange(kind, html, inverse) {
 function addNode(label, type, opt = {}) {
   label = (label || '').trim(); if (!label) { toast('请输入节点名称'); return null; }
   const id = opt.id || ('n' + Date.now().toString(36) + Math.floor(Math.random() * 99));
-  const n = { id, label, type, x: opt.x ?? (W / 2 + (Math.random() - .5) * 80), y: opt.y ?? (H / 2 + (Math.random() - .5) * 80), vx: 0, vy: 0 };
-  nodes.push(n); render(); reheat(0.9); spawnPulse(n);
+  const n = { id, label, type, x: opt.x ?? (W / 2 + (Math.random() - .5) * 80), y: opt.y ?? (H / 2 + (Math.random() - .5) * 80), vx: 0, vy: 0, seq: addSeq++ };
+  nodes.push(n); enforceCap(); render(); reheat(0.5); spawnPulse(n);
   if (!opt.fromServer) API.createNode({ id, label, type }).catch(err => toast('后端写入失败：' + err.message));
   if (!opt.silent) logChange('add', `新增节点 <b>${esc(label)}</b> <span style="color:var(--ink-faint)">(${TYPES[type] ? TYPES[type].name : type})</span>`, { op: 'delNode', id });
   if (!opt.silent) toast('已新增节点：' + label);
@@ -186,7 +251,7 @@ function addEdge(s, t, label, opt = {}) {
   const id = opt.id || ('e' + s + '_' + t + '_' + Math.floor(Math.random() * 999));
   if (edges.some(e => e.source === s && e.target === t && e.label === label)) { toast('该关系已存在'); return null; }
   const e = { id, source: s, target: t, label: (label || '关联').trim() };
-  edges.push(e); render(); reheat(0.7);
+  edges.push(e); render(); reheat(0.35);
   if (!opt.fromServer) API.createEdge({ ...e }).catch(err => toast('后端写入失败：' + err.message));
   if (!opt.silent) logChange('add', `新增关系 <b>${esc(byId(s).label)}</b> ─${esc(e.label)}→ <b>${esc(byId(t).label)}</b>`, { op: 'delEdge', id });
   if (!opt.silent) toast('已新增关系');
@@ -256,7 +321,7 @@ async function syncDelta() {
     (d.added?.nodes || []).forEach(n => { if (!byId(n.id)) { addNode(n.label, n.type, { id: n.id, silent: true, fromServer: true }); added++; } });
     (d.added?.edges || []).forEach(e => { if (!edges.some(x => x.id === e.id)) { addEdge(e.source, e.target, e.label, { id: e.id, silent: true, fromServer: true }); added++; } });
     (d.updated?.nodes || []).forEach(u => { const n = byId(u.id); if (n) { n.label = u.label ?? n.label; n.type = u.type ?? n.type; updated++; } });
-    render(); reheat(0.7); renderDetail();
+    render(); reheat(0.5); renderDetail();
     if (added || removed || updated) {
       logChange('sync', `增量同步：<b>+${added}</b> 新增 · <b>~${updated}</b> 变更 · <b>−${removed}</b> 删除`, null);
       toast(`已同步增量：+${added} / ~${updated} / −${removed}`);
@@ -290,11 +355,20 @@ function refreshEdgeSelects() {
 }
 function updateStats() { $('stNodes').textContent = nodes.length; $('stEdges').textContent = edges.length; $('stChanges').textContent = history.filter(h => !h.undone).length; renderLegend(); }
 
-/* ---- 搜索 ---- */
+/* ---- 搜索（命中百万级后端，自动加载该节点的局部网络）---- */
+let searchT;
 $('search').addEventListener('input', e => {
-  const q = e.target.value.trim().toLowerCase();
-  [...nodeLayer.children].forEach(g => { const n = byId(g.dataset.id); const on = !q || (n && n.label.toLowerCase().includes(q)); g.classList.toggle('dim', !on && !!q); });
-  if (q) { const hit = nodes.find(n => n.label.toLowerCase().includes(q)); if (hit) { T.k = 1.1; T.x = W / 2 - hit.x * T.k; T.y = H / 2 - hit.y * T.k; applyTransform(); } }
+  clearTimeout(searchT); const q = e.target.value.trim();
+  [...nodeLayer.children].forEach(g => { const n = byId(g.dataset.id); const on = !q || (n && n.label.toLowerCase().includes(q.toLowerCase())); g.classList.toggle('dim', !on && !!q); });
+  if (!q) return;
+  searchT = setTimeout(async () => {
+    try {
+      const r = await API.search(q, 8); if (!r.nodes.length) { toast('后端无匹配节点'); return; }
+      const top = r.nodes[0];
+      if (!byId(top.id)) { const ego = await API.getNeighbors(top.id, 0, CFG.EXPAND_LIMIT); const s = mergeNode(top); for (const n of ego.nodes) mergeNode(n, s); for (const e2 of ego.edges) mergeEdge(e2); s._total = ego.total; s.loaded = ego.nodes.length; render(); reheat(0.45); }
+      selectNode(top.id); const hit = byId(top.id); if (hit) { T.k = Math.max(T.k, 1); T.x = W / 2 - hit.x * T.k; T.y = H / 2 - hit.y * T.k; applyTransform(); }
+    } catch (err) { toast('搜索失败：' + err.message); }
+  }, 300);
 });
 
 /* ---- 类型选择器 ---- */
@@ -324,7 +398,7 @@ $('playBtn').onclick = async () => {
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const n1 = addNode('航意险', 'product'); await wait(900);
   const n2 = addNode('航班延误风险', 'risk'); await wait(900);
-  if (n1 && n2) { addEdge(n1.id, n2.id, '承保'); await wait(900); const cl = byId('cl1'); if (cl) { addEdge(n1.id, cl.id, '触发'); await wait(900); } }
+  if (n1 && n2) { addEdge(n1.id, n2.id, '承保'); await wait(900); }
   if (n1) { selectNode(n1.id); await wait(700); const old = { label: n1.label, type: n1.type }; n1.label = '航空意外险'; render(); renderDetail();
     API.updateNode(n1.id, { label: n1.label, type: n1.type }).catch(() => {});
     logChange('edit', '修改节点 <b>航意险</b> → <b>航空意外险</b>', { op: 'restoreNode', id: n1.id, old }); await wait(900); }
@@ -339,18 +413,25 @@ let toastT; function toast(m) { const t = $('toast'); t.textContent = m; t.class
 
 /* ---- 载入数据 ---- */
 function loadData(d) {
-  nodes = (d.nodes || []).map(n => ({ ...n, x: n.x ?? W / 2 + (Math.random() - .5) * 300, y: n.y ?? H / 2 + (Math.random() - .5) * 300, vx: 0, vy: 0 }));
+  nodes = (d.nodes || []).map(n => ({ ...n, x: n.x ?? W / 2 + (Math.random() - .5) * 300, y: n.y ?? H / 2 + (Math.random() - .5) * 300, vx: 0, vy: 0, seq: addSeq++ }));
   edges = (d.edges || []).map(e => ({ ...e, id: e.id || ('e_' + e.source + '_' + e.target) }));
   selected = null; history = []; changeSeq = 0; syncVersion = d.version || 0; hidden.clear();
-  render(); renderDetail(); renderLog(); reheat(1); $('undoBtn').disabled = true;
+  render(); renderDetail(); renderLog(); reheat(0.6); $('undoBtn').disabled = true;
 }
 async function boot() {
   resize();
-  try { const g = await API.getGraph(); loadData(g); }
-  catch (err) { toast('加载图谱失败：' + err.message); loadData({ nodes: [], edges: [] }); }
-  // 初始放射状布点，避免一开始叠在一起
-  nodes.forEach((n, i) => { const a = i / nodes.length * Math.PI * 2; n.x = W / 2 + Math.cos(a) * Math.min(W, H) * 0.3; n.y = H / 2 + Math.sin(a) * Math.min(W, H) * 0.3; });
-  reheat(1);
+  nodes = []; edges = []; selected = null; history = []; changeSeq = 0; hidden.clear(); addSeq = 0;
+  nodeLayer.innerHTML = ''; edgeLayer.innerHTML = '';
+  try {
+    const st = await API.getStats(); if ($('stDocTotal')) $('stDocTotal').textContent = st.docTotal.toLocaleString();
+    const seed = await API.getSeed(42);
+    for (const n of seed.nodes) mergeNode(n);
+    for (const e of seed.edges) mergeEdge(e);
+    toast('已加载种子子图，双击节点展开、单击看切片');
+  } catch (err) { toast('加载失败：' + err.message); }
+  // 初始放射状布点
+  nodes.forEach((n, i) => { const a = i / Math.max(1, nodes.length) * Math.PI * 2; n.x = W / 2 + Math.cos(a) * Math.min(W, H) * 0.3; n.y = H / 2 + Math.sin(a) * Math.min(W, H) * 0.3; });
+  render(); renderDetail(); renderLog(); reheat(0.6); $('undoBtn').disabled = true;
 }
 function resize() { const r = svg.getBoundingClientRect(); W = r.width || 800; H = r.height || 600; }
 new ResizeObserver(() => { resize(); reheat(0.3); }).observe(svg);

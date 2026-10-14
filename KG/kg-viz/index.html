@@ -19,12 +19,13 @@
     <div class="brand-name">知识图谱可视化<small>Knowledge Graph · 增量变更</small></div>
   </div>
   <div class="stats">
-    <div class="stat"><b id="stNodes">0</b>节点</div>
+    <div class="stat"><b id="stDocTotal">—</b>后端文档</div>
+    <div class="stat"><b id="stNodes">0</b>已加载节点</div>
     <div class="stat"><b id="stEdges">0</b>关系</div>
     <div class="stat"><b id="stChanges">0</b>变更</div>
   </div>
   <div class="spacer"></div>
-  <div class="search-in">⌕<input type="text" id="search" placeholder="搜索节点…"></div>
+  <div class="search-in">⌕<input type="text" id="search" placeholder="搜索节点（在百万级后端里检索）…"></div>
   <button class="btn sm" id="syncBtn">⟳ 同步增量</button>
   <button class="btn sm" id="playBtn">▶ 演示增量更新</button>
   <button class="btn sm" id="exportBtn">↧ 导出</button>
@@ -76,7 +77,7 @@
       <button id="zoomIn">＋</button><button id="zoomReset">⊙</button><button id="zoomOut">－</button>
     </div>
     <div class="float hint-bar">
-      <span><b>拖拽</b> 移动节点</span><span><b>滚轮</b> 缩放</span><span><b>空白拖拽</b> 平移</span><span><b>点击</b> 查看/编辑</span>
+      <span><b>双击</b> 展开邻居</span><span><b>拖拽</b> 移动节点</span><span><b>滚轮</b> 缩放</span><span><b>空白拖拽</b> 平移</span><span><b>单击</b> 看切片</span>
     </div>
   </div>
 

@@ -118,7 +118,27 @@ body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14p
 .nbr:hover{color:var(--navy)}
 .nbr .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .nbr .rel{margin-left:auto;font-size:11px;color:var(--ink-faint);font-family:var(--mono)}
+.nbr .nbr-go{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nbr .ex{flex-shrink:0;width:18px;height:18px;border-radius:5px;display:grid;place-items:center;color:var(--ink-faint);font-size:11px;cursor:pointer}
+.nbr .ex:hover{background:var(--red-soft);color:var(--red)}
 .d-acts{display:flex;gap:8px;margin-top:13px}
+.sec-sub{font-size:11px;color:var(--ink-faint);margin:14px 0 6px;font-weight:700;letter-spacing:.05em}
+.ncontent{display:flex;flex-direction:column;gap:7px}
+.nc-tip{font-size:12px;color:var(--ink-faint);padding:6px 0}
+.nc-file{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.nc-fh{display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;font-size:12.5px}
+.nc-fh:hover{background:var(--bg)}
+.nc-ic{font-size:14px}
+.nc-nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nc-ct{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);background:var(--grey-soft);padding:1px 7px;border-radius:10px;flex-shrink:0}
+.nc-cv{color:var(--ink-faint);transition:transform .2s;flex-shrink:0}
+.nc-file.open .nc-cv{transform:rotate(90deg)}
+.nc-chunks{display:none;padding:4px 10px 10px;flex-direction:column;gap:7px}
+.nc-file.open .nc-chunks{display:flex}
+.nc-chunk{border-left:3px solid var(--navy-soft);background:var(--bg);border-radius:6px;padding:7px 10px}
+.nc-ch-h{display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink-faint);font-family:var(--mono);margin-bottom:3px}
+.nc-score{color:var(--navy);font-weight:700}
+.nc-ch-tx{font-size:12px;line-height:1.6;color:var(--ink)}
 
 .log{display:flex;flex-direction:column}
 .log-item{display:grid;grid-template-columns:22px 1fr auto;gap:9px;padding:9px 0;border-bottom:1px solid var(--line-soft);font-size:12.5px;align-items:start}

@@ -1,0 +1,14 @@
+{
+  "name": "kg_sync",
+  "description": "知识图谱增量同步：文档新增/更新/删除时增量更新图谱；支持规则/LLM 抽取、预演、版本化与回滚。",
+  "version": "0.1.0",
+  "category": "knowledge_graph",
+  "enabled": false,
+  "entrypoint": "kb_poc.skills.kg_sync.runtime:KGSyncSkillRuntime",
+  "tools": ["kg_sync_status", "kg_sync_plan", "kg_sync_apply", "kg_sync_rollback"],
+  "docs": [],
+  "tags": ["kg", "incremental", "provenance", "offline"],
+  "allows_mutation": true,
+  "requires_model": false,
+  "defaults": {"extractor": "rule", "store": "json"}
+}
