@@ -1,41 +1,111 @@
-目标：实现一个生产级知识图谱同步 skill「kg_sync」，放在 kb_poc/skills/kg_sync/，规格对齐现有 skills（rag_eval、kb_retrieval）。核心设计：接口与实现分离——skill 只依赖「GraphStore 存储接口」和「EntityExtractor 抽取接口」两个抽象，现在用 JSON 存储 + 规则抽取，将来换图数据库 + LLM 抽取时调用方不变。
+# kg_skill调研
+## 1. kg_incremental.py 可复用函数
+| 函数 | 文件:行号 | 作用 |
+| ---- | ---- | ---- |
+| `_read_json(path)` | L107-110 | 读 JSON 文件 |
+| `_write_json_atomic(path, value)` | L76-104 | 原子写（临时文件+rename+fsync），不写坏已有文件 |
+| `_load_manifest()` | L118-122 | 加载 manifest.json，不存在返回 `{active:null, history:[]}` |
+| `_save_manifest(manifest)` | L125-127 | 原子写 manifest |
+| `get_active_graph()` | L130-144 | 读当前 active 版本 KG（尊重 KB_KG_USE_VERSIONS 开关） |
+| `plan_delta(ops, kg)` | L347-390 | 纯内存计算变更计划，不写盘，返回 DeltaPlan |
+| `_plan_add() / _plan_delete() / _plan_update()` | L429+ | plan_delta 的子函数，处理三种操作 |
+| `build_subgraph_for_document(doc_id, kg)` | L232-329 | 为单个文档构建子图（Chunk 节点 + 字符串匹配实体 + mentioned_in 边） |
+| `_get_chunks_for_doc(doc_id)` | L170-191 | 从 state.db 查 doc_id → file_hash → 文件路径 |
+| `apply_delta(plan)` | L684-727 | 正式应用：写 v{N+1}.json + 更新 manifest + 写 changelog |
+| `rollback()` | L810+ | 回滚到上一版本（切 manifest.active 指向前一版） |
+| `DeltaPlan dataclass` | L47-68 | 变更计划结构：nodes_added/removed/touched, edges_added/removed/touched, ops, orphan_edges 等 |
 
-全程硬约束：不碰 Azure 检索索引；绝不删源文件；所有写操作走版本化、可回滚、原子写；功能开关默认关（不开则行为与现状完全一致）；apply / rollback / 删除由我手动执行，你只给命令和 diff，不自动跑；离线 $0，默认不调 LLM。
+### 版本管理机制
+- 基线：`kg_versions/business_kg_enriched.provenance.json`（16,790 节点）
+- 增删改 → `apply_delta` → 写 `kg_versions/v{N}.json`（全量快照）+ 更新 `manifest.json` 的 `active` 和 `history`
+- 每次 apply 还写 `changelog/delta_{ts}.json`
+- rollback 只需切 `manifest.active` 指向前一版即可
 
-=== 阶段 A · 只读调研（先做，停下给我看）===
-不写任何文件。查清并给出文件:行号证据：
-1. 现有 kg_incremental.py 的增删改、版本、manifest、回滚是怎么实现的？列出可复用的函数。
-2. kg_extractor.py 的输入输出接口（喂什么、吐什么结构、哪步调 LLM）。
-3. 离线下如何拿到「某文档所有 chunk 的正文文字」？从哪取。
-4. skills 框架规范：一个 skill 的 runtime / 注册（tool_registry、tool_schemas）长什么样，照抄这个规格。
-5. 当前实体节点/边/来源标签的真实字段结构。
-→ 输出简短调研，停。
+---
 
-=== 阶段 B · 骨架（接口 + 存储 + 规则抽取 + 合并 + 版本）===
-在 kb_poc/skills/kg_sync/ 新建：
-1. interfaces.py：GraphStore（load/save_version/get_active/set_active/list_versions）、EntityExtractor（extract(chunks)->SubGraph）两个抽象基类。
-2. schemas.py：Pydantic 定义 DocRef、SyncPlan（含 new_entities_for_review 单列）、SyncResult、KGStatus。
-3. stores/json_store.py：实现 GraphStore 的 JSON 全量快照版（复用现有 kg_incremental 的版本/manifest 逻辑），原子写（临时文件+改名）。
-4. extractors/rule_extractor.py：离线免费的规则抽取——① 用现有全部实体 label + 可编辑 aliases.json 做词典匹配连已有实体；② 结构化规则抽新实体（如画面ID 正则，先把你归纳的模式列给我确认再写死）；③ 同 chunk 共现建弱关联边，标 provenance_inferred=true；带类型语义关系判不准就留空。产物都带 source_docs。
-5. merger.py：ProvenanceMerger，按 source_docs 做引用计数的合并与清理（归零才删、清悬空边）。
-6. resolver.py：DocResolver，文件↔doc 指纹、离线列 chunk。
-配套单元测试：用小的内存 fixture 图谱，绝不碰真图、不碰 Azure。覆盖 新增已有实体只加来源 / 删除归零才删 / 共享实体不误删 / 幂等重复新增空操作 / 回滚一致。
-→ 停。
+## 2. kg_extractor.py 的输入输出接口
+| 项 | 详情 |
+| ---- | ---- |
+| 入口函数 | `extract_from_chunks(chunks, settings, source_file)` → L278-332 |
+| 输入 | chunks: `list[dict]`，每个含 `content(str)` + `metadata(dict` 含 `source_file/page_or_sheet)` |
+| 调 LLM 的步骤 | `_build_extraction_prompt(chunks)` 构建 prompt → `client.create_chat_completion()` 调 LLM → `_parse_llm_response(content)` 解析 JSON |
+| 输出（子图） | `{nodes: [...], edges: [...]}`，由 `_build_subgraph(chunks, extracted, source_file)` 组装（L154-275） |
+| LLM 返回 JSON | `{entities: [{id, type, label}], relations: [{source, target, type}], mentioned_in: [[entity_id, chunk_index]]}` |
+| 最终节点 | 实体节点（`{id:"Type:label", type, label}`）+ Chunk 节点（`{id:sha256[:12], type:"Chunk", label, metadata}`） |
+| 最终边 | 语义边（`{source, target, type}`）+ mentioned_in 边（`{source:entity_id, target:chunk_id, type:"mentioned_in"}`） |
+| 不调 LLM 的变体 | `extract_from_chunks_dry_run()`（L335-366）：调 LLM 但不写文件 |
 
-=== 阶段 C · 对外 API + CLI + 注册 ===
-1. runtime.py：KGSyncRuntime 暴露 status()、plan_add()、plan_update()、plan_delete()、apply(plan, confirm)、rollback(version)。plan_* 只预演不写盘，输出 SyncPlan 报告（分三栏：连上的已有实体 / 待确认的规则新实体 / 新建关系）。
-2. config.py：开关 KB_KGSYNC_ENABLED(默认关)、KB_KGSYNC_EXTRACTOR=rule|llm(默认rule)、KB_KGSYNC_STORE=json|gremlin(默认json)、KB_KGSYNC_AUTO_APPLY(默认否)。
-3. extractors/llm_extractor.py：把现有 kg_extractor.py 包成 EntityExtractor 接口，仅当开关=llm 时启用。
-4. cli.py：python -m kb_poc.skills.kg_sync，支持 --status / --plan-add / --plan-delete / --apply / --rollback；--apply 必须显式且打印确认提示。
-5. 在 tool_registry、tool_schemas 注册。
-给我一个端到端 dry-run 演示（预演新增+删除一个已有文档），active 和 manifest 不变。
-→ 停，我手动 apply。
+---
 
-=== 阶段 D · 生产件 ===
-1. 结构化日志 + 每次运行一份变更报告 + 关键计数指标。
-2. 运行锁（防并发同步互相覆盖）；apply 前自动备份当前版本。
-3. status() 健康检查：在用版本、节点/边数、unresolved 数、有无悬空引用。
-4. stores/gremlin_store.py：实现 GraphStore 接口的 Azure Cosmos DB(Gremlin) 占位版（可先留 NotImplemented 的清晰骨架 + 映射说明：节点→顶点、边→边、source_docs→属性），证明「换存储不改 runtime」。
-→ 停。
+## 3. 离线下如何拿到「某文档所有 chunk 的正文文字」
+> 目前 KG 里的 Chunk 节点只有 metadata，没有 content 正文！
 
-交付顺序：A→停→B→停→C→停→我手动 apply→D→停。每个停止点等我确认，不要连跑。
+| 途径 | 说明 |
+| ---- | ---- |
+| `_get_chunks_for_doc(doc_id)`（L170） | 从 state.db 的 files 表查 file_hash → 仅返回文件路径，不含 chunk 内容 |
+| `_get_chunks_from_kg(kg, source_file)`（L198） | 从 KG 现有 Chunk 节点中按 source_file 过滤，但 Chunk 节点只含 `{id, label, type, metadata, source_docs}`，无 content |
+| `build_subgraph_for_document`（L232） | 用 Chunk 的 label（文件名/页数）+ metadata 做字符串匹配实体，不读正文 |
+
+要拿正文需要从源头取：
+- `state.db` → `file_hash` → 找到 `data/kb_admin/jsonl/file-{hash}.jsonl` → 读 chunk 的 `content` 字段
+- 或者从 `kb_admin/state_store.py` 里的 SQLite `chunks` 表（如果有的话）
+
+---
+
+## 4. Skills 框架规范
+每个 skill 在 `kb_poc/skills/{name}/` 下需含：
+
+| 文件 | 作用 |
+| ---- | ---- |
+| `manifest.json` | 元数据：name, description, version, category, enabled, entrypoint, tools[], docs[], tags[], allows_mutation, requires_model, defaults |
+| `runtime.py` | `@dataclass(slots=True) class XxxSkillRuntime`，settings 注入，每个 tool 一个方法 |
+| `__init__.py` | 空即可 |
+
+注册到系统：
+1. `tool_schemas.py`：定义 Pydantic `XxxInput` / `XxxOutput`（继承 `BaseModel`）
+2. `tool_registry.py`：在 `get_tool_registry()` 加 `ToolSpec(name, description, input_model, output_model, skill)`
+3. `ToolDispatcher` 通过 `SkillLoader` 扫描 `skills/*/manifest.json` → 按 `entrypoint` 加载 runtime → 按 tool name 反射调用方法
+
+现成可抄的模板：`rag_eval` skill（有 `manifest.json + runtime.py + tool_schemas` 的 `RunRagEvalInput/Output`）
+
+---
+
+## 5. 当前实体节点 / 边 / 来源标签的真实字段结构
+实体节点（非 Chunk）：
+```json
+{
+  "id": "Concept:特定3大疾病给付金特约2",
+  "type": "Concept",  // Product|System|Process|Data|Document|Role|Channel|Concept
+  "label": "特定3大疾病给付金特约2",
+  "source_docs": ["doc::019d7a7b7f2059e3", ...]  // 引用计数列表
+}
+```
+
+Chunk 节点：
+```json
+{
+  "id": "74baf908182e",  // SHA256 前12位
+  "type": "Chunk",
+  "label": "#15_SFDC.pptx / slide-6",
+  "metadata": {"source_file": "...", "page_or_sheet": "slide-6", "cell_range": ""},
+  "source_docs": ["doc::06a7841404ed3988"]
+}
+```
+
+边：
+```json
+{
+  "source": "Concept:特定3大疾病给付金特约2",
+  "target": "Product:FWD医疗商品",
+  "type": "追加于",
+  "source_docs": ["doc::019d7a7b7f2059e3", ...],
+  "provenance_inferred": true  // 是否存在（规则推断=true，LLM抽取时=false）
+}
+```
+
+关键发现：
+- 所有节点和边都有 `source_docs: list[str]` 字段，是引用计数的核心
+- 实体 ID 格式：`Type:label`（如 `System:SFDC`）
+- Chunk ID 格式：12 位 SHA256 hex（无类型前缀）
+- 边有 `provenance_inferred` 标记，区分规则推演 vs LLM 抽取
+- `mentioned_in` 是特殊边类型，连接实体和 Chunk
