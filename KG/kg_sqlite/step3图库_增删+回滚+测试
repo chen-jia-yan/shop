@@ -1,0 +1,36 @@
+目标：实现 kb_poc/skills/kg_sync/stores/sqlite_store.py —— SqliteGraphStore，封装对 kg.db 的读取、增删改、回滚。runtime 只通过它操作，不直接写 SQL。
+硬约束：不碰 Azure；本步骤不碰 state.db；所有写操作用单个事务；连接时设 PRAGMA journal_mode=WAL；绝不重算 chunk_id（见下）；改动走 plan mode 给 diff。
+
+1. load_graph() -> dict：
+   - 从 kg_nodes、kg_edges 读出全部节点和边，并从 kg_node_sources / kg_edge_sources 把每个节点/边的 source_docs 拼回成数组，组装成与现有图谱 JSON 完全相同的内存结构（{"nodes":[...], "edges":[...]}）。
+   - 目的：knowledge_graph.py 的 find_node/subgraph/neighbours 等查询函数拿到这个结构后无需任何修改。
+   - 按当前数据量（约 1.7 万节点、3.9 万边）一次性读入内存即可。
+
+2. apply_plan(plan) —— 在一个事务里完成，任一步失败则整体回滚（数据库保持调用前状态）：
+   a. 先把本次所有受影响行“改之前的完整样子”收集进 delta_json；
+   b. 按 plan 执行：插入/删除 kg_nodes、kg_edges；增删 kg_node_sources、kg_edge_sources；
+   c. 清理：删掉 kg_edge_sources/kg_node_sources 清零后，没有任何来源的边、没有任何来源的节点；再删任一端点已不存在的悬空边；
+   d. kg_changelog 插入一行 status='committed'，写入 op/doc_id/source_file/ts/delta_json；
+   e. kg_meta.last_seq += 1。
+   delta_json 结构（保证可完整反向）：
+   {nodes_added:[完整行], nodes_removed:[删除前完整行],
+    edges_added:[...], edges_removed:[...],
+    node_sources_added:[[node_id,doc_id]], node_sources_removed:[...],
+    edge_sources_added:[...], edge_sources_removed:[...]}
+
+3. rollback() —— 一个事务里：取最近一条 status='committed' 的 changelog，按其 delta_json 反向执行（added 删掉、removed 加回、sources 增删对调），把该行标为 'rolled_back'，并新增一行 op='rollback' 的记录。
+
+4. 并发保护：apply_plan / rollback 期间加文件锁，防止两个进程同时写 kg.db。读（load_graph）不加锁。
+
+5. chunk_id 规则（重要）：本模块及配套抽取器一律【使用传入的真实 chunk_id】（来自 jsonl / 现有图谱），【绝不自己用 sha256(正文) 重算】。若上游没给 chunk_id，记 warning 并跳过，不要编造 id。
+
+6. 单元测试（tests/，全部用 sqlite3 ':memory:' 内存库 + 小 fixture，绝不打开 data/kg/kg.db）：
+   - 新增文档：已存在实体只多一条 kg_node_sources，不新建节点；
+   - 删除文档：被多文档引用的实体保留、仅该文档引用的实体删除、悬空边清理；
+   - 更新文档（= 删旧+加新）；
+   - 重复新增同一文档内容：无变化（幂等）；
+   - apply_plan 中途抛异常：数据库与调用前逐表完全一致；
+   - apply 后 rollback：逐表比对与 apply 前完全一致；
+   - 连续 apply 3 次再 rollback 3 次：回到最初状态。
+
+给我 diff 和测试结果，停。本步骤不接 runtime、不接抽取器，只把存储层本身做扎实。
