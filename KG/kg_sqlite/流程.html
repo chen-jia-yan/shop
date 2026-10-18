@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识图谱与增量同步 流程说明</title>
+<style>
+  :root{
+    --accent:#0d8a7a; --accent2:#12a594; --accent-ghost:#e3f3f0; --accent-ink:#0a5a50;
+    --surface:#eef5f3; --canvas:#f7fbfa; --card:#fff;
+    --ink:#17302c; --ink-soft:#5c716c; --line:#d4e7e2;
+    --trig:#0891b2; --sys:#0d9488; --human:#2563eb; --store:#059669;
+    --shadow:0 1px 2px rgba(16,48,44,.05),0 8px 22px rgba(16,48,44,.09);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--surface);color:var(--ink);font-size:14px}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 22px 70px}
+  header h1{margin:0;font-size:22px;font-weight:700}
+  header p{margin:6px 0 0;color:var(--ink-soft);font-size:13px}
+  .nav{display:flex;gap:8px;position:sticky;top:0;z-index:30;background:var(--surface);padding:14px 0 10px;margin-bottom:4px;flex-wrap:wrap}
+  .nav a{text-decoration:none;border:1px solid var(--line);background:#fff;color:var(--ink-soft);border-radius:999px;padding:7px 15px;font-size:13px;font-weight:600;cursor:pointer}
+  .nav a:hover{border-color:var(--accent);color:var(--accent)}
+  .sec{margin-top:26px}
+  .sec-h{display:flex;align-items:center;gap:10px;margin:0 0 14px}
+  .sec-h.collap{cursor:pointer;user-select:none}
+  .sec-h.collap:hover h2{color:var(--accent)}
+  .sec-h .dot{width:26px;height:26px;border-radius:8px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .sec-h h2{margin:0;font-size:17px;font-weight:700}
+  .sec-h .toggle-ind{margin-left:auto;font-size:12.5px;color:var(--accent);font-weight:600;border:1px solid var(--line);border-radius:999px;padding:5px 13px;background:#fff}
+  .ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:8px 14px;cursor:pointer;font:inherit;font-size:13px;font-weight:600}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.ghost{background:var(--surface)}
+  .btn:hover{border-color:var(--accent)}
+  .ctrl .sp{color:var(--accent-ink);font-size:12.5px;margin-left:auto;font-weight:600}
+  .hint{color:var(--ink-soft);font-size:12.5px;margin-bottom:12px}
+  /* single-row horizontal pipeline */
+  .pipe{position:relative;display:flex;gap:30px;overflow-x:auto;padding:48px 6px 16px;scroll-behavior:smooth}
+  .pipe::-webkit-scrollbar{height:9px} .pipe::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+  .packet{position:absolute;top:6px;left:0;width:120px;background:var(--accent);color:#fff;border-radius:9px;padding:7px 9px;font-size:11.5px;font-weight:600;line-height:1.35;box-shadow:0 5px 16px rgba(13,138,122,.45);opacity:0;transition:left .55s cubic-bezier(.5,0,.3,1),opacity .3s;z-index:20;text-align:center;white-space:pre-line;pointer-events:none}
+  .packet::after{content:"▾";position:absolute;left:50%;bottom:-15px;transform:translateX(-50%);color:var(--accent);font-size:16px}
+  .step{position:relative;flex:0 0 158px;background:var(--card);border:1px solid var(--line);border-top:4px solid var(--sys);border-radius:11px;padding:13px 13px 11px;cursor:pointer;box-shadow:var(--shadow);transition:.15s;min-height:112px}
+  .step:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .step .ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+  .step .ic svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .step .no{font-size:11px;color:var(--ink-soft);font-weight:600}
+  .step .ti{font-size:15px;font-weight:700;margin:3px 0 2px}
+  .step .sub{font-size:12px;color:var(--ink-soft)}
+  .step .pass{margin-top:7px;font-size:10.5px;color:var(--accent-ink);background:var(--accent-ghost);border-radius:6px;padding:3px 7px;display:inline-block}
+  .step.trig{border-top-color:var(--trig)} .step.human{border-top-color:var(--human)} .step.store{border-top-color:var(--store)}
+  .step.active{outline:3px solid var(--accent);outline-offset:1px}
+  .step.dim{opacity:.32}
+  .step.done{opacity:.62}
+  .step.done::after{content:"✓";position:absolute;right:10px;top:10px;width:17px;height:17px;background:var(--store);color:#fff;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center}
+  .step .arw{position:absolute;right:-23px;top:50%;transform:translateY(-50%);color:var(--ink-soft);font-size:18px;font-weight:700}
+  .roletag{display:inline-block;font-size:10px;font-weight:600;color:#fff;border-radius:5px;padding:1px 6px;margin-left:5px;vertical-align:middle}
+  /* detail drawer (distinct cool-blue) */
+  .detail{margin-top:14px;background:#eaf1f8;border:1px solid #bcd3e5;border-radius:12px;box-shadow:var(--shadow);overflow:hidden;display:none}
+  .detail .dh{padding:14px 18px;background:#d6e5f2;border-bottom:1px solid #bcd3e5;display:flex;align-items:center;justify-content:space-between}
+  .detail .dh h3{margin:0;font-size:17px;font-weight:700;color:#1d3b5a}
+  .detail .dh .x{cursor:pointer;color:#4a6b8a;font-size:22px;line-height:1;border:none;background:none;padding:0 4px}
+  .detail .intro{padding:13px 18px;font-size:14px;line-height:1.6;border-bottom:1px solid #cdddeb}
+  .detail .io{display:flex;gap:10px;padding:13px 18px;border-bottom:1px solid #cdddeb}
+  .detail .io .box{flex:1;background:#fff;border:1px solid #cdddeb;border-radius:9px;padding:10px 12px;font-size:13.5px;line-height:1.5}
+  .detail .io .box b{display:block;font-size:11px;color:#4a6b8a;margin-bottom:4px;font-weight:700}
+  /* accordion */
+  .acc{border-bottom:1px solid #cdddeb}
+  .acc:last-child{border-bottom:none}
+  .acc-head{padding:12px 18px;cursor:pointer;display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;user-select:none}
+  .acc-head:hover{background:#dfebf5}
+  .acc-head .chev{margin-left:auto;color:#4a6b8a;transition:transform .2s;font-size:12px}
+  .acc.open .acc-head .chev{transform:rotate(90deg)}
+  .acc-body{display:none;padding:0 18px 14px 40px;font-size:13.5px;line-height:1.6}
+  .acc.open .acc-body{display:block}
+  .pill{display:inline-block;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:3px 9px;font-size:12.5px;margin:2px 5px 2px 0}
+  .pill.tag{background:#e3f3f0;border-color:#bfe3dc;color:var(--accent-ink)}
+  .pill.st{background:#e4f1ea;border-color:#c3e2d1;color:#0a6b47}
+  .codeloc{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:#13302b;color:#dff2ec;border-radius:7px;padding:9px 11px;line-height:1.7;word-break:break-all;margin-top:4px}
+  .codeloc b{color:#5fd3bf;font-weight:600}
+  .qa{margin-bottom:9px}
+  .qa b{color:var(--accent-ink)}
+  .jump{color:var(--accent);cursor:pointer;font-weight:600;margin-right:16px}
+  .jump:hover{text-decoration:underline}
+  /* sim log */
+  .simlog{margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);display:none}
+  .simlog .ch{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .simlog .ch b{font-size:15px} .simlog .ch span{font-size:12px;color:var(--ink-soft)}
+  .logbody{padding:12px 14px;display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+  .logln{padding:9px 11px;border-radius:9px;background:var(--surface);border:1px solid var(--line);font-size:13px;line-height:1.5;white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace}
+  .logln .hd{display:block;font-weight:700;color:var(--accent);margin-bottom:4px;font-family:-apple-system,sans-serif}
+  .logln.cur{border-color:var(--accent);background:var(--accent-ghost)}
+  /* generic panels */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:17px 19px;box-shadow:var(--shadow);margin-bottom:16px}
+  .panel h3{margin:0 0 12px;font-size:15px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:9px 10px;font-size:13px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--ink-soft);font-size:11.5px;text-transform:uppercase;letter-spacing:.3px}
+  code{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px;font-family:ui-monospace,monospace}
+  .docgrid{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+  .docchip{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:12.5px}
+  .note{background:#e6f4f1;border:1px solid #bfe3dc;border-radius:9px;padding:12px 14px;font-size:13px;line-height:1.6;color:var(--accent-ink);margin-top:12px}
+  .opflow{display:flex;flex-direction:column;gap:9px}
+  .opstep{display:flex;gap:10px;align-items:flex-start}
+  .opstep .n{flex:none;width:23px;height:23px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .opstep .tx{font-size:13px;line-height:1.45}
+  .opstep .tx b{font-family:ui-monospace,monospace}
+  @media(max-width:860px){.cols{grid-template-columns:1fr}.logbody{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>知识图谱 · 增量同步 流程说明</h1>
+    <p>点开每一步看说明 · 可"播放"模拟一个文件走完全程 · 面向非技术读者</p>
+  </header>
+
+  <nav class="nav">
+    <a data-to="s1">① 增量流程</a>
+    <a data-to="s2">② 图谱来源 · 代码实现</a>
+    <a data-to="s3">③ 存储 · 操作</a>
+  </nav>
+
+  <!-- ===== Section 1 ===== -->
+  <section class="sec" id="s1">
+    <div class="sec-h"><span class="dot">1</span><h2>增量同步流程</h2></div>
+    <div class="ctrl">
+      <button class="btn primary" id="btnPlay">▶ 模拟数据流</button>
+      <button class="btn" id="btnStep">⏭ 单步</button>
+      <button class="btn ghost" id="btnReset">↺ 重置</button>
+      <button class="btn ghost" id="btnRoll">↩ 演示回滚</button>
+      <span class="sp" id="simState">示例文件：#06_新契約システム概要.pptx</span>
+    </div>
+    <div class="pipe" id="pipe"><div class="packet" id="packet"></div></div>
+    <div class="detail" id="detail"></div>
+    <div class="simlog" id="simlog">
+      <div class="ch"><b>数据流模拟日志</b><span id="simStep">未开始</span></div>
+      <div class="logbody" id="logbody"></div>
+    </div>
+  </section>
+
+  <!-- ===== Section 2 ===== -->
+  <section class="sec" id="s2">
+    <div class="sec-h collap" data-sec="b2"><span class="dot">2</span><h2>图谱来自哪 · 代码在哪实现</h2><span class="toggle-ind">▶ 展开</span></div>
+    <div class="collap-body" id="b2" style="display:none">
+    <div class="panel">
+      <h3>图谱是从哪些文档来的？</h3>
+      <p style="margin:0 0 8px;line-height:1.6">图谱不是凭空生成的——它是从一批<b>源文档</b>里"读"出来的。这些文档登记在入库库 <code>state.db</code> 的 <code>files</code> 表里（当前 <b>239 份</b>，多为业务设计 / 系统说明的 .pptx 教材）。例如：</p>
+      <div class="docgrid">
+        <span class="docchip">#01_当社システムの全体概要.pptx</span>
+        <span class="docchip">#02_OPEN系基礎.pptx</span>
+        <span class="docchip">#06_新契約システム概要.pptx</span>
+        <span class="docchip">#15_SFDC.pptx</span>
+        <span class="docchip">… 共 239 份</span>
+      </div>
+      <p style="margin:12px 0 0;line-height:1.6">每份文档 → 算内容指纹(sha256) → 得 <code>doc_id = doc:: + 指纹前16位</code> → 切成若干 chunk → 从 chunk 抽取实体与关系。所以图谱里<b>每个节点和边都带 <code>source_docs</code> 标签</b>，记着"我是从哪几份文档来的"——删文档时就靠它做引用计数。</p>
+      <div class="note">⚠ 要对领导讲清的一点：当前这版图谱是在<b>语料改版前</b>构建的（约 145 份文档的量），和现在的 239 份不完全同步。本增量流程正是用来把缺的补进去、把变的更新掉，让图谱追上语料。</div>
+    </div>
+    <div class="panel">
+      <h3>全流程在哪个代码文件里实现？</h3>
+      <table>
+        <thead><tr><th style="width:140px">流程步骤</th><th>代码位置（文件 : 函数）</th><th style="width:120px">作用</th></tr></thead>
+        <tbody id="codemap"></tbody>
+      </table>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:12px 0 0">抽取与落库有<b>两套实现</b>：旧路径（<code>kg_incremental.py</code>，写 <code>v{N}.json</code> 全量快照）和新路径（<code>skills/kg_sync</code> + <code>sqlite_store.py</code>，写 <code>kg.db</code>）。生产主用新 SQLite 路径，接口不变、存储可换。</p>
+    </div>
+    </div>
+  </section>
+
+  <!-- ===== Section 3 ===== -->
+  <section class="sec" id="s3">
+    <div class="sec-h collap" data-sec="b3"><span class="dot">3</span><h2>怎么存储 · 怎么操作</h2><span class="toggle-ind">▶ 展开</span></div>
+    <div class="collap-body" id="b3" style="display:none">
+    <div class="cols">
+      <div class="panel" style="margin-bottom:0">
+        <h3>存在哪：SQLite 本地库 <code>kg.db</code></h3>
+        <table>
+          <thead><tr><th>表</th><th>存什么</th></tr></thead>
+          <tbody>
+            <tr><td><code>kg_nodes</code></td><td>所有节点（实体 + 切片）：id、类型、名称</td></tr>
+            <tr><td><code>kg_edges</code></td><td>所有边：谁→谁、什么关系</td></tr>
+            <tr><td><code>kg_node_sources</code></td><td>节点来源标签：一行=“这节点来自这文档”。<b>引用计数就是数这里行数</b></td></tr>
+            <tr><td><code>kg_edge_sources</code></td><td>边的来源标签，同上</td></tr>
+            <tr><td><code>kg_changelog</code></td><td>每次变更流水 + 可回滚 delta + 状态（committed / rolled_back）</td></tr>
+            <tr><td><code>kg_meta</code></td><td>版本号、最新序号等元信息</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin:12px 0 0">查"文件↔节点"时，<b>只读</b>挂载 <code>state.db</code>（绝不写它），用 <code>doc_id = 'doc::' + 指纹前16位</code> 关联。换生产只需把这套换成图数据库，上层操作不变。</p>
+      </div>
+      <div class="panel" style="margin-bottom:0">
+        <h3>人怎么操作：预演 → 确认 → 应用 → 可回滚</h3>
+        <div class="opflow">
+          <div class="opstep"><span class="n">1</span><span class="tx"><b>--status</b> 看现状：当前版本、节点/边数、健康度</span></div>
+          <div class="opstep"><span class="n">2</span><span class="tx"><b>--pending</b> 看哪些文档还没同步</span></div>
+          <div class="opstep"><span class="n">3</span><span class="tx"><b>--plan</b> 预演：只算不写，给出"会加/删/改什么"</span></div>
+          <div class="opstep"><span class="n">4</span><span class="tx">人工看报告，确认无误（可剔除新实体）</span></div>
+          <div class="opstep"><span class="n">5</span><span class="tx"><b>--apply --confirm</b> 应用：事务写入，落成新版本</span></div>
+          <div class="opstep"><span class="n">6</span><span class="tx"><b>--rollback</b> 出问题一键回退上一版</span></div>
+        </div>
+        <p style="font-size:12.5px;color:var(--ink-soft);margin:14px 0 0">关键原则：<b>所有写入都先预演、经人工确认、且可回滚</b>；全程不碰检索索引、不删源文件；开关默认关，不启用时系统与现在完全一致。</p>
+      </div>
+    </div>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+document.querySelectorAll('.nav a').forEach(a=>a.onclick=()=>{
+  const sec=document.getElementById(a.dataset.to);
+  const body=sec.querySelector('.collap-body');
+  if(body){body.style.display='block';const ind=sec.querySelector('.toggle-ind');if(ind)ind.textContent='▼ 收起';}
+  sec.scrollIntoView({behavior:'smooth'});
+});
+document.querySelectorAll('.sec-h.collap').forEach(h=>h.onclick=()=>{
+  const b=document.getElementById(h.dataset.sec);
+  const open=b.style.display!=='none';
+  b.style.display=open?'none':'block';
+  h.querySelector('.toggle-ind').textContent=open?'▶ 展开':'▼ 收起';
+});
+
+const ROLE={trig:'触发',sys:'系统自动',human:'人工',store:'写入存储'};
+const RC={trig:'var(--trig)',sys:'var(--sys)',human:'var(--human)',store:'var(--store)'};
+const STAGES=[
+ {role:'trig',ti:'触发',sub:'文件进来',
+  does:'有文档被新增、更新或删除时，启动这条同步流水。',
+  in:'一个文件（名字 + 内容）',out:'文件 → 交给下一步识别身份',
+  tags:[],st:[],store:'—',op:'人工发起，或入库完成后自动触发',
+  code:'CLI 入口 / 入库完成回调',
+  more:[{q:'什么时候需要跑？',a:'有新文档入库、旧文档内容改了、或要下架某文档时。没变化就不用动图谱。'}]},
+ {role:'sys',ti:'识别身份',sub:'算指纹定 ID',
+  does:'对文件内容算 sha256 指纹，得出 doc_id；再和映射表比对，判断这次是新增、更新还是删除。',
+  in:'文件',out:'doc_id ＋ 操作类型（新增/更新/删除）',
+  tags:['生成 doc_id = doc:: + 内容指纹前16位（全程身份证）'],st:[],
+  store:'读 source_file→doc 映射 ＋ 只读挂载 state.db',op:'系统自动',
+  code:'<b>kb_admin/storage.py</b>:file_hash_for_path (L37)\n<b>kb_poc/indexing/identity.py</b>:document_id_for_content_hash (L14)',
+  more:[
+   {q:'为什么用内容指纹，不用文件名？',a:'文件改名、挪位置都不影响身份；而内容只要变一个字，指纹就变——天然能认出"这是更新"。'},
+   {q:'doc::99e7… 怎么跟人解释？',a:'doc:: 是前缀，意思"文档ID"；后面16位是内容指纹。同样内容永远同一个ID，不同内容必然不同ID，不会撞车。'}]},
+ {role:'sys',ti:'取切片',sub:'读 chunk 正文',
+  does:'按 doc 找到它切出来的所有切片，拿到正文。删除文档时不需要这步。',
+  in:'doc_id / file_hash',out:'chunk 正文 ＋ chunk_id',tags:[],st:[],
+  store:'只读 data/kb_admin/jsonl/file-{hash}.jsonl',op:'系统自动',
+  code:'state.db(files表) → 定位 jsonl\n<b>kg_incremental.py</b>:_get_chunks_for_doc (L170)',
+  more:[{q:'切片是什么？',a:'一份文档太长，入库时被切成一段段"切片(chunk)"，每段单独编号(chunk_id)。抽取就在这些小段上做。'}]},
+ {role:'sys',ti:'抽取',sub:'抽实体关系',
+  does:'从切片正文里"读"出实体和它们之间的关系。删除文档时跳过本步。',
+  in:'chunk 正文',out:'一个"子图"：新实体 ＋ 新关系',
+  tags:['给每个新产出打来源标签 source_docs = [本文档]'],st:[],store:'—',
+  op:'系统自动（LLM 版需开开关、联网）',
+  code:'<b>skills/kg_sync/extractors/rule_extractor.py</b>（规则·默认）\n<b>kg_extractor.py</b>:extract_from_chunks (L278)（LLM版）',
+  more:[{q:'规则版 vs LLM 版？',a:'规则版靠词典 + 结构匹配，离线、免费、稳定，默认用它；LLM 版更聪明但要联网花钱，是可选开关。'},
+        {q:'"子图"是什么？',a:'就是这一份文档单独抽出来的一小块图（几个新实体 + 几条新关系），还没并进大图谱，先带着来源标签待命。'}]},
+ {role:'sys',ti:'合并·计数',sub:'并图·引用计数',
+  does:'把子图并进现有图谱。新增：已存在的只往 source_docs 添这个 doc，全新的才新增。删除：从所有 source_docs 划掉这个 doc，引用归零的才真删。',
+  in:'子图（新增）/ doc_id（删除）',out:'合并后的预期图谱',
+  tags:['source_docs 集合在此增减 —— 引用计数核心'],st:['此时只在内存计算，尚未写盘'],
+  store:'内存',op:'系统自动',code:'<b>skills/kg_sync</b> ProvenanceMerger（source_docs 增减逻辑）',
+  more:[{q:'共享的实体会被误删吗？',a:'不会。一个实体可能被多份文档提到，source_docs 里就有多条来源。删一份文档只划掉它那一条，其他文档还引用着就保留；只有引用归零才真删。'},
+        {q:'什么叫引用计数？',a:'就是数 source_docs 里有几条来源。几条=几份文档在用它。归零=没人用了，可以安全删。'}]},
+ {role:'sys',ti:'算 delta',sub:'预演变更',
+  does:'对比"合并前 vs 合并后"，算出这次到底加了、删了、改了什么。只算，绝不写盘。',
+  in:'合并结果',out:'delta 变更清单 ＋ 待人工确认的"规则新实体"',
+  tags:[],st:['预演态：不改变任何正式数据'],store:'预演产物（可落预览文件）',
+  op:'人工跑 --plan',code:'<b>kg_incremental.py</b>:plan_delta (L347)',
+  more:[{q:'delta 是什么？',a:'就是"差异清单"——这次操作相对现状的增/删/改。它既用来给人预览，也会存进 changelog，日后回滚就靠它反着执行。'}]},
+ {role:'human',ti:'人工审核',sub:'确认放行',
+  does:'人看 delta 报告，确认无误；可把不想要的规则新实体剔除。这是精度与安全的关卡。',
+  in:'delta 报告 ＋ 待确认新实体',out:'确认通过的 delta',tags:[],st:[],
+  store:'—',op:'人看报告，决定是否 --apply',code:'CLI --plan 输出报告，人工审阅',
+  more:[{q:'为什么要人来把关？',a:'规则抽取可能抓到噪音实体。写盘前让人过一眼、剔掉错的，避免脏数据进图谱——保险场景尤其要稳。'}]},
+ {role:'store',ti:'应用落库',sub:'事务写库',
+  does:'在一个事务里把变更写进数据库，并记一条变更流水；中途失败整体回滚，不会写一半。',
+  in:'确认通过的 delta',out:'新的图谱状态（新版本）',
+  tags:['source_docs 的增删在此落盘'],
+  st:['changelog 写一行 status=committed（含可回滚 delta）','last_seq + 1'],
+  store:'写 kg_nodes / kg_edges / *_sources / kg_changelog（原子事务）',op:'人工 --apply --confirm',
+  code:'<b>skills/kg_sync/stores/sqlite_store.py</b>:apply_plan（新·写 kg.db）\n<b>kg_incremental.py</b>:apply_delta (L684)（旧·写 v{N}.json）',
+  more:[{q:'写一半断电怎么办？',a:'事务保证"要么全写、要么全不写"，不会留下半截脏数据；首次写前再做一份 kg.db.bak 全库备份兜底。'},
+        {q:'什么是"新版本"？',a:'每成功应用一次，last_seq 加一，相当于存了一个可追溯的版本点，changelog 记着怎么来的、怎么退回去。'}]},
+ {role:'store',ti:'回滚',sub:'撤回上一版',
+  does:'出问题时，取最近一条 committed 的流水，按它反向执行 delta，恢复到变更前。',
+  in:'最近一条 committed 的 changelog',out:'恢复到上一状态',tags:[],
+  st:['该流水标为 rolled_back，并新增一条 rollback 记录'],
+  store:'改 kg.db ＋ changelog',op:'人工 --rollback',
+  code:'<b>skills/kg_sync/stores/sqlite_store.py</b>:rollback（新）\n<b>kg_incremental.py</b>:rollback (L810)（旧）',
+  more:[{q:'回滚可靠吗？',a:'可靠。因为 apply 时把这次的 delta（含变更前的样子）都存进了 changelog，回滚就是把它反着执行一遍，精确撤销，不是猜。'}]},
+];
+const CONN=['文件','doc_id＋操作类型','chunk正文＋id','子图（带来源）','合并结果','delta＋待确认','已确认delta','changelog'];
+const SIM=[
+ {log:'载入文件「#06_新契約システム概要.pptx」\n示例约 2.3 MB',packet:'文件\n#06…pptx'},
+ {log:'算 sha256 指纹\nfile_hash = 99e75e835a283467…\ndoc_id = doc::99e75e835a283467\n比对映射表 → 判定：新增',packet:'doc::99e7…\n新增'},
+ {log:'定位 jsonl：file-99e7….jsonl\n读出全部切片 → 48 个 chunk（示例）',packet:'48 个\nchunk正文'},
+ {log:'规则抽取 48 个 chunk\n实体 6 个、关系 9 条\n各打 source_docs = [doc::99e7…]',packet:'子图\n+6实体/+9边'},
+ {log:'并入现有图谱：\n • 3 个实体已存在 → 只追加来源\n • 3 个全新 → 新增节点\n引用计数同步更新',packet:'合并结果\n(内存)'},
+ {log:'算出 delta：\n 节点+3 · 边+9 · 来源+15\n另列 3 个新实体待确认\n⚠ 预演态，未写盘',packet:'delta预览\n待确认3'},
+ {log:'人工查看 delta 报告…\n确认无误（剔除 0 个）\n放行',packet:'已确认\ndelta'},
+ {log:'开事务写 kg.db：\n nodes+3 · edges+9 · sources+15\n写 changelog #seq=24 committed\nlast_seq → 24  ✅ 提交成功',packet:'已落库\nv → 24'},
+];
+
+const pipe=document.getElementById('pipe'),packet=document.getElementById('packet');
+const detail=document.getElementById('detail');
+const RCHEX={trig:'#0891b2',sys:'#0d9488',human:'#2563eb',store:'#059669'};
+const ICONS=[
+ '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+ '<path d="M12 10a2 2 0 0 0-2 2c0 3 1 5 2 7"/><path d="M12 6a6 6 0 0 0-6 6c0 3 1 5 2 7"/><path d="M12 6a6 6 0 0 1 6 6c0 2-.3 4-1 6"/><path d="M12 10a2 2 0 0 1 2 2"/>',
+ '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+ '<path d="M3 4h18l-7 8v7l-4 2v-9z"/>',
+ '<circle cx="6" cy="6" r="2.3"/><circle cx="6" cy="18" r="2.3"/><circle cx="18" cy="12" r="2.3"/><path d="M6 8.3v7.4M6 15.7A9 9 0 0 0 15.5 12"/>',
+ '<rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h3"/>',
+ '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+ '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+ '<path d="M4 7v6h6"/><path d="M4 13a9 9 0 1 0 2.5-8.5L4 7"/>',
+];
+const cards=[];
+STAGES.forEach((s,i)=>{
+  const el=document.createElement('div');
+  el.className='step '+s.role; el.dataset.i=i;
+  const arrow=i<STAGES.length-1 ? '<span class="arw">→</span>' : '';
+  el.innerHTML=`<div class="ic" style="background:${RCHEX[s.role]}1a;color:${RCHEX[s.role]}"><svg viewBox="0 0 24 24">${ICONS[i]}</svg></div>
+    <div class="no">第 ${i} 步<span class="roletag" style="background:${RC[s.role]}">${ROLE[s.role]}</span></div>
+    <div class="ti">${s.ti}</div><div class="sub">${s.sub}</div>
+    ${i<STAGES.length-1?`<div class="pass">传出 → ${CONN[i]}</div>`:'<div class="pass">终点 / 可回滚</div>'}${arrow}`;
+  el.onclick=()=>openDetail(i);
+  pipe.appendChild(el); cards.push(el);
+});
+
+// code map
+const cm=document.getElementById('codemap');
+const codeUse=['发起同步','算指纹·定ID','读切片正文','产出子图','并图·引用计数','预演变更','人工把关','事务落库','反向恢复'];
+STAGES.forEach((s,i)=>{
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td>第${i}步 ${s.ti}</td><td style="font-family:ui-monospace,monospace;font-size:12px;line-height:1.7">${s.code.replace(/\n/g,'<br>')}</td><td>${codeUse[i]}</td>`;
+  cm.appendChild(tr);
+});
+
+// ---- detail (fixed below strip) ----
+let openIdx=-1;
+function closeDetail(){detail.style.display='none';cards.forEach(c=>c.classList.remove('active'));openIdx=-1;}
+function openDetail(i){
+  stopPlay(); packet.classList.remove('on');
+  cards.forEach(c=>c.classList.remove('done','dim'));
+  if(openIdx===i){closeDetail();return;}
+  openIdx=i;
+  cards.forEach((c,j)=>c.classList.toggle('active',j===i));
+  cards[i].scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+  const s=STAGES[i];
+  const accs=[];
+  if(s.tags.length)accs.push({ic:'🏷',h:'经手的标签',b:s.tags.map(t=>`<span class="pill tag">${t}</span>`).join('')});
+  if(s.st.length)accs.push({ic:'◉',h:'状态变化',b:s.st.map(t=>`<span class="pill st">${t}</span>`).join('')});
+  accs.push({ic:'💾',h:'存到哪',b:s.store});
+  accs.push({ic:'👤',h:'谁来操作',b:s.op});
+  accs.push({ic:'🧩',h:'代码在哪实现',b:`<div class="codeloc">${s.code.replace(/\n/g,'<br>')}</div>`});
+  if(s.more)s.more.forEach(m=>accs.push({ic:'❓',h:m.q,b:`<div class="qa">${m.a}</div>`}));
+  const up=i>0?`<span class="jump" data-g="${i-1}">↑ 上一步：${STAGES[i-1].ti}</span>`:'';
+  const dn=i<STAGES.length-1?`<span class="jump" data-g="${i+1}">↓ 下一步：${STAGES[i+1].ti}</span>`:'';
+  detail.innerHTML=`
+    <div class="dh"><h3>第 ${i} 步 · ${s.ti}（${ROLE[s.role]}）</h3><button class="x" id="dx">×</button></div>
+    <div class="intro">${s.does}</div>
+    <div class="io"><div class="box"><b>接到（输入）</b>${s.in}</div><div class="box"><b>交出（输出）</b>${s.out}</div></div>
+    ${accs.map(a=>`<div class="acc"><div class="acc-head">${a.ic} ${a.h}<span class="chev">▶</span></div><div class="acc-body">${a.b}</div></div>`).join('')}
+    ${(up||dn)?`<div style="padding:13px 18px">${up}${dn}</div>`:''}`;
+  detail.style.display='block';
+  detail.querySelector('#dx').onclick=closeDetail;
+  detail.querySelectorAll('.acc-head').forEach(h=>h.onclick=()=>h.parentNode.classList.toggle('open'));
+  detail.querySelectorAll('.jump').forEach(j=>j.onclick=()=>openDetail(+j.dataset.g));
+}
+
+// ---- simulation ----
+let simIdx=-1, timer=null;
+const simlog=document.getElementById('simlog');
+function movePacket(i){
+  const el=cards[i];
+  packet.textContent=SIM[i].packet; packet.classList.add('on');
+  el.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
+  requestAnimationFrame(()=>{packet.style.left=(el.offsetLeft+el.offsetWidth/2-packet.offsetWidth/2)+'px';});
+}
+function renderLog(){
+  const lb=document.getElementById('logbody'); lb.innerHTML='';
+  for(let k=0;k<=simIdx;k++){
+    const d=document.createElement('div'); d.className='logln'+(k===simIdx?' cur':'');
+    d.innerHTML=`<span class="hd">第 ${k} 步 · ${STAGES[k].ti}</span>${SIM[k].log}`;
+    lb.appendChild(d);
+  }
+  document.getElementById('simStep').textContent=simIdx<0?'未开始':`第 ${simIdx} / 7 步`;
+}
+function simShow(i){
+  simIdx=i; closeDetailForSim();
+  simlog.style.display='block';
+  cards.forEach((e,j)=>{e.classList.remove('active');e.classList.toggle('done',j<i);e.classList.toggle('dim',j>i);});
+  cards[i].classList.add('active'); cards[i].classList.remove('dim');
+  movePacket(i); renderLog();
+}
+function closeDetailForSim(){detail.style.display='none';openIdx=-1;}
+function stepSim(){if(simIdx>=STAGES.length-1){stopPlay();return;}simShow(simIdx+1);
+  if(simIdx===STAGES.length-1)document.getElementById('simState').textContent='✅ 已落库 v→24，可按「演示回滚」撤回';}
+function stopPlay(){if(timer){clearInterval(timer);timer=null;}document.getElementById('btnPlay').textContent='▶ 模拟数据流';}
+function resetSim(){stopPlay();simIdx=-1;cards.forEach(e=>e.classList.remove('done','dim','active'));packet.classList.remove('on');simlog.style.display='none';
+  document.getElementById('simStep').textContent='未开始';document.getElementById('simState').textContent='示例文件：#06_新契約システム概要.pptx';}
+document.getElementById('btnPlay').onclick=function(){
+  if(timer){stopPlay();return;}
+  if(simIdx>=STAGES.length-1)resetSim();
+  this.textContent='⏸ 暂停';
+  timer=setInterval(()=>{if(simIdx>=STAGES.length-1){stopPlay();document.getElementById('simState').textContent='✅ 已落库 v→24，可按「演示回滚」撤回';return;}stepSim();},1300);
+  if(simIdx<0)stepSim();
+};
+document.getElementById('btnStep').onclick=()=>{stopPlay();if(simIdx<STAGES.length-1)stepSim();};
+document.getElementById('btnReset').onclick=resetSim;
+document.getElementById('btnRoll').onclick=()=>{
+  stopPlay();
+  if(simIdx<STAGES.length-1){document.getElementById('simState').textContent='⚠ 请先播放到"已落库"再演示回滚';return;}
+  simShow(8);
+  const lb=document.getElementById('logbody');
+  const d=document.createElement('div'); d.className='logln cur';
+  d.innerHTML=`<span class="hd">↩ 回滚 Rollback</span>取最近 committed（#seq=24）\n反向执行 delta：删掉刚加的 3节点/9边/15来源\nchangelog #24 标 rolled_back，新增一条 rollback\nlast_seq → 23  ↩ 已恢复到落库前`;
+  lb.appendChild(d);
+  packet.textContent='回滚\nv → 23'; packet.classList.add('on');
+  document.getElementById('simState').textContent='↩ 已回滚到 v→23（撤销了本次新增）';
+  document.getElementById('simStep').textContent='回滚演示';
+};
+</script>
+</body>
+</html>
