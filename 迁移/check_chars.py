@@ -106,18 +106,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-    
-    
-    
-uv run python C:/Users/234393/Desktop/check_chars.py src tests sql .env.example
-
-uv run python C:/Users/234393/Desktop/check_chars.py src tests sql .env.example
-
-uv run python -c "import tap_ai.application; print('ok')"
-
-【字符规则】
-- 代码里的类名、函数名、变量名、缩进、运算符、括号、冒号，只能用英文半角字符。中文只能出现在注释和字符串里
-- 禁止出现零宽字符、不换行空格、全角空格、Tab 缩进
-- 完成报告必须贴出下面两条命令的原始输出，缺一条视为未完成：
-  uv run python C:/Users/234393/Desktop/check_chars.py src tests sql .env.example（必须是"发现 0 处问题"，或者只剩开工前已有的问题）
-  uv run python -c "import tap_ai.application; print('ok')"
