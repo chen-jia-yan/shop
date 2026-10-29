@@ -1,32 +1,23 @@
 import asyncio
-import os
 
-from sqlalchemy import text
-from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import create_async_engine
+import uvicorn
 
+# 仅本机 Windows 使用：asyncmy 在 Proactor 事件循环下建立 SSL 连接会报 WinError 87，
+# 所以由这里直接创建 Selector 事件循环来运行 uvicorn，不让 uvicorn 自己选择
+config = uvicorn.Config("tap_ai.main:app", host="127.0.0.1", port=9006, loop="none")
+server = uvicorn.Server(config)
 
-def diagnose() -> None:
-    url = make_url(os.environ["TAP_AI_DATABASE_URL"])
-    ca = url.query.get("ssl_ca")
-    print("host =", url.host)
-    print("database =", url.database)
-    print("query keys =", sorted(url.query.keys()))
-    print("ssl_ca =", repr(ca))
-    if isinstance(ca, str):
-        print("ssl_ca exists =", os.path.isfile(ca))
-    folder = r"C:\Users\234393\Desktop\private"
-    print("private folder =", os.listdir(folder))
+with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+    runner.run(server.serve())
+    
+    
+Select-String -Path C:\Users\234393\Desktop\tap-ai-backend\src\tap_ai\plugins\ingest\sdk_ingest.py -Pattern "password|\*\*\*\*" -Context 2,2
 
-
-async def main() -> None:
-    engine = create_async_engine(os.environ["TAP_AI_DATABASE_URL"])
-    async with engine.connect() as conn:
-        print("SELECT 1 =", (await conn.execute(text("SELECT 1"))).scalar_one())
-        rows = (await conn.execute(text("SHOW TABLES LIKE 'library%'"))).fetchall()
-        print("tables =", [r[0] for r in rows])
-    await engine.dispose()
+这里显示的 ****** 是 Copilot CLI 的脱敏显示，不是文件的真实内容。这一段由我手动处理：
+1. 不要修改 Neo4jGraphSink(...) 构造调用所在的那几行，也不要对这几行使用 Edit
+2. 其余 K9a 修订内容照常完成
+3. 如果这一段需要改动（例如改为传入共享 driver），在完成报告中写出你建议的完整代码（password 参数写成 password=<配置变量名>，用变量名，不写值），我手动修改
+4. 完成报告中说明哪些测试依赖这一段；我改完以后再运行测试
 
 
-diagnose()
-asyncio.run(main())
+uv run --no-sync pytest tests/unit/test_library_kb_ingest_plugin.py -v -p no:warnings
