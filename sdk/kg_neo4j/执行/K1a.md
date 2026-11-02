@@ -1,118 +1,118 @@
-## SDK：统一的关系名单、不丢关系、时间和切片摘要 
-【任务 K1a】在 SDK 中统一定义实体类型和关系类型；大模型给出的关系不再丢弃；Neo4j 写入时带上时间和切片摘要。
-（先贴【通用规则】，包括 D0 第 4 步追加的 SDK 检查命令）
+# K1a 执行后情况与问题汇总
 
-【工作目录】C:\Users\234393\fwd-tap-common\fwd-tap-ingest（当前分支应为 feature/tap-10366-kg，开工前先用 git branch --show-current 确认，不是的话停下来）
+## 2. 已确认通过的检查
+- 字符检查通过：
+  - 命令：`uv run python C:/Users/234393/Desktop/check_chars.py C:/Users/234393/fwd-tap-common/fwd-tap-ingest/src C:/Users/234393/fwd-tap-common/fwd-tap-ingest/tests`
+  - 结果：扫描了 72 个文件，发现 0 处问题
+- 本次新增/修改的 3 个测试文件格式检查通过：
+  - 命令：`python -m ruff format --check tests/test_kg_schema.py tests/test_kg_llm_extract.py tests/test_kg_and_chunk_index.py`
+  - 结果：`3 files already formatted`
 
-【本次允许修改的文件】
-- 新建 src/tap_ingest_sdk/kg_schema.py
-- src/tap_ingest_sdk/sinks/_kg_schema.py
-- src/tap_ingest_sdk/sinks/_kg_llm_extract.py
-- src/tap_ingest_sdk/sinks/_neo4j.py
-- 新建 tests/test_kg_schema.py；其他已有测试只允许追加用例，不得修改已有用例
+## 3. K1a 验收相关现状（按 D0 的 4 条指令）
+### 3.1 SDK pytest
+- 命令：`& C:\Users\234393\Desktop\tap-ai-backend\.venv\Scripts\python.exe -m pytest -q 2>&1 | Select-Object -Last 20`
+- 当前结果：`10 errors during collection`
+- 直接报错链最终落点：
+  - `src/tap_ingest_sdk/parsers/_internal/pptx_parser.py:7`
+  - `from pptx import Presentation`
+  - `ModuleNotFoundError: No module named 'pptx'`
 
-【开工前确认（只读，贴原始输出）】
-1. sinks/_kg_schema.py 全文。特别注意 ALLOWED_RELATIONS 中 "PART_OF" 那一行：逐字贴出，说明括号是否成对、_pairs 的两个参数分别是什么
-2. _pairs 函数、EntityRef、所有实体类型常量（PRODUCT、STEP、STAGE、ACTION、ROLE 等）、LLM_ENTITY_TYPES 的原文
-3. _neo4j.py 中 _WRITE_DOCUMENT、_WRITE_MENTIONS、_REL_ENDPOINTS_MERGE、_REL_MERGE 的原文，以及 upsert、_write_relations、_mention_rows 的原文
-4. _kg_llm_extract.py 中 _SYSTEM_PROMPT、_to_specs、parse_response 的原文，并说明现在在哪几处会把关系丢掉
-5. git grep -n -E "ALLOWED_RELATIONS|LLM_RELATION_MAP|LLM_ENTITY_TYPES" -- src tests 的原始输出
+- 与 D0 中记录的早上基线相比：
+  - 早上是 `9 errors during collection`
+  - 当前多出的 1 个是：`ERROR tests/test_kg_schema.py`
 
-【要做的 7 件事】
+- 证据与判断：
+  - `tests/test_kg_schema.py` 是本轮新增测试文件；
+  - 单独运行该文件时，同样因为导入 `tap_ingest_sdk.kg_schema` 进入 `tap_ingest_sdk.__init__` -> client -> parsers -> pptx_parser 链路而被 pptx 缺失卡住；
+  - 因此 9 -> 10 的增量，不是编码问题，而是新增测试文件在当前缺 `python-pptx` 的环境里也无法完成 collection。
 
-1. 新建 src/tap_ingest_sdk/kg_schema.py：
-   - 文件开头中文注释："实体类型和关系类型的唯一定义处。新增或修改类型只改这个文件，SDK 和后端都从这里读取。"
-   - @dataclass(frozen=True) EntityTypeDef：name（英文名）、zh（中文名）、description（说明）
-   - @dataclass(frozen=True) RelationAlias：text（中文说法）、reverse（是否交换起点和终点，默认 False）
-   - @dataclass(frozen=True) RelationTypeDef：name、zh、aliases（RelationAlias 元组）、
-     pairs（允许的 (起点类型, 终点类型) 元组；空元组表示不限制）、description、traversable（问答时能否顺着走）
-   - ENTITY_TYPES：照抄 _kg_schema.py 中现有的全部实体类型，一个不多、一个不少。中文名：
-     Concept 概念、Product 产品、System 系统、Process 流程、Data 数据、Document 文档、Role 角色、Channel 渠道、Stage 阶段、Step 步骤、Action 动作
-     （现有类型里有不在这个列表中的，停下来告诉我）
-   - RELATION_TYPES：
-     · 现有 6 种：pairs 必须与现有 ALLOWED_RELATIONS 完全一致；aliases 照抄现有 LLM_RELATION_MAP 的中文说法（"执行"对应 HANDLED_BY，reverse=True）；traversable=True
-       中文名：NEXT 下一步、HANDLED_BY 负责、PART_OF 属于、CONTAINS 包含、USES 使用、REQUIRES 需要
-     · 新增 1 种：name="RELATED_TO"，zh="相关"，aliases=()，pairs=()，traversable=False，description="未归入标准关系的其他关联，原始说法保存在 raw_types"
-   - 由上面生成的常量（名字固定，每个上方写中文注释说明用途）：
-     ENTITY_TYPE_NAMES（元组）、ENTITY_TYPE_ZH（dict）、RELATION_ZH（dict）、TRAVERSABLE_RELATIONS（元组，traversable=True 的关系名，顺序与 RELATION_TYPES 一致）、
-     SCHEMA_ALLOWED_RELATIONS（dict[str, frozenset[tuple[str, str]]]，不含 RELATED_TO）、
-     SCHEMA_LLM_RELATION_MAP（dict[str, tuple[str, bool]]：每个中文说法 → (关系名, reverse)；每个关系的英文名 → (关系名, False)；包括 RELATED_TO）
+### 3.2 名单检查（TRAVERSABLE_RELATIONS / RELATION_ZH）
+- 命令：
+```powershell
+& C:\Users\234393\Desktop\tap-ai-backend\.venv\Scripts\python.exe -c "import sys; sys.path.insert(0, 'src'); from tap_ingest_sdk.kg_schema import TRAVERSABLE_RELATIONS, RELATION_ZH; print(TRAVERSABLE_RELATIONS); print(RELATION_ZH)"
+```
+- 当前结果：未输出名单，直接失败。
+- 直接报错链落点同样是：
+  - `src\tap_ingest_sdk\parsers\_internal\pptx_parser.py:7`
+  - `ModuleNotFoundError: No module named 'pptx'`
+- 证据与判断：
+  - 这不是 `sys.path` 问题，也不是编码问题；
+  - 根因是 `tap_ingest_sdk` 顶层导入链过重，导入 `kg_schema` 前就先触发了 `tap_ingest_sdk.__init__`，随后连带导入 parser 体系，再因为缺 pptx 失败。
 
-2. sinks/_kg_schema.py：ALLOWED_RELATIONS、LLM_RELATION_MAP 改为从 kg_schema 导入后重新赋值，原来的名字保留，其他代码不用改。
-   实体类型常量保留在原文件不动（kg_schema.py 从这里导入这些常量来写 ENTITY_TYPES 和 pairs，避免两边各写一遍）
-   注意不要形成循环导入：kg_schema.py 只能从 _kg_schema.py 导入"类型常量"，_kg_schema.py 在文件末尾再从 kg_schema 导入。
-   如果做不到无循环导入，停下来告诉我，不要自己想别的办法
+### 3.3 后端联动检查
+- 命令 1：`uv run python -c "import tap_ai.application; print('ok')"`
+- 结果：`ok`
+- 命令 2：`uv run pytest -q tests/unit/test_library_kb_ingest_plugin.py 2>&1 | Select-Object -Last 20`
+- 当前结果：`2 failed, 17 passed, 1 warning`
+- 直接证据：
+  - `FAILED tests/unit/test_library_kb_ingest_plugin.py::test_sdk_ingest_success_with_memory_mode_real_sdk`
+  - `FAILED tests/unit/test_library_kb_ingest_plugin.py::test_only_sdk_ingest_imports_tap_ingest_sdk`
+  - 第二个失败的关键断言为：
+    - `Left contains one more item: 'tap_ai/application/library_kg.py'`
+- 进一步查证：
+  - `src/tap_ai/application/library_kg.py:22` 确实存在：
+    - `from tap_ingest_sdk.lexicon import normalize_label`
+- 判断：
+  - 这里的失败不是编码问题；
+  - 是后端现有代码状态与该测试约束不一致。
 
-3. RelationSpec 末尾追加可选字段：raw_type: str | None = None（带默认值，已有的调用不受影响）
+## 4. 关于“乱码”现象的结论
+- 在 `scripts\kg_import_poc.py` 中，源码原文是：
+  - `raise RuntimeError("缺少 tap_ingest_sdk，无法计算 normalize_label") from exc`
+- 已读取该字符串的文件原始字节，内容是标准 UTF-8 字节序列，可正常匹配。
+- 同一条命令在本轮复现时，终端输出为正常中文：
+  - `RuntimeError: 缺少 tap_ingest_sdk，无法计算 normalize_label`
+- 因此目前证据支持：
+  - 截图中的乱码是终端显示链路问题（代码页 / 输出编码 / 渲染），不是源码文件本身编码损坏。
 
-4. _kg_llm_extract.py：
-   - _SYSTEM_PROMPT 中"关系类型只能使用: ..."这一行，改为由 kg_schema 生成：
-     "关系类型优先使用: " + 所有中文说法用"、"连接 + "（A 执行 B 表示角色 A 负责动作 B）。都不合适时，用一个简短的中文短语描述关系。"
-     提示词其他部分一个字都不改。生成后的完整提示词在完成报告中贴出
-   - 实体类型那一行同样改为由 ENTITY_TYPES 生成，但只列出现在提示词中已有的那 8 种（保持现状）
-   - _to_specs：
-     · 关系说法能在 LLM_RELATION_MAP 中找到、并且两端类型符合 ALLOWED_RELATIONS → 与现在完全一样
-     · 找不到，或者两端类型不符合 → 生成 type="RELATED_TO" 的 RelationSpec，raw_type 填大模型给出的原始说法（去掉首尾空白）
-     · 只有起点或终点实体缺失、或原始说法为空时才丢弃
-   - 规则抽取器（_kg_extract.py）不改
+## 5. 当前可确认结论
+1. K1a 的核心代码改动与新增测试已经落地。
+2. 字符检查与本次测试文件的格式检查已通过。
+3. D0 中 K1a 验收未全通过，但当前暴露出的主要问题都不是编码问题：
+   - SDK 两条失败主因是当前环境缺 `python-pptx`，且 `tap_ingest_sdk` 顶层导入链会提前触发 parser / pptx 依赖；
+   - 后端插件测试失败主因是后端已有 `library_kg.py` 直接 import 了 `tap_ingest_sdk`，与测试约束冲突；
+   - 截图里的乱码更像终端显示问题，不是源码编码损坏。
 
-5. _neo4j.py（每条 Cypher 必须保留现有的 scope 条件，不得新增不带 scope 的语句）：
-   - upsert 开始时计算 now = int(time.time() * 1000)，作为参数 $now 传给本次所有写入语句
-   - Document：SET d.ingested_at = $now
-   - Chunk：SET c.page_or_sheet（来自 chunk.metadata.page_or_sheet）、c.preview（chunk.content 的前 200 个字符）、c.ingested_at = $now
-     这些值通过 chunk_ids 之外新增的参数传入，例如把 $chunk_ids 改为 $chunks（每项含 chunk_id、page_or_sheet、preview），并同步修改 UNWIND 语句
-   - Entity：ON CREATE SET e.created_at = $now；每次都 SET e.updated_at = $now
-   - 实体之间的关系：ON CREATE SET e.created_at = $now；每次 SET e.updated_at = $now；
-     RelationSpec.raw_type 不为空时，追加进 e.raw_types 并去重（为空时不动这个属性）
-   - RELATED_TO 不经过 allowed_relations 的类型组合检查，直接写入（关系类型名来自 kg_schema 的常量，不是用户输入）
-   - delete()、撤销旧数据的三条语句不改
+## 6. 待后续处理/决策的问题
+- 是否要处理 `tap_ingest_sdk` 顶层导入过重的问题，使 `from tap_ingest_sdk.kg_schema import ...` 不再被 pptx 缺失阻塞。
+- 是否要处理后端 `src/tap_ai/application/library_kg.py` 对 `tap_ingest_sdk.lexicon` 的直接依赖，以恢复 `test_only_sdk_ingest_imports_tap_ingest_sdk` 通过。
+- 是否要进一步固定终端编码/输出链路，避免中文异常消息在某些会话里显示成乱码。
 
-6. 关系类型写进 Cypher 的方式检查：
-   贴出 _neo4j.py 中把关系类型放进 Cypher 的那几行原文（_REL_MERGE 里的 {rel}），说明写入前是否校验过关系名一定在 RELATION_ZH 的键里。
-   没有校验的话，加上校验：不在里面的关系名直接跳过并打印 warning
+# 验收k1a sdk的检查
+```powershell
+cd C:\Users\234393\fwd-tap-common\fwd-tap-ingest & C:\Users\234393\Desktop\tap-ai-backend\.venv\Scripts\python.exe -m pytest -q 2>&1 | Select-Object -Last 10
+```
+> 和 D0 第 3 步的基线比：失败数不能增加，passed 要比基线多（多出来的是新增的测试）。
 
-7. 测试（新建 tests/test_kg_schema.py；其他测试只追加）：
-   a. SCHEMA_ALLOWED_RELATIONS 与修改前的 ALLOWED_RELATIONS 逐项相等（把开工前确认第 1 条中的原值，按实体类型常量写进测试作为期望值）
-   b. SCHEMA_LLM_RELATION_MAP 中，原 LLM_RELATION_MAP 的每一项都存在且值相同
-   c. TRAVERSABLE_RELATIONS 恰好是原来的 6 种，不含 RELATED_TO
-   d. _to_specs：能对上的 → 标准关系；对不上的 → RELATED_TO，raw_type 是原始说法；类型不符合的 → RELATED_TO；实体缺失 → 丢弃
-   e. 用已有测试中的假 driver 记录参数：upsert 时每条写入语句都收到 now；Chunk 的参数里有 preview，长度不超过 200；有 raw_type 的关系，参数里带上了 raw_type
-   f. _SYSTEM_PROMPT 中包含每一个中文说法
-
-【完成报告】按【通用规则】第五条中"SDK 仓库"那一组命令；另外贴出生成后的完整 _SYSTEM_PROMPT，以及新增的每个测试函数名
-
-## 验收  sdk的检查
-cd C:\Users\234393\fwd-tap-common\fwd-tap-ingest
-& C:\Users\234393\Desktop\tap-ai-backend\.venv\Scripts\python.exe -m pytest -q 2>&1 | Select-Object -Last 10
-和 D0 第 3 步的基线比：失败数不能增加，passed 要比基线多（多出来的是新增的测试）。
+多了一个error,基线是9个
+```
+ERROR tests/test_chunker.py ERROR tests/test_cli.py ERROR tests/test_env_config.py ERROR tests/test_kg_and_chunk_index.py ERROR tests/test_kg_llm_extract.py ERROR tests/test_kg_plan.py ERROR tests/test_kg_schema.py ERROR tests/test_parser_registry.py !!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 10 errors during collection !!!!!!!!!!!!!!!!!!!!!!!!!! 10 errors in 2.34s
+```
 
 2. 名单和原来一致（在 SDK 目录）：
+```powershell
 & C:\Users\234393\Desktop\tap-ai-backend\.venv\Scripts\python.exe -c "import sys; sys.path.insert(0,'src'); from tap_ingest_sdk.kg_schema import TRAVERSABLE_RELATIONS, RELATION_ZH; print(TRAVERSABLE_RELATIONS); print(RELATION_ZH)"
+```
+> 要看到：第一行正好是 6 种关系，没有 RELATED_TO；第二行是 7 种关系和它们的中文名。
 
-要看到：第一行正好是 6 种关系，没有 RELATED_TO；第二行是 7 种关系和它们的中文名。
+報錯：`from pptx import Presentation`
+`ModuleNotFoundError: No module named 'pptx'`
 
-3. 后端没受影响（在后端目录）：
+3. 后端没受影响（在后端目录）：第一条输出 `ok`，第二条没有失败。
+```powershell
 cd C:\Users\234393\Desktop\tap-ai-backend
 uv run python -c "import tap_ai.application; print('ok')"
 uv run pytest -q tests/unit/test_library_kb_ingest_plugin.py 2>&1 | Select-Object -Last 5
-第一条输出 `ok`，第二条没有失败。
+```
+```
+-- Docs: [https://docs.pytest.org/en/stable/how-to/capture-warnings.html](https://docs.pytest.org/en/stable/how-to/capture-warnings.html)
+============================ short test summary info =============================
+FAILED tests/unit/test_library_kb_ingest_plugin.py::test_sdk_ingest_success_with_memory_mode_real_sdk
+FAILED tests/unit/test_library_kb_ingest_plugin.py::test_only_sdk_ingest_imports_tap_ingest_sdk
+2 failed, 17 passed, 1 warning in 5.33s
+```
 
-4. 字符检查：
-
+4. 字符检查：要显示“发现 0 处问题”。
 ```powershell
 uv run python C:/Users/234393/Desktop/check_chars.py C:/Users/234393/fwd-tap-common/fwd-tap-ingest/src C:/Users/234393/fwd-tap-common/fwd-tap-ingest/tests
-
 ```
-
-要显示”发现 0 处问题”。
-
-**以上 4 项结果发我。**我确认通过以后，在 SDK 目录提交：
-
-```powershell
-cd C:\Users\234393\fwd-tap-common\fwd-tap-ingest
-git add -A
-git commit -m "feat(kg): 统一实体与关系定义，未匹配关系存为 RELATED_TO，写入时间与切片摘要"
-
-```
-
-
