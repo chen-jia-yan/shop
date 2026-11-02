@@ -1,40 +1,32 @@
 Set-Location C:\Users\234393\fwd-tap-common\fwd-tap-ingest
-$py = "C:\Users\234393\Desktop\tap-ai-backend\.venv\Scripts\python.exe"
-
-# ① 只跑和这次改动有关的两个测试文件
-& $py -m pytest -q tests/test_lazy_import.py tests/test_kg_schema.py 2>&1 | Select-Object -Last 15
-
-# ② 跳过收集失败的文件，其余测试照常跑
-& $py -m pytest -q tests --continue-on-collection-errors 2>&1 | Select-Object -Last 15
+(Get-Command python).Source
+python -m pytest -q tests/test_lazy_import.py tests/test_kg_schema.py 2>&1 | Select-Object -Last 15
+python -m pytest -q tests --continue-on-collection-errors 2>&1 | Select-Object -Last 15
 
 
-
-# SDK 自己声明了哪些依赖
-Select-String -Path C:\Users\234393\fwd-tap-common\fwd-tap-ingest\pyproject.toml -Pattern "pptx|docx|openpyxl|pdf|dependencies"
-
-# SDK 那个坏掉的 .venv 里有没有 pptx
-Test-Path C:\Users\234393\fwd-tap-common\fwd-tap-ingest\.venv\Lib\site-packages\pptx
-
-# uv 本地缓存里有没有 python-pptx 的安装包（离线也许能装）
-Get-ChildItem (uv cache dir) -Recurse -Directory -Filter "python_pptx*" -ErrorAction SilentlyContinue | Select-Object -First 5 FullName
-
-# 后端是怎么依赖 SDK 的
-Select-String -Path C:\Users\234393\Desktop\tap-ai-backend\pyproject.toml -Pattern "tap-ingest|tap_ingest|fwd-tap|pptx"
-
-
-
-Set-Location C:\Users\234393\fwd-tap-common
-git add fwd-tap-ingest/README.md `
-        fwd-tap-ingest/src/tap_ingest_sdk/__init__.py `
-        fwd-tap-ingest/src/tap_ingest_sdk/kg_schema.py `
-        fwd-tap-ingest/src/tap_ingest_sdk/sinks/_kg_schema.py `
-        fwd-tap-ingest/src/tap_ingest_sdk/embeddings/_internal/config.py `
-        fwd-tap-ingest/src/tap_ingest_sdk/sinks/_internal/config.py `
-        fwd-tap-ingest/tests/test_lazy_import.py
-git diff --cached --stat
+Set-Location C:\Users\234393\fwd-tap-common\fwd-tap-ingest
+@'
+import subprocess, sys, types
+sys.path.insert(0, "src")
+sys.modules["pptx"] = None
+raw = subprocess.check_output(["git", "show", "HEAD:fwd-tap-ingest/src/tap_ingest_sdk/kg_schema.py"])
+old = types.ModuleType("old_kg_schema")
+sys.modules["old_kg_schema"] = old
+exec(compile(raw.decode("utf-8"), "old_kg_schema", "exec"), old.__dict__)
+import tap_ingest_sdk.kg_schema as new
+for name in ["ENTITY_TYPES", "RELATION_TYPES", "ENTITY_TYPE_NAMES", "ENTITY_TYPE_ZH", "RELATION_ZH",
+             "TRAVERSABLE_RELATIONS", "SCHEMA_ALLOWED_RELATIONS", "SCHEMA_LLM_RELATION_MAP"]:
+    a, b = getattr(old, name, "<missing>"), getattr(new, name, "<missing>")
+    print(name, "SAME" if repr(a) == repr(b) else "DIFFERENT")
+'@ | python -
 
 
-git commit -m "fix(sdk): 修1 按需导入、清理旧配置名；修1b 解开 kg_schema 循环导入"
+git --no-pager diff -- src/tap_ingest_sdk/sinks/_kg_schema.py
 
 
-git grep -n "TAP_AI_KB_AOAI" -- src README.md
+Set-Location C:\Users\234393\Desktop\tap-ai-backend
+uv pip install --offline python-pptx
+
+
+Set-Location C:\Users\234393\fwd-tap-common\fwd-tap-ingest
+python -m pytest -q tests 2>&1 | Select-Object -Last 15
