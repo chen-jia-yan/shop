@@ -1,7 +1,7 @@
 import unittest
 import json
 import io
-from check_bounding_boxes import get_bounding_box_messages
+from kg_base.skills.pdf.scripts.check_bounding_boxes import get_bounding_box_messages
 
 
 # Currently this is not run automatically in CI; it's just for documentation and manual checking.

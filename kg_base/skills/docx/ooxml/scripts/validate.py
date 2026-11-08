@@ -10,7 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from validation import DOCXSchemaValidator, PPTXSchemaValidator, RedliningValidator
+from kg_base.skills.docx.ooxml.scripts.validation import DOCXSchemaValidator, PPTXSchemaValidator, RedliningValidator
 
 
 def main():
