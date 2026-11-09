@@ -1,0 +1,19 @@
+# 示例数据核查结果（虚构）。S07 的 agent 40200 故意没有核查，用来验证“待数据核查”路径。
+- key: agent_code=40100
+  result: ok
+  checked_by: 同事B
+  checked_at: 2026-11-03 16:10
+  method: SIT2 只读账号查询 AGENT 表
+  note: 记录存在，状态 Active
+- key: product_code=UR67
+  result: ok
+  checked_by: 同事B
+  checked_at: 2026-11-03 16:12
+  method: SIT2 只读账号查询 PRODUCT 表
+  note: 产品已上架
+- key: policy_no=P26110001
+  result: used
+  checked_by: 同事B
+  checked_at: 2026-11-03 16:15
+  method: SIT2 只读账号查询 POLICY 表
+  note: 该保单已在上一轮回归中退保

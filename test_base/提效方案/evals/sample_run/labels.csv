@@ -1,0 +1,9 @@
+case_id,human_category,note
+S01,PRODUCT_DEFECT,业务报错 + 数据核查正常
+S02,TEST_DATA,业务报错 + 数据已被使用
+S03,ENVIRONMENT,503（重跑通过，但应归为环境问题）
+S04,POPUP_INTERFERENCE,System Notice 公告弹框遮挡
+S05,RERUN_PASS,重跑通过
+S06,SCRIPT_ISSUE,定位表达式错误
+S07,NEEDS_HUMAN,业务报错但 agent 40200 未核查
+S08,POPUP_INTERFERENCE,原生对话框 会话过期

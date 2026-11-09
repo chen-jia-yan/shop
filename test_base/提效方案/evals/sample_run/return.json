@@ -1,0 +1,14 @@
+{
+  "run_id": "sample",
+  "skipped": false,
+  "results": {
+    "S01": {"attempts": [{"attempt": 1, "status": "failed", "started_at": "2026-11-03T15:10:00+08:00", "duration_sec": 70}], "passed_on_rerun": false, "all_unknown": false},
+    "S02": {"attempts": [{"attempt": 1, "status": "failed", "started_at": "2026-11-03T15:12:00+08:00", "duration_sec": 40}], "passed_on_rerun": false, "all_unknown": false},
+    "S03": {"attempts": [{"attempt": 1, "status": "passed", "started_at": "2026-11-03T15:20:00+08:00", "duration_sec": 55}], "passed_on_rerun": true, "all_unknown": false},
+    "S04": {"attempts": [{"attempt": 1, "status": "failed", "started_at": "2026-11-03T15:22:00+08:00", "duration_sec": 60}], "passed_on_rerun": false, "all_unknown": false},
+    "S05": {"attempts": [{"attempt": 1, "status": "passed", "started_at": "2026-11-03T15:25:00+08:00", "duration_sec": 90}], "passed_on_rerun": true, "all_unknown": false},
+    "S06": {"attempts": [{"attempt": 1, "status": "failed", "started_at": "2026-11-03T15:28:00+08:00", "duration_sec": 20}], "passed_on_rerun": false, "all_unknown": false},
+    "S07": {"attempts": [{"attempt": 1, "status": "failed", "started_at": "2026-11-03T15:30:00+08:00", "duration_sec": 70}], "passed_on_rerun": false, "all_unknown": false},
+    "S08": {"attempts": [{"attempt": 1, "status": "failed", "started_at": "2026-11-03T15:33:00+08:00", "duration_sec": 300}], "passed_on_rerun": false, "all_unknown": false}
+  }
+}

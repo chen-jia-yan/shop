@@ -1,0 +1,83 @@
+# 分类规则使用的关键字和异常类型。修改后请运行 evals/eval_classify.py 回归验证。
+# 匹配规则：不区分大小写的子串匹配；以 "re:" 开头的按正则表达式匹配。
+
+environment:
+  exception_types:
+    - SessionNotCreatedException
+  patterns:
+    - ERR_CONNECTION_REFUSED
+    - ERR_CONNECTION_RESET
+    - ERR_CONNECTION_TIMED_OUT
+    - ERR_NAME_NOT_RESOLVED
+    - ERR_INTERNET_DISCONNECTED
+    - ERR_SSL_PROTOCOL_ERROR
+    - 502 Bad Gateway
+    - 503 Service Unavailable
+    - 504 Gateway Time-out
+    - Connection refused
+    - Connection reset by peer
+    - Read timed out
+    - Max retries exceeded with url
+    - "re:This version of \\w+ ?Driver only supports"
+
+popup:
+  # 遮挡元素的 class/id 中出现这些关键字，视为弹框遮挡（POP3）
+  overlay_keywords: [modal, dialog, popup, overlay, mask, backdrop, toast, cdk-overlay]
+
+# 干扰类弹窗：可以确认与被测功能无关
+noise_popups:
+  - Your session has expired
+  - 會話已逾時
+  - 会话已过期
+  - Save password
+  - 要保存密码吗
+  - Restore pages
+  - 还原页面
+  - We use cookies
+  - System Notice
+  - 系統公告
+  - Allow notifications
+
+# 业务报错：系统返回的真实错误，不能当作干扰
+business_errors:
+  - record not found
+  - not found
+  - invalid
+  - not allowed
+  - System error
+  - Internal Server Error
+  - please contact
+  - failed to
+  - 錯誤
+  - 错误
+  - 失敗
+  - 失败
+  - 不存在
+  - 無效
+  - 无效
+
+script:
+  locator_exceptions:
+    - NoSuchElementException
+    - StaleElementReferenceException
+    - TimeoutException
+    - ElementNotInteractableException
+  invalid_selector_exceptions:
+    - InvalidSelectorException
+  python_errors:
+    - NameError
+    - AttributeError
+    - TypeError
+    - KeyError
+    - IndexError
+    - ImportError
+    - ModuleNotFoundError
+    - SyntaxError
+
+assertion:
+  exception_types: [AssertionError]
+  # 断言信息中出现以下格式之一，视为有期望值与实际值
+  expected_actual_patterns:
+    - "re:expected[^\\n]{0,80}(actual|but (was|got))"
+    - "re:assert .+ == .+"
+    - "re:期望.{0,40}实际"

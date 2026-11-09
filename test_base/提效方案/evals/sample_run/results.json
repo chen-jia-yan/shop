@@ -1,0 +1,80 @@
+{
+  "_说明": "虚构的示例数据，用于在接入真实数据前验证脚本能跑通、分类结果符合预期。格式见 references/data-contract.md 第 2 节。",
+  "environment": {
+    "env_name": "NBS-SIT2",
+    "browser": "MicrosoftEdge",
+    "browser_version": "142.0.3595.53",
+    "driver_version": "142.0.3595.53",
+    "os": "Windows 11",
+    "build": "NBS 5.12.0-rc3"
+  },
+  "cases": [
+    {
+      "case_id": "S01", "case_name": "BM new business with agent 40100", "nodeid": "tests/hk/bm/test_nb.py::test_s01",
+      "system": "NBS", "market": "HK", "module": "BM", "started_at": "2026-11-03T14:31:05+08:00",
+      "failed_step": "Click Submit on agent selection page",
+      "case_steps": ["Login as underwriter", "Create new proposal with product UR67", "Input agent code 40100", "Click Submit"],
+      "error_type": "TimeoutException", "error_message": "Message: waiting for element #nextStep to be clickable",
+      "business_error_text": "Agent record not found",
+      "popup_evidence": {"popup_type": "html_modal", "alert_text": null,
+                         "dialogs": [{"tag": "div", "cls": "modal show", "id": "errDlg", "text": "Agent record not found OK"}]},
+      "test_data": {"agent_code": "40100", "product_code": "UR67", "insured_name": "CHAN TAI MAN"}
+    },
+    {
+      "case_id": "S02", "case_name": "Policy alteration change address", "nodeid": "tests/hk/ps/test_alt.py::test_s02",
+      "system": "NBS", "market": "HK", "module": "PS", "started_at": "2026-11-03T14:33:40+08:00",
+      "failed_step": "Search policy", "case_steps": ["Login", "Search policy P26110001", "Change address"],
+      "error_type": "NoSuchElementException", "error_message": "no such element: Unable to locate element: {\"method\":\"css selector\",\"selector\":\"#policyRow\"}",
+      "business_error_text": "Policy not found",
+      "popup_evidence": {"popup_type": "not_in_page", "alert_text": null, "dialogs": []},
+      "test_data": {"policy_no": "P26110001"}
+    },
+    {
+      "case_id": "S03", "case_name": "UW manual review", "nodeid": "tests/mo/uw/test_uw.py::test_s03",
+      "system": "NBS", "market": "MO", "module": "UW", "started_at": "2026-11-03T14:40:12+08:00",
+      "failed_step": "Open UW workbench",
+      "error_type": "TimeoutException", "error_message": "Page shows 503 Service Unavailable",
+      "popup_evidence": {"popup_type": "not_in_page", "alert_text": null, "dialogs": []}
+    },
+    {
+      "case_id": "S04", "case_name": "BM quotation premium check", "nodeid": "tests/hk/bm/test_quote.py::test_s04",
+      "system": "NBS", "market": "HK", "module": "BM", "started_at": "2026-11-03T14:45:00+08:00",
+      "failed_step": "Click Calculate",
+      "error_type": "ElementClickInterceptedException",
+      "error_message": "element click intercepted: Element <button id=\"calc\"> is not clickable at point (512, 640). Other element would receive the click: <div class=\"modal-backdrop fade show\">",
+      "popup_evidence": {"popup_type": "html_modal", "alert_text": null,
+                         "dialogs": [{"tag": "div", "cls": "modal show", "id": "notice", "text": "System Notice: SIT2 maintenance tonight 22:00"}]}
+    },
+    {
+      "case_id": "S05", "case_name": "BM payment by credit card", "nodeid": "tests/hk/bm/test_pay.py::test_s05",
+      "system": "NBS", "market": "HK", "module": "BM", "started_at": "2026-11-03T14:47:30+08:00",
+      "failed_step": "Wait for payment result",
+      "error_type": "TimeoutException", "error_message": "Message: waiting for element #payResult to be visible",
+      "popup_evidence": {"popup_type": "not_in_page", "alert_text": null, "dialogs": []}
+    },
+    {
+      "case_id": "S06", "case_name": "UW decision letter", "nodeid": "tests/hk/uw/test_letter.py::test_s06",
+      "system": "NBS", "market": "HK", "module": "UW", "started_at": "2026-11-03T14:50:02+08:00",
+      "failed_step": "Open letter preview",
+      "error_type": "InvalidSelectorException", "error_message": "invalid selector: Unable to locate an element with the xpath expression //div[@class='letter'",
+      "popup_evidence": {"popup_type": "not_in_page", "alert_text": null, "dialogs": []}
+    },
+    {
+      "case_id": "S07", "case_name": "BM new business with agent 40200", "nodeid": "tests/hk/bm/test_nb.py::test_s07",
+      "system": "NBS", "market": "HK", "module": "BM", "started_at": "2026-11-03T14:52:10+08:00",
+      "failed_step": "Click Submit on agent selection page",
+      "error_type": "TimeoutException", "error_message": "Message: waiting for element #nextStep to be clickable",
+      "business_error_text": "Agent record not found",
+      "popup_evidence": {"popup_type": "html_modal", "alert_text": null,
+                         "dialogs": [{"tag": "div", "cls": "modal show", "id": "errDlg", "text": "Agent record not found OK"}]},
+      "test_data": {"agent_code": "40200", "product_code": "UR67"}
+    },
+    {
+      "case_id": "S08", "case_name": "PS long running endorsement", "nodeid": "tests/hk/ps/test_endorse.py::test_s08",
+      "system": "NBS", "market": "HK", "module": "PS", "started_at": "2026-11-03T14:55:44+08:00",
+      "failed_step": "Save endorsement",
+      "error_type": "UnexpectedAlertPresentException", "error_message": "unexpected alert open: {Alert text : Your session has expired}",
+      "popup_evidence": {"popup_type": "js_alert", "alert_text": "Your session has expired", "dialogs": []}
+    }
+  ]
+}
