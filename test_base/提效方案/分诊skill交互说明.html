@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>回归失败分诊 Skill 交互说明</title>
+<style>
+:root {
+  --paper: #f6f9fc;
+  --paper-2: #e9f1f9;
+  --card: #ffffff;
+  --ink: #1d3047;
+  --ink-2: #405670;
+  --muted: #6f8297;
+  --line: #d6e2ee;
+  --accent: #2b6cb0;
+  --accent-soft: #e4effb;
+  --ok: #2f6b3a;
+  --todo: #b06a00;
+  --todo-soft: #fff6e6;
+  --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --serif: "Iowan Old Style", "Songti SC", "Noto Serif SC", Georgia, serif;
+  --sans: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+body { min-height: 100vh; padding-bottom: 60px; }
+button { font: inherit; cursor: pointer; }
+
+/* ------------ 顶部 ------------ */
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 26px 32px 18px; border-bottom: 1px solid var(--line); background: #fff; flex-wrap: wrap; }
+.top .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+.top h1 { font-family: var(--serif); font-weight: 500; font-size: 34px; margin: 4px 0 4px; letter-spacing: .01em; }
+.top p { margin: 0; color: var(--ink-2); font-size: 14px; max-width: 720px; line-height: 1.6; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.tools { display: flex; gap: 8px; }
+.tools button { border: 1px solid var(--ink); background: transparent; padding: 7px 12px; font-size: 13px; }
+.tools button:hover, .tools button.primary { background: var(--ink); color: #fff; }
+
+/* ------------ 主体布局 ------------ */
+.layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); min-height: calc(100vh - 120px); }
+.rail { border-right: 1px solid var(--line); padding: 18px 0 40px; background: var(--paper-2); }
+.rail h3 { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; color: var(--muted); margin: 0 22px 10px; font-weight: 400; }
+.step { position: relative; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; width: 100%; text-align: left; border: none; background: none; padding: 10px 18px 10px 18px; color: var(--ink); }
+.step::before { content: ""; position: absolute; left: 34px; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.step:first-of-type::before { top: 50%; }
+.step:last-of-type::before { bottom: 50%; }
+.step .no { position: relative; z-index: 1; width: 32px; height: 32px; border: 1.5px solid var(--ink); background: var(--card); display: grid; place-items: center; font-family: var(--mono); font-size: 13px; }
+.step .t { font-size: 14px; line-height: 1.3; }
+.step .who { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.chip { font-family: var(--mono); font-size: 10.5px; padding: 1px 6px; border: 1px solid currentColor; }
+.chip.脚本 { color: #2d5f73; } .chip.AI { color: #7b3fa0; } .chip.你 { color: var(--accent); } .chip.IT { color: var(--muted); }
+.flag { font-family: var(--mono); font-size: 10.5px; padding: 1px 6px; }
+.flag.todo { background: var(--todo-soft); color: var(--todo); }
+.flag.mixed { background: #eaf4ee; color: #5d6b2c; }
+.step:hover { background: #e1ecf8; }
+.step.active { background: var(--card); }
+.step.active .no { background: var(--accent); border-color: var(--accent); color: #fff; }
+.step.visited .no { border-color: var(--ok); }
+
+.main { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 0; min-width: 0; }
+.explain { padding: 24px 26px 40px; border-right: 1px solid var(--line); min-width: 0; }
+.explain .stage { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: .1em; }
+.explain h2 { font-family: var(--serif); font-weight: 500; font-size: 26px; margin: 4px 0 10px; }
+.explain .what { font-size: 15px; line-height: 1.7; color: var(--ink); margin: 0 0 16px; }
+.explain h4 { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: var(--muted); font-weight: 400; margin: 18px 0 6px; text-transform: uppercase; }
+.explain ul { margin: 0; padding-left: 18px; }
+.explain li { font-size: 13.5px; line-height: 1.65; margin: 3px 0; color: var(--ink-2); }
+.files code, .cmd code { font-family: var(--mono); font-size: 12px; }
+.files { display: flex; flex-direction: column; gap: 4px; }
+.files code { background: var(--paper-2); padding: 3px 7px; align-self: flex-start; }
+.cmd { background: var(--ink); color: #e9e4d8; padding: 10px 12px; font-family: var(--mono); font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+.say { border-left: 3px solid #7b3fa0; background: #f3effa; padding: 8px 12px; font-size: 13.5px; line-height: 1.6; }
+.todo-box { margin-top: 18px; background: var(--todo-soft); border: 1px dashed var(--todo); padding: 10px 12px; }
+.todo-box h4 { margin-top: 0; color: var(--todo); }
+.todo-box li { color: #6b4a12; }
+.nav-steps { display: flex; gap: 8px; margin-top: 24px; }
+.nav-steps button { border: 1px solid var(--ink); background: transparent; padding: 7px 14px; font-size: 13px; }
+.nav-steps button.next { background: var(--ink); color: #fff; }
+.nav-steps button:disabled { opacity: .35; cursor: default; }
+
+/* ------------ 原型画框 ------------ */
+.proto { padding: 22px 24px 40px; min-width: 0; }
+.proto-label { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; gap: 10px; flex-wrap: wrap; }
+.proto-label span { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: var(--muted); }
+.frame { background: var(--card); border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(43,108,176,.10); min-width: 0; }
+.frame-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: #f3f7fc; }
+.frame-bar .lights { display: flex; gap: 5px; }
+.frame-bar .lights i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); display: block; }
+.frame-bar .addr { font-family: var(--mono); font-size: 11.5px; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.screen { padding: 18px 20px 22px; min-height: 460px; }
+.screen h5 { font-family: var(--serif); font-weight: 500; font-size: 20px; margin: 0 0 4px; }
+.screen .hint { font-size: 13px; color: var(--muted); margin: 0 0 14px; line-height: 1.6; }
+.hl { outline: 2px dashed var(--accent); outline-offset: 3px; }
+
+/* 通用组件 */
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.kpi { border: 1px solid var(--line); padding: 10px 12px; }
+.kpi b { display: block; font-family: var(--serif); font-weight: 500; font-size: 28px; }
+.kpi span { font-size: 12px; color: var(--muted); }
+table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.t th { text-align: left; font-weight: 400; font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .06em; border-bottom: 1.5px solid var(--ink); padding: 6px 8px; }
+table.t td { border-bottom: 1px solid var(--line); padding: 8px; vertical-align: top; line-height: 1.5; }
+table.t tr.click { cursor: pointer; }
+table.t tr.click:hover td { background: #f2f7fd; }
+.tag { display: inline-block; font-size: 11.5px; padding: 1px 7px; color: #fff; white-space: nowrap; }
+.st { font-family: var(--mono); font-size: 11px; padding: 1px 6px; border: 1px solid; white-space: nowrap; }
+.st.confirmed { color: var(--ok); } .st.suspected { color: var(--todo); }
+.mono { font-family: var(--mono); font-size: 12px; }
+.muted { color: var(--muted); }
+.btn { border: 1px solid var(--ink); background: var(--ink); color: #fff; padding: 8px 14px; font-size: 13px; }
+.btn.ghost { background: transparent; color: var(--ink); }
+.btn.warn { background: var(--accent); border-color: var(--accent); }
+.btn:disabled { opacity: .4; cursor: default; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }
+.toggle { display: inline-flex; border: 1px solid var(--ink); }
+.toggle button { border: none; background: transparent; padding: 3px 9px; font-size: 12px; }
+.toggle button.on { background: var(--ink); color: #fff; }
+.toggle button.on.no { background: #8b8b8b; }
+
+/* 看板 */
+.board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.col { border-top: 3px solid; background: #f7fafd; padding: 8px; min-height: 120px; min-width: 0; }
+.col h6 { margin: 0 0 8px; font-size: 13px; font-weight: 500; display: flex; justify-content: space-between; }
+.card { background: var(--card); border: 1px solid var(--line); padding: 8px; margin-bottom: 6px; cursor: pointer; font-size: 12.5px; line-height: 1.45; }
+.card:hover { border-color: var(--ink); }
+.card .id { font-family: var(--mono); font-weight: 600; }
+
+/* 截图模拟 */
+.shot { position: relative; border: 1px solid var(--line); background: #eef1f4; height: 170px; overflow: hidden; font-size: 11px; }
+.shot .hdr { height: 22px; background: #1f3b57; color: #cfe0f0; padding: 4px 8px; font-family: var(--mono); font-size: 10px; }
+.shot .body { padding: 10px; }
+.shot .fld { height: 10px; background: #d5dbe2; margin: 6px 0; width: 70%; }
+.shot .fld.s { width: 40%; }
+.shot .btnx { display: inline-block; background: #2b6cb0; color: #fff; padding: 3px 10px; margin-top: 6px; }
+.shot .veil { position: absolute; inset: 22px 0 0 0; background: rgba(20, 30, 40, .35); }
+.shot .modal { position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%); background: #fff; border: 1px solid #999; padding: 10px 14px; min-width: 60%; text-align: center; font-size: 11.5px; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.shot .modal .ok { display: inline-block; margin-top: 6px; background: #2b6cb0; color: #fff; padding: 2px 12px; }
+.shot .alert { position: absolute; left: 50%; top: 0; transform: translateX(-50%); background: #fff; border: 1px solid #888; padding: 8px 12px; width: 70%; font-size: 11px; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+.shot .err { color: #b23a2a; border: 1px solid #e3b2aa; background: #fbecea; padding: 4px 8px; margin: 6px 0; }
+.shot .big { position: absolute; inset: 22px 0 0 0; display: grid; place-items: center; font-size: 20px; color: #666; background: #fff; }
+.shot .spin { width: 26px; height: 26px; border: 3px solid #c9d2db; border-top-color: #2b6cb0; border-radius: 50%; animation: sp 1s linear infinite; }
+@keyframes sp { to { transform: rotate(360deg); } }
+.shot-cap { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+
+/* 抽屉、表单、弹窗 */
+.evi { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.evi .box { border: 1px solid var(--line); padding: 8px 10px; }
+.evi .box h6 { margin: 0 0 6px; font-size: 12px; font-weight: 500; }
+.evi .box.cause { border-color: var(--ok); }
+.evi .box.cause h6 { color: var(--ok); }
+.evi .eitem { font-size: 12.5px; line-height: 1.5; margin: 4px 0; }
+.evi .eitem b { font-family: var(--mono); font-weight: 600; margin-right: 4px; }
+.field { margin: 10px 0; }
+.field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.field input, .field select, .field textarea { width: 100%; font: inherit; font-size: 13px; padding: 7px 9px; border: 1px solid var(--line); background: #fff; }
+.field textarea { min-height: 110px; font-family: var(--mono); font-size: 12px; line-height: 1.55; }
+.field input.edit, .field textarea.edit, .field select.edit { background: #fffbea; }
+.errs { background: #fbecea; border-left: 3px solid #b23a2a; padding: 8px 12px; font-size: 12.5px; line-height: 1.6; }
+.pass { background: #e9f3ea; border-left: 3px solid var(--ok); padding: 8px 12px; font-size: 12.5px; }
+.progress { height: 6px; background: var(--paper-2); margin: 10px 0; }
+.progress i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+
+.overlay { position: fixed; inset: 0; background: rgba(24, 36, 43, .45); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+.overlay.open { display: flex; }
+.dialog { background: var(--card); border: 1.5px solid var(--ink); width: min(620px, 100%); max-height: 86vh; overflow: auto; box-shadow: 8px 8px 0 rgba(0,0,0,.15); animation: pop .18s ease-out; }
+@keyframes pop { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.dialog header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.dialog header h3 { margin: 0; font-family: var(--serif); font-weight: 500; font-size: 19px; }
+.dialog header button { border: none; background: none; font-size: 20px; line-height: 1; }
+.dialog .dbody { padding: 14px 16px; font-size: 13.5px; line-height: 1.6; }
+.dialog footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); background: #f3f7fc; }
+.dialog .design-note { margin-top: 12px; font-size: 12px; color: var(--todo); background: var(--todo-soft); padding: 6px 10px; }
+
+/* 弹窗图鉴 */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.gcard { border: 1px solid var(--line); padding: 12px; background: #f7fafd; }
+.gcard h6 { margin: 0 0 4px; font-size: 14px; font-weight: 500; }
+.gcard p { margin: 0 0 10px; font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
+
+#toast { position: fixed; right: 24px; bottom: 70px; background: var(--ink); color: #fff; padding: 10px 16px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 60; }
+#toast.show { opacity: 1; }
+
+@media (max-width: 1180px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .explain { border-right: none; border-bottom: 1px solid var(--line); }
+}
+@media (max-width: 820px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .rail { border-right: none; border-bottom: 1px solid var(--line); max-height: 300px; overflow-y: auto; }
+  .board, .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .evi { grid-template-columns: minmax(0, 1fr); }
+}
+@media print {
+  .tools, .nav-steps, .overlay { display: none !important; }
+  .layout, .main { display: block; }
+  .rail { display: none; }
+  .frame { box-shadow: none; }
+}
+
+/* 起草 Jira：左列表 + 右侧 Jira 表单预览 */
+.explainer-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.explainer-strip div { background: var(--paper-2); padding: 8px 10px; font-size: 12.5px; line-height: 1.5; }
+.explainer-strip b { display: block; font-size: 13px; color: var(--accent); margin-bottom: 2px; }
+.dgrid { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 14px; }
+.dlist button { display: block; width: 100%; text-align: left; border: 1px solid var(--line); background: #fff; padding: 9px 10px; margin-bottom: 6px; font-size: 12.5px; line-height: 1.5; }
+.dlist button.on { border-color: var(--accent); background: var(--accent-soft); }
+.dlist .ok { color: var(--ok); } .dlist .bad { color: #b23a2a; }
+.jira { border: 1px solid var(--line); background: #fff; }
+.jira .jh { background: #f3f7fc; border-bottom: 1px solid var(--line); padding: 8px 12px; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.jira .jf { display: grid; grid-template-columns: 120px minmax(0, 1fr); border-bottom: 1px solid #eef3f8; }
+.jira .jf > span { padding: 8px 12px; font-size: 12px; color: var(--muted); background: #fafcfe; border-right: 1px solid #eef3f8; }
+.jira .jf > div { padding: 8px 12px; font-size: 13px; min-width: 0; }
+.jira .jf pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--mono); font-size: 12px; line-height: 1.55; max-height: 260px; overflow: auto; }
+.jira .src { font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-left: 6px; }
+.jira .src.ai { color: #7b3fa0; } .jira .src.sc { color: #2d5f73; }
+@media (max-width: 820px) { .dgrid, .explainer-strip { grid-template-columns: minmax(0, 1fr); } }
+
+</style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <div class="kicker">regression-triage-jira · 交互说明</div>
+      <h1>从失败用例到 Jira，一步一步看</h1>
+      <p>左边是 11 个步骤，中间讲这一步做什么、怎么判断，右边是对应的界面，可以直接点。界面里装着 8 个虚构的示例用例，点击会实时重新计算分类和分组。</p>
+    </div>
+    <div>
+      <div class="legend" style="margin-bottom:10px">
+        <span><span class="chip 脚本">脚本</span>自动执行</span>
+        <span><span class="chip AI">AI</span>AI 执行</span>
+        <span><span class="chip 你">你</span>需要你操作</span>
+        <span><span class="flag todo">待改进</span>尚未写进代码</span>
+      </div>
+      <div class="tools">
+        <button class="primary" data-act="download">下载离线版 HTML</button>
+        <button data-act="gallery">弹窗图鉴</button>
+        <button data-act="reset">重置演示</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="rail" id="rail"></nav>
+    <div class="main">
+      <section class="explain" id="explain"></section>
+      <section class="proto">
+        <div class="proto-label"><span id="protoLabel">界面原型</span><span>示例数据 · 虚构</span></div>
+        <div class="frame">
+          <div class="frame-bar"><span class="lights"><i></i><i></i><i></i></span><span class="addr" id="addr"></span></div>
+          <div class="screen" id="screen"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="dialog" role="dialog" aria-modal="true">
+      <header><h3 id="dlgTitle"></h3><button id="dlgX" aria-label="关闭">×</button></header>
+      <div class="dbody" id="dlgBody"></div>
+      <footer id="dlgFoot"></footer>
+    </div>
+  </div>
+  <div id="toast"></div>
+
+  <script>
+/* 示例数据与步骤说明。数据为虚构，与 evals/sample_run 一致。 */
+window.SKILL = {};
+
+SKILL.CATS = {
+  PRODUCT_DEFECT:     { cn: "产品缺陷",   owner: "开发",       color: "#b23a2a" },
+  TEST_DATA:          { cn: "测试数据问题", owner: "测试",       color: "#b07a12" },
+  ENVIRONMENT:        { cn: "环境问题",   owner: "环境负责人", color: "#5b4fa3" },
+  POPUP_INTERFERENCE: { cn: "弹窗干扰",   owner: "测试",       color: "#1f7a8c" },
+  SCRIPT_ISSUE:       { cn: "脚本问题",   owner: "测试",       color: "#3d6b2f" },
+  RERUN_PASS:         { cn: "重跑可过",   owner: "测试",       color: "#6d7a80" },
+  NEEDS_HUMAN:        { cn: "需人工判断", owner: "测试",       color: "#8a5a44" },
+};
+
+SKILL.CASES = [
+  { id: "S01", name: "BM new business with agent 40100", market: "HK", module: "BM", step: "Click Submit on agent selection page",
+    exc: "TimeoutException", msg: "waiting for element #nextStep to be clickable",
+    popup: { type: "html_modal", text: "Agent record not found  [OK]" }, biz: "Agent record not found",
+    data: { agent_code: "40100", product_code: "UR67" }, shot: "modal-error",
+    rerun: { suggest: false, why: "页面有业务报错。重跑解决不了，还会消耗测试数据" } },
+  { id: "S02", name: "Policy alteration change address", market: "HK", module: "PS", step: "Search policy",
+    exc: "NoSuchElementException", msg: "Unable to locate element: #policyRow",
+    popup: null, biz: "Policy not found", data: { policy_no: "P26110001" }, shot: "inline-error",
+    rerun: { suggest: false, why: "页面有业务报错“Policy not found”，需要先查数据" } },
+  { id: "S03", name: "UW manual review", market: "MO", module: "UW", step: "Open UW workbench",
+    exc: "TimeoutException", msg: "Page shows 503 Service Unavailable",
+    popup: null, biz: null, data: {}, shot: "503",
+    rerun: { suggest: true, why: "报错匹配环境故障特征（503）。建议确认环境恢复后重跑" }, rerunResult: "passed" },
+  { id: "S04", name: "BM quotation premium check", market: "HK", module: "BM", step: "Click Calculate",
+    exc: "ElementClickInterceptedException",
+    msg: "Other element would receive the click: <div class=\"modal-backdrop fade show\">",
+    popup: { type: "html_modal", text: "System Notice: SIT2 maintenance tonight 22:00" }, biz: null, data: {}, shot: "modal-notice",
+    rerun: { suggest: true, why: "点击被弹框遮挡，弹框可能是临时公告" }, rerunResult: "failed" },
+  { id: "S05", name: "BM payment by credit card", market: "HK", module: "BM", step: "Wait for payment result",
+    exc: "TimeoutException", msg: "waiting for element #payResult to be visible",
+    popup: null, biz: null, data: {}, shot: "loading",
+    rerun: { suggest: true, why: "等待超时，没有业务报错和弹框，可能是偶发" }, rerunResult: "passed" },
+  { id: "S06", name: "UW decision letter", market: "HK", module: "UW", step: "Open letter preview",
+    exc: "InvalidSelectorException", msg: "invalid xpath expression //div[@class='letter'",
+    popup: null, biz: null, data: {}, shot: "normal",
+    rerun: { suggest: false, why: "定位表达式本身写错了，重跑一定还会失败" } },
+  { id: "S07", name: "BM new business with agent 40200", market: "HK", module: "BM", step: "Click Submit on agent selection page",
+    exc: "TimeoutException", msg: "waiting for element #nextStep to be clickable",
+    popup: { type: "html_modal", text: "Agent record not found  [OK]" }, biz: "Agent record not found",
+    data: { agent_code: "40200", product_code: "UR67" }, shot: "modal-error",
+    rerun: { suggest: false, why: "页面有业务报错。重跑解决不了，还会消耗测试数据" } },
+  { id: "S08", name: "PS long running endorsement", market: "HK", module: "PS", step: "Save endorsement",
+    exc: "UnexpectedAlertPresentException", msg: "unexpected alert open: {Alert text : Your session has expired}",
+    popup: { type: "js_alert", text: "Your session has expired" }, biz: null, data: {}, shot: "js-alert",
+    rerun: { suggest: true, why: "会话过期弹窗，属于临时干扰" }, rerunResult: "failed" },
+];
+
+/* 数据核查（S07 的 agent 40200 留给用户在界面里填） */
+SKILL.CHECKS_DONE = [
+  { key: "agent_code=40100", result: "ok", by: "同事B", at: "11-03 16:10", method: "SIT2 只读账号查询 AGENT 表", note: "记录存在，状态 Active" },
+  { key: "product_code=UR67", result: "ok", by: "同事B", at: "11-03 16:12", method: "SIT2 只读账号查询 PRODUCT 表", note: "产品已上架" },
+  { key: "policy_no=P26110001", result: "used", by: "同事B", at: "11-03 16:15", method: "SIT2 只读账号查询 POLICY 表", note: "该保单已在上一轮回归中退保" },
+];
+
+/* 步骤说明。status: done = 代码已有；todo = 已确认要改，尚未写进代码；mixed = 部分已有 */
+SKILL.STEPS = [
+  { id: "setup", no: "0", title: "一次性准备", actor: ["你", "IT"], status: "mixed", screen: "setup",
+    files: ["scripts/popup_evidence.py", "config/config.yaml", "config/rules.yaml"],
+    what: "把弹窗证据插件放进测试仓库，填写配置，确认 Jira 是云版还是 Data Center。",
+    how: [
+      "把 popup_evidence.py 复制到测试仓库，在 conftest.py 加一行：pytest_plugins = [\"popup_evidence\"]",
+      "复制 config.example.yaml 为 config.yaml，填写项目编号、重跑方式等",
+      "浏览器打开 你的Jira地址/rest/api/2/serverInfo，看 deploymentType",
+    ],
+    inside: [
+      "插件在用例失败那一刻先截整个屏幕，这样浏览器和系统自己的弹窗也能拍到",
+      "再记录原生对话框文字、页面内的弹框、网址、浏览器版本",
+      "收集过程出错只记录警告，不会影响测试结果",
+    ],
+    todo: ["Jira 客户端改成同时支持 Cloud 和 Data Center，用配置切换", "插件增加收集浏览器控制台错误"] },
+
+  { id: "load", no: "1", title: "读取失败结果", actor: ["脚本"], status: "done", screen: "overview",
+    files: ["scripts/load_results.py"],
+    what: "把本次回归所有失败用例的报错、截图、弹窗证据统一整理成一个文件。",
+    say: "分析本次回归失败，结果在 D:\\nbs\\allure-results，运行编号 2026-11-03_142142",
+    cmd: "python scripts/load_results.py --input <结果目录> --format allure --run-id <编号> --out triage_runs/<编号>/failures.json",
+    inside: [
+      "只取状态为 failed / broken 的用例",
+      "提取异常类型、报错信息、失败步骤、截图、弹窗证据",
+      "给每条证据编号：E1、E2……后面所有结论都要引用这些编号",
+      "姓名、证件号、电话等先脱敏，再交给 AI 看",
+    ],
+    out: "failures.json",
+    todo: ["Allure 附件只认插件写入的固定名称，其他图片不当作失败截图"] },
+
+  { id: "plan", no: "2", title: "重跑计划，由你确认", actor: ["脚本", "你"], status: "todo", screen: "rerunPlan",
+    files: ["scripts/classify_rules.py（预分类）"],
+    what: "先不重跑，给每个失败用例标“建议重跑 / 不建议”和理由，你确认后才开始。",
+    say: "（AI 会展示重跑计划，你回复“确认”或“S04 不用跑”）",
+    inside: [
+      "有业务报错的不建议重跑：重跑解决不了，还会消耗测试数据",
+      "定位表达式写错的不建议：重跑一定失败",
+      "疑似整体环境故障的：建议等环境恢复后再跑",
+      "会产生真实支付、出单的用例，默认不重跑",
+    ],
+    out: "rerun_plan.json",
+    todo: ["这一步是上次讨论后新增的，代码里还没有"] },
+
+  { id: "rerun", no: "3", title: "重跑", actor: ["脚本"], status: "mixed", screen: "rerunProgress",
+    files: ["scripts/rerun_failed.py"],
+    what: "只重跑你确认过的用例，记录每次的结果。",
+    cmd: "python scripts/rerun_failed.py --failures failures.json --config config/config.yaml --out rerun.json",
+    inside: [
+      "默认一个一个跑（串行），避免共用测试环境时争抢数据、账号被挤下线",
+      "用 JUnit 结果文件判断通过与否，而不是只看命令有没有报错",
+      "某次重跑通过就不再继续跑",
+    ],
+    out: "rerun.json",
+    todo: ["支持三种方式：本机执行 / 调平台接口 / 在平台手动重跑后导入结果", "命令不再经过 shell，避免特殊字符出问题"] },
+
+  { id: "classify", no: "4", title: "规则分类", actor: ["脚本"], status: "done", screen: "board",
+    files: ["scripts/classify_rules.py", "config/rules.yaml", "references/taxonomy.md"],
+    what: "按固定顺序的规则，给每个失败一个初步分类，并标明是确定（confirmed）还是疑似（suspected）。",
+    cmd: "python scripts/classify_rules.py --failures failures.json --rerun rerun.json --data-checks data_checks.yaml --out classified.json",
+    inside: [
+      "顺序：环境问题 → 重跑可过 → 原生对话框 → 业务报错 → 网页弹框 → 脚本问题 → 断言失败 → 需人工判断",
+      "环境问题排在重跑前面：环境故障常常重跑就过了，不能被当成普通的不稳定",
+      "不调用任何模型：同样的输入永远得到同样的结果",
+      "这是初步分类，不等于最终根因",
+    ],
+    out: "classified.json + data_checks.todo.yaml",
+    todo: ["证据分成“原因证据”和“现象证据”两栏", "弹窗规则放宽：异常类型对不上时给“疑似”而不是漏掉"] },
+
+  { id: "check", no: "5", title: "数据核查", actor: ["你"], status: "done", screen: "dataCheck",
+    files: ["data_checks.todo.yaml → data_checks.yaml"],
+    what: "页面出现“record not found”这类业务报错时，必须由人去数据库查，才能分清是数据问题还是系统问题。",
+    say: "（查完后告诉 AI：40200 查过了，记录存在）",
+    inside: [
+      "脚本自动列出要查的数据，同一个 agent code 只查一次",
+      "核查结果：ok（正常）/ missing（不存在）/ used（已被用掉）/ invalid_state（状态不对）",
+      "有 missing / used → 测试数据问题；全部 ok → 产品缺陷；没查 → 需人工判断",
+      "AI 不能根据截图推断数据库状态",
+    ],
+    out: "data_checks.yaml" },
+
+  { id: "ai", no: "6", title: "AI 复核疑似用例", actor: ["AI"], status: "done", screen: "aiReview",
+    files: ["SKILL.md 第 4 步", "references/taxonomy.md"],
+    what: "AI 只看“疑似”和“需人工判断”的用例，根据截图里看得见的内容给意见。",
+    inside: [
+      "只能写截图里直接看到的东西，例如“页面中央有 System Notice 弹框遮挡 Submit 按钮”",
+      "规则已确定（confirmed）的分类，AI 不能改",
+      "置信度 high 才会被后续步骤采用；medium / low 只作为给你的提示",
+    ],
+    out: "classified.json 中的 ai_review",
+    todo: ["补一份截图判读指南：看到什么说明什么"] },
+
+  { id: "group", no: "7", title: "按根因合并 + 查重", actor: ["脚本"], status: "done", screen: "groups",
+    files: ["scripts/group_by_cause.py", "scripts/check_duplicates.py"],
+    what: "同一原因的多个用例合成一组，一组对应一张 Jira；再去 Jira 搜有没有还没关闭的同类单。",
+    cmd: "python scripts/group_by_cause.py ... && python scripts/check_duplicates.py ...",
+    inside: [
+      "合并依据：分类 + 标准化后的报错（去掉数字、时间、网址）+ 失败步骤 + 市场 + 模块",
+      "环境问题跨模块合成一张",
+      "查重结果只是候选，是否追加到已有单由你决定",
+    ],
+    out: "groups.json + duplicates.json",
+    todo: ["审核时可以手动拆分、合并分组"] },
+
+  { id: "draft", no: "8", title: "起草 Jira + 自动校验", actor: ["AI", "脚本"], status: "done", screen: "draft",
+    files: ["references/jira-template.md", "scripts/validate_drafts.py"],
+    what: "AI 按 ROTQA 模板写标题和描述，脚本逐条检查，不通过就不能进入审核。",
+    inside: [
+      "标题格式：[NBS Regression] HK - BM cases failed due to <根因>",
+      "根因短语里的词必须能在证据中找到，防止编造原因",
+      "每条事实都要标证据编号；推测必须写进第 8 节“推测与待确认”",
+      "检查截图文件名真实存在、没有个人信息",
+    ],
+    out: "drafts.json" },
+
+  { id: "review", no: "9", title: "你来审核", actor: ["你"], status: "done", screen: "review",
+    files: ["scripts/build_review_sheet.py → review.xlsx / review.html"],
+    what: "逐组检查草稿，选择通过 / 驳回 / 追加到已有单，可以直接改标题、描述、优先级。",
+    inside: [
+      "黄色的列可以编辑",
+      "改分类必须写原因，这些记录会用来改进规则",
+      "指派人不由 AI 填，避免乱指派",
+    ],
+    out: "review.xlsx（审核后）" },
+
+  { id: "submit", no: "10", title: "演练 → 确认 → 提交", actor: ["你", "脚本"], status: "mixed", screen: "submit",
+    files: ["scripts/submit_jira.py", "scripts/jira_client.py"],
+    what: "先演练给你看要建几张单、传几张图，你确认后才真正写入 Jira。",
+    cmd: "python scripts/submit_jira.py --review review.xlsx --groups groups.json   （演练）\npython scripts/submit_jira.py ... --confirm   （提交）",
+    inside: [
+      "只提交“通过”和“追加到已有单”的行",
+      "每张单带专属标签 triage-<运行编号>-<组号>，重复运行不会重复建单",
+      "每处理一行就保存进度，中途断了可以续上",
+    ],
+    out: "submitted.json",
+    todo: ["修复：建单请求遇到服务器错误时不能自动重发，要先按标签查是否已建好", "建单后回读核对字段", "API 用不了时导出 Jira CSV"] },
+];
+
+  </script>
+  <script>
+/* 状态、分类推演、分组、草稿生成。全部是界面演示用的模拟逻辑，规则与 classify_rules.py 一致。 */
+(function () {
+  const S = window.SKILL;
+
+  S.initialState = function () {
+    const sel = {};
+    S.CASES.forEach(c => { sel[c.id] = c.rerun.suggest; });
+    return {
+      step: 0, visited: { 0: true },
+      setupDone: {}, jiraType: null,
+      rerunSel: sel, planConfirmed: false, rerunDone: false, rerunLog: [],
+      check40200: null, check40200Meta: null,
+      review: {}, edits: {}, manualCat: {},
+      brokenDraft: false, submitMode: "api", submitted: null,
+    };
+  };
+  S.state = S.initialState();
+
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+  S.esc = esc;
+
+  /* ---------------- 证据 ---------------- */
+  S.evidenceOf = function (c, st) {
+    const ev = [];
+    const add = (kind, text) => { const id = "E" + (ev.length + 1); ev.push({ id, kind, text }); return id; };
+    add("报错信息", c.exc + ": " + c.msg);
+    add("失败截图", c.id + "_fail.png");
+    if (c.popup) add(c.popup.type === "js_alert" ? "原生对话框文字" : "页面弹框文字", c.popup.text);
+    if (c.biz) add("页面业务报错", c.biz);
+    if (st.rerunDone && st.rerunSel[c.id]) add("重跑记录", "第 1 次重跑：" + (c.rerunResult === "passed" ? "通过" : "失败"));
+    Object.entries(c.data).forEach(([k, v]) => {
+      const key = k + "=" + v;
+      const done = S.CHECKS_DONE.find(x => x.key === key);
+      if (done) add("数据核查", key + "：" + done.result + "（" + done.by + "，" + done.at + "，" + done.method + "）");
+      else if (key === "agent_code=40200" && st.check40200) {
+        const m = st.check40200Meta || {};
+        add("数据核查", key + "：" + st.check40200 + "（" + (m.by || "同事B") + "，" + (m.method || "只读查询") + "）");
+      }
+    });
+    return ev;
+  };
+
+  const pick = (ev, kinds) => ev.filter(e => kinds.includes(e.kind)).map(e => e.id);
+
+  /* ---------------- 分类（与 taxonomy.md 顺序一致） ---------------- */
+  S.classify = function (c, st) {
+    const ev = S.evidenceOf(c, st);
+    const rerunPassed = st.rerunDone && st.rerunSel[c.id] && c.rerunResult === "passed";
+    const r = (cat, status, rule, reason, causeKinds, phenKinds, extra) =>
+      Object.assign({ cat, status, rule, reason, ev, cause: pick(ev, causeKinds), phen: pick(ev, phenKinds) }, extra || {});
+
+    if (/503|502|504|ERR_CONNECTION/i.test(c.msg))
+      return r("ENVIRONMENT", "confirmed", "ENV2", "报错匹配环境故障特征“503 Service Unavailable”" + (rerunPassed ? "；重跑已通过，说明是临时故障" : ""),
+        ["报错信息"], ["失败截图", "重跑记录"], { passedOnRerun: rerunPassed });
+    if (rerunPassed)
+      return r("RERUN_PASS", "confirmed", "R1", "自动重跑通过，原失败中没有业务报错", ["重跑记录"], ["报错信息", "失败截图"]);
+    if (c.popup && c.popup.type === "js_alert")
+      return r("POPUP_INTERFERENCE", "confirmed", "POP1", "原生对话框文字在干扰清单中：“" + c.popup.text + "”", ["原生对话框文字"], ["报错信息"]);
+    if (c.biz) {
+      const keys = Object.entries(c.data).map(([k, v]) => k + "=" + v);
+      const res = keys.map(k => {
+        const d = S.CHECKS_DONE.find(x => x.key === k);
+        if (d) return d.result;
+        if (k === "agent_code=40200") return st.check40200;
+        return null;
+      });
+      const kinds = ["页面业务报错", "页面弹框文字", "数据核查"];
+      if (res.some(x => ["missing", "used", "invalid_state"].includes(x)))
+        return r("TEST_DATA", "confirmed", "BIZ1", "业务报错“" + c.biz + "”，数据核查发现数据不可用", kinds, ["报错信息", "失败截图"]);
+      if (res.every(x => x === "ok"))
+        return r("PRODUCT_DEFECT", "confirmed", "BIZ2", "业务报错“" + c.biz + "”，但相关数据核查均正常", kinds, ["报错信息", "失败截图"]);
+      return r("NEEDS_HUMAN", "suspected", "BIZ3", "业务报错“" + c.biz + "”，待核查数据：" + keys.filter((k, i) => !res[i]).join("、"),
+        ["页面业务报错", "页面弹框文字"], ["报错信息", "失败截图"], { pending: keys.filter((k, i) => !res[i]) });
+    }
+    if (c.popup)
+      return r("POPUP_INTERFERENCE", "confirmed", "POP2", "失败时页面有干扰弹框“" + c.popup.text.slice(0, 40) + "”，且点击被遮挡", ["页面弹框文字", "失败截图"], ["报错信息"]);
+    if (c.exc === "InvalidSelectorException")
+      return r("SCRIPT_ISSUE", "confirmed", "SCR2", "定位表达式本身无效", ["报错信息"], []);
+    return r("SCRIPT_ISSUE", "suspected", "SCR1", "等待超时，页面没有弹框和业务报错；需看截图确认页面是否正常", [], ["报错信息", "失败截图"],
+      { ai: { obs: "截图 E2 中支付结果页一直显示加载圈，没有报错文字，页面其余部分正常", proposed: "NEEDS_HUMAN", conf: "medium",
+              note: "看起来更像接口响应慢，而不是脚本定位错误。只有一项证据，置信度 medium，不会自动改分类" } });
+  };
+
+  S.classifyAll = st => S.CASES.map(c => Object.assign({ c }, S.classify(c, st)));
+
+  /* ---------------- 分组 ---------------- */
+  const ORDER = ["PRODUCT_DEFECT", "ENVIRONMENT", "TEST_DATA", "SCRIPT_ISSUE", "POPUP_INTERFERENCE", "RERUN_PASS", "NEEDS_HUMAN"];
+  S.groups = function (st) {
+    const rows = S.classifyAll(st);
+    const map = new Map();
+    rows.forEach(x => {
+      const cat = st.manualCat[x.c.id] || x.cat;
+      const sig = cat === "ENVIRONMENT" ? "env" : (x.c.biz || x.c.popup && x.c.popup.text || x.c.exc).toLowerCase() + "|" + x.c.step + "|" + x.c.market + "|" + x.c.module;
+      const key = cat + "#" + sig;
+      if (!map.has(key)) map.set(key, { cat, rows: [], hint: (x.c.biz || (x.c.popup && x.c.popup.text) || x.c.msg).replace(/\s+\[OK\]$/, "") });
+      map.get(key).rows.push(x);
+    });
+    const list = Array.from(map.values()).sort((a, b) => ORDER.indexOf(a.cat) - ORDER.indexOf(b.cat) || b.rows.length - a.rows.length);
+    list.forEach((g, i) => {
+      g.id = "G" + String(i + 1).padStart(2, "0");
+      g.needsJira = ["PRODUCT_DEFECT", "ENVIRONMENT", "TEST_DATA"].includes(g.cat);
+      g.market = [...new Set(g.rows.map(r => r.c.market))].join("/");
+      g.module = [...new Set(g.rows.map(r => r.c.module))].join("/");
+      g.dup = (g.cat === "PRODUCT_DEFECT" && /agent record not found/i.test(g.hint))
+        ? [{ key: "ROTQA-5339", summary: "[NBS Regression] HK - BM cases failed due to agent record not found", status: "In Progress", sim: 0.8 }] : [];
+      g.priority = g.cat === "TEST_DATA" ? "Low" : g.cat === "ENVIRONMENT" ? "High" : (g.module.includes("BM") ? "High" : "Medium");
+    });
+    return list;
+  };
+
+  /* ---------------- 草稿 ---------------- */
+  const CAUSE = { ENVIRONMENT: () => "NBS test environment returned 503" };
+  S.draft = function (g, st) {
+    const n = g.rows.length;
+    let cause = CAUSE[g.cat] ? CAUSE[g.cat]() : g.hint.toLowerCase().replace(/[.!。]+$/, "");
+    if (st.brokenDraft && g.cat === "PRODUCT_DEFECT") cause = "database sync delay";
+    const summary = "[NBS Regression] " + g.market + " - " + g.module + " " + (n === 1 ? "case" : "cases") + " failed due to " + cause;
+    const r0 = g.rows[0];
+    const checks = g.rows.flatMap(r => r.ev.filter(e => e.kind === "数据核查").map(e => "* " + e.text));
+    const desc = [
+      "h3. 1. 现象",
+      g.cat === "ENVIRONMENT" ? "打开页面时返回 {{503 Service Unavailable}}。" : "在 " + r0.c.step + " 时系统提示 {{" + g.hint + "}}。",
+      "", "h3. 2. 受影响的用例（共 " + n + " 个）",
+      "|| 用例编号 || 用例名称 || 失败步骤 || 截图 ||",
+      ...g.rows.map(r => "| " + r.c.id + " | " + r.c.name + " | " + r.c.step + " | !" + r.c.id + "_fail.png|thumbnail! |"),
+      "", "h3. 3. 重现步骤", g.cat === "ENVIRONMENT" ? "待补充：环境问题无固定重现步骤" : "# 以测试账号登录 NBS SIT2\n# 按用例步骤操作至 " + r0.c.step,
+      "", "h3. 4. 预期结果", g.cat === "ENVIRONMENT" ? "页面正常打开" : "流程继续进入下一步",
+      "", "h3. 5. 实际结果", "{{" + (g.cat === "ENVIRONMENT" ? "503 Service Unavailable" : g.hint) + "}}",
+      "", "h3. 6. 已做的排查",
+      ...(checks.length ? checks : []),
+      ...(g.rows.some(r => r.ev.some(e => e.kind === "重跑记录")) ? ["* " + g.rows.map(r => (r.ev.find(e => e.kind === "重跑记录") || {}).text).filter(Boolean).join("；")] : ["* 未重跑（业务报错类不建议重跑）"]),
+      "", "h3. 7. 测试数据",
+      ...Object.entries(r0.c.data).map(([k, v]) => "* " + k + ": " + v),
+      ...(Object.keys(r0.c.data).length ? [] : ["不适用"]),
+      "", "h3. 8. 推测与待确认",
+      g.cat === "PRODUCT_DEFECT" ? "* 推测：代理人查询接口读取的数据源可能与 AGENT 表不一致，请开发确认" :
+        g.cat === "ENVIRONMENT" ? "* 待确认：该时段 SIT2 是否有部署或重启" : "* 待确认：是否需要准备新的测试保单",
+    ].join("\n");
+    const e = st.edits[g.id] || {};
+    return { summary: e.summary || summary, desc: e.desc || desc, priority: e.priority || g.priority, assignee: e.assignee || "", cause };
+  };
+
+  S.validate = function (g, d) {
+    const errs = [];
+    if (!/^\[NBS Regression\] [A-Z/]+ - .+ cases? failed due to .+$/.test(d.summary)) errs.push("Summary 格式不符合模板");
+    const pool = (g.hint + " " + g.rows.map(r => r.ev.map(e => e.text).join(" ") + " " + r.c.name + " " + r.c.step).join(" ")).toLowerCase();
+    const generic = ["test", "environment", "returned", "nbs", "error", "page"];
+    const words = d.cause.toLowerCase().split(/\s+/).filter(w => w && !generic.includes(w));
+    const miss = words.filter(w => !pool.includes(w));
+    if (words.length && miss.length / words.length > 0.4)
+      errs.push("根因短语“" + d.cause + "”中的 " + miss.map(w => "“" + w + "”").join("、") + " 在证据里找不到，请使用证据原文（参考：“" + g.hint + "”）");
+    const n = g.rows.length, noun = / (cases?) failed/.exec(d.summary);
+    if (noun && noun[1] !== (n === 1 ? "case" : "cases")) errs.push("组内有 " + n + " 个用例，应写 " + (n === 1 ? "case" : "cases"));
+    ["h3. 1. 现象", "h3. 6. 已做的排查", "h3. 8. 推测与待确认"].forEach(s => { if (!d.desc.includes(s)) errs.push("Description 缺少小节：" + s); });
+    if (/\b[A-Z]{1,2}\d{6}\(?[0-9A]\)?(?!\d)/.test(d.desc + " " + d.summary)) errs.push("疑似包含香港身份证号");
+    return errs;
+  };
+})();
+
+  </script>
+  <script>
+/* 每一步对应的界面原型 */
+(function () {
+  const S = window.SKILL, esc = S.esc;
+  const tag = cat => '<span class="tag" style="background:' + S.CATS[cat].color + '">' + S.CATS[cat].cn + "</span>";
+  const st = s => '<span class="st ' + s + '">' + (s === "confirmed" ? "确定" : "疑似") + "</span>";
+  S.tag = tag; S.stTag = st;
+
+  S.shot = function (c) {
+    const page = '<div class="hdr">NBS SIT2 · ' + esc(c.module) + "</div>";
+    const form = '<div class="body"><div class="fld"></div><div class="fld s"></div><div class="fld"></div><span class="btnx">Submit</span></div>';
+    switch (c.shot) {
+      case "modal-error": return '<div class="shot">' + page + form + '<div class="veil"></div><div class="modal">⚠ Agent record not found<br><span class="ok">OK</span></div></div>';
+      case "modal-notice": return '<div class="shot">' + page + form + '<div class="veil"></div><div class="modal"><b>System Notice</b><br>SIT2 maintenance tonight 22:00<br><span class="ok">Close</span></div></div>';
+      case "inline-error": return '<div class="shot">' + page + '<div class="body"><div class="fld s"></div><div class="err">Policy not found</div><div class="fld"></div></div></div>';
+      case "503": return '<div class="shot">' + page + '<div class="big">503 Service Unavailable</div></div>';
+      case "loading": return '<div class="shot">' + page + '<div class="body"><div class="fld"></div><div class="fld s"></div></div><div class="big" style="background:transparent"><div class="spin"></div></div></div>';
+      case "js-alert": return '<div class="shot">' + page + form + '<div class="alert"><b>nbs-sit2 显示</b><br>Your session has expired<br><span class="mono">[确定]</span></div></div>';
+      default: return '<div class="shot">' + page + form + "</div>";
+    }
+  };
+
+  const T = {};
+  S.screens = T;
+
+  T.setup = function (s) {
+    const items = [
+      ["plugin", "把 popup_evidence.py 放进测试仓库，conftest.py 加一行", "失败时才能抓到弹窗文字和整屏截图"],
+      ["labels", "给用例打上 case_id / market / module / system 标签", "Jira 标题里的 HK、BM 就来自这里"],
+      ["config", "复制并填写 config.yaml", "项目编号 ROTQA、重跑方式、优先级规则"],
+      ["rules", "把团队见过的弹窗文字、业务报错补进 rules.yaml", "清单越全，“需人工判断”越少"],
+      ["token", "申请 Jira 访问凭证（或确认可用 CSV 导入）", "决定第 10 步走哪种提交方式"],
+    ];
+    return "<h5>准备清单</h5><p class=\"hint\">只需要做一次。勾选只是演示，不会改动任何东西。</p>" +
+      '<table class="t"><tr><th></th><th>事项</th><th>为什么</th></tr>' +
+      items.map(([k, t, w]) => '<tr><td><input type="checkbox" data-act="setup" data-k="' + k + '"' + (s.setupDone[k] ? " checked" : "") + "></td><td>" + t + '</td><td class="muted">' + w + "</td></tr>").join("") +
+      "</table><div class=\"row\" style=\"margin-top:16px\"><button class=\"btn\" data-act=\"dlg\" data-d=\"jiraType\">确认 Jira 版本</button>" +
+      '<span class="muted">' + (s.jiraType ? "已选择：" + s.jiraType : "尚未确认") + "</span></div>";
+  };
+
+  T.overview = function () {
+    return "<h5>本次回归：2026-11-03_142142</h5><p class=\"hint\">读取完成后先看这一屏，判断数据是否齐全。点任意一行可查看原始证据。</p>" +
+      '<div class="kpis"><div class="kpi"><b>8</b><span>失败用例</span></div><div class="kpi"><b>0</b><span>缺少截图</span></div>' +
+      '<div class="kpi"><b>0</b><span>缺少弹窗证据</span></div><div class="kpi"><b>0</b><span>缺少市场/模块标签</span></div></div>' +
+      '<table class="t"><tr><th>用例</th><th>市场/模块</th><th>失败步骤</th><th>异常类型</th></tr>' +
+      S.CASES.map(c => '<tr class="click" data-act="dlg" data-d="case" data-id="' + c.id + '"><td class="mono">' + c.id + "</td><td>" + c.market + " / " + c.module + "</td><td>" + esc(c.step) + '</td><td class="mono">' + c.exc + "</td></tr>").join("") +
+      "</table>";
+  };
+
+  T.rerunPlan = function (s) {
+    const n = Object.values(s.rerunSel).filter(Boolean).length;
+    return "<h5>重跑计划</h5><p class=\"hint\">每个用例都给了建议和理由，可以逐个改。确认之前不会重跑任何用例。</p>" +
+      '<table class="t"><tr><th>用例</th><th>报错概要</th><th>建议</th><th>理由</th><th>是否重跑</th></tr>' +
+      S.CASES.map(c => "<tr><td class=\"mono\">" + c.id + '</td><td class="mono" style="font-size:11.5px">' + esc(c.exc) + "</td><td>" +
+        (c.rerun.suggest ? "建议" : '<span class="muted">不建议</span>') + '</td><td style="font-size:12.5px">' + esc(c.rerun.why) +
+        '</td><td><span class="toggle"><button class="' + (s.rerunSel[c.id] ? "on" : "") + '" data-act="rsel" data-id="' + c.id + '" data-v="1">跑</button>' +
+        '<button class="' + (!s.rerunSel[c.id] ? "on no" : "") + '" data-act="rsel" data-id="' + c.id + '" data-v="0">不跑</button></span></td></tr>').join("") +
+      '</table><div class="row" style="margin-top:14px"><span class="muted">将重跑 ' + n + " 个，预计约 " + n * 2 + ' 分钟（串行）</span><span class="spacer"></span>' +
+      '<button class="btn" data-act="dlg" data-d="rerunConfirm"' + (s.planConfirmed ? " disabled" : "") + ">" + (s.planConfirmed ? "已确认" : "确认重跑计划") + "</button></div>";
+  };
+
+  T.rerunProgress = function (s) {
+    if (!s.planConfirmed) return '<h5>重跑</h5><p class="hint">还没有确认重跑计划。</p><button class="btn" data-act="go" data-i="2">回到第 2 步确认</button>';
+    const sel = S.CASES.filter(c => s.rerunSel[c.id]);
+    const done = s.rerunLog.length;
+    return "<h5>重跑进度</h5><p class=\"hint\">一个一个跑，避免共用测试环境时互相干扰。</p>" +
+      '<div class="progress"><i style="width:' + (sel.length ? done / sel.length * 100 : 100) + '%"></i></div>' +
+      '<table class="t"><tr><th>用例</th><th>状态</th><th>耗时</th></tr>' +
+      sel.map(c => { const l = s.rerunLog.find(x => x.id === c.id);
+        return "<tr><td class=\"mono\">" + c.id + "</td><td>" + (l ? (l.res === "passed" ? '<b style="color:var(--ok)">通过</b>' : '<b style="color:#b23a2a">仍失败</b>') : '<span class="muted">等待中</span>') +
+          '</td><td class="mono">' + (l ? l.t + "s" : "") + "</td></tr>"; }).join("") +
+      '</table><div class="row" style="margin-top:14px"><button class="btn" data-act="runRerun"' + (s.rerunDone || s.running ? " disabled" : "") + ">" +
+      (s.rerunDone ? "重跑完成" : s.running ? "重跑中…" : "开始重跑") + "</button>" +
+      '<span class="muted">真实环境里由脚本或平台执行；这里只是模拟</span></div>';
+  };
+
+  T.board = function (s) {
+    const rows = S.classifyAll(s);
+    const cats = Object.keys(S.CATS);
+    return "<h5>初步分类看板</h5><p class=\"hint\">点卡片查看判定依据：绿色框是<b>原因证据</b>，灰色框是<b>现象证据</b>。" +
+      (s.rerunDone ? "" : " 重跑还没做，所以 S05 现在显示为“脚本问题（疑似）”。") + "</p>" +
+      '<div class="board">' + cats.map(k => {
+        const items = rows.filter(r => r.cat === k);
+        return '<div class="col" style="border-color:' + S.CATS[k].color + '"><h6>' + S.CATS[k].cn + "<span>" + items.length + "</span></h6>" +
+          items.map(r => '<div class="card" data-act="dlg" data-d="case" data-id="' + r.c.id + '"><span class="id">' + r.c.id + "</span> " + st(r.status) +
+            '<br><span class="muted">' + r.rule + " · " + esc(r.reason.slice(0, 34)) + "…</span></div>").join("") + "</div>";
+      }).join("") + "</div>";
+  };
+
+  T.dataCheck = function (s) {
+    const pend = S.classifyAll(s).filter(r => r.pending).flatMap(r => r.pending.map(k => ({ k, id: r.c.id })));
+    const extra = s.check40200 ? [{ key: "agent_code=40200", result: s.check40200, by: (s.check40200Meta || {}).by || "同事B", at: "刚刚", method: (s.check40200Meta || {}).method || "只读查询", note: (s.check40200Meta || {}).note || "" }] : [];
+    return "<h5>数据核查</h5><p class=\"hint\">页面出现业务报错时，要由人去数据库查，才能区分是测试数据问题还是产品缺陷。</p>" +
+      "<h6 style=\"margin:8px 0\">待核查（" + pend.length + "）</h6>" +
+      (pend.length ? '<table class="t"><tr><th>数据</th><th>涉及用例</th><th></th></tr>' + pend.map(p =>
+        '<tr><td class="mono">' + p.k + '</td><td class="mono">' + p.id + '</td><td><button class="btn" data-act="dlg" data-d="check">填写核查结果</button></td></tr>').join("") + "</table>"
+        : '<div class="pass">没有待核查的数据。</div>') +
+      '<h6 style="margin:16px 0 8px">已核查</h6><table class="t"><tr><th>数据</th><th>结果</th><th>核查人 / 方式</th><th>说明</th></tr>' +
+      S.CHECKS_DONE.concat(extra).map(x => '<tr><td class="mono">' + x.key + '</td><td class="mono">' + x.result + "</td><td>" + esc(x.by) + " · " + esc(x.method) + '</td><td class="muted">' + esc(x.note) + "</td></tr>").join("") + "</table>";
+  };
+
+  T.aiReview = function (s) {
+    const rows = S.classifyAll(s);
+    return "<h5>AI 复核</h5><p class=\"hint\">AI 只看“疑似”的用例；规则已确定的不复核、也不能改。置信度只有 high 才会被采用。</p>" +
+      '<table class="t"><tr><th>用例</th><th>规则分类</th><th>AI 是否复核</th><th>AI 看到的内容 / 意见</th></tr>' +
+      rows.map(r => {
+        let ai = '<span class="muted">规则已确定，不复核</span>';
+        if (r.status === "suspected" && r.ai) ai = "<b>观察：</b>" + esc(r.ai.obs) + "<br><b>建议：</b>" + S.CATS[r.ai.proposed].cn + "（置信度 " + r.ai.conf + "）<br><span class=\"muted\">" + esc(r.ai.note) + "</span>";
+        else if (r.status === "suspected" && r.pending) ai = '<span style="color:var(--todo)">等待数据核查。数据库状态只能由人查，AI 不能代替</span>';
+        return '<tr><td class="mono">' + r.c.id + "</td><td>" + tag(r.cat) + " " + st(r.status) + "</td><td>" + (r.status === "suspected" ? "是" : "否") + '</td><td style="font-size:12.5px">' + ai + "</td></tr>";
+      }).join("") + "</table>";
+  };
+
+  T.groups = function (s) {
+    const gs = S.groups(s);
+    return "<h5>按根因合并</h5><p class=\"hint\">同一原因的用例合成一组，一组对应一张 Jira。" +
+      (s.check40200 === "ok" ? "S07 的数据核查正常，已和 S01 合成一组。" : s.check40200 ? "" : "S07 还没核查数据，暂时单独放在“需人工判断”。") + "</p>" +
+      '<table class="t"><tr><th>组</th><th>分类</th><th>用例</th><th>根因提示</th><th>建 Jira</th><th>疑似重复</th></tr>' +
+      gs.map(g => '<tr><td class="mono">' + g.id + "</td><td>" + tag(g.cat) + '</td><td class="mono">' + g.rows.map(r => r.c.id).join(", ") + "</td><td>" + esc(g.hint) +
+        "</td><td>" + (g.needsJira ? "是" : '<span class="muted">否</span>') + '</td><td style="font-size:12px">' +
+        (g.dup.length ? g.dup.map(d => '<b class="mono">' + d.key + "</b>（" + d.status + "，相似度 " + d.sim + "）").join("") : '<span class="muted">—</span>') + "</td></tr>").join("") + "</table>";
+  };
+
+  T.draft = function (s) {
+    const gs = S.groups(s).filter(g => g.needsJira);
+    if (!s.draftSel || !gs.find(g => g.id === s.draftSel)) s.draftSel = gs[0].id;
+    const g = gs.find(x => x.id === s.draftSel), d = S.draft(g, s), errs = S.validate(g, d);
+    const total = S.groups(s).length, cases = g.rows.map(r => r.c.id);
+    const src = (t, k) => '<span class="src ' + k + '">' + t + "</span>";
+    const field = (label, html, from) => '<div class="jf"><span>' + label + "</span><div>" + html + (from || "") + "</div></div>";
+    const env = "Environment: NBS-SIT2\nBrowser: MicrosoftEdge 142.0.3595.53\nDriver: 142.0.3595.53\nOS: Windows 11\nRun ID: 2026-11-03_142142\nBuild: NBS 5.12.0-rc3";
+    const list = gs.map(x => { const dx = S.draft(x, s), ex = S.validate(x, dx);
+      return '<button class="' + (x.id === g.id ? "on" : "") + '" data-act="dsel" data-id="' + x.id + '"><b class="mono">' + x.id + "</b> " + S.tag(x.cat) +
+        "<br>" + x.rows.length + " 个用例：" + x.rows.map(r => r.c.id).join("、") + "<br>" +
+        (ex.length ? '<span class="bad">✕ 校验未通过</span>' : '<span class="ok">✓ 校验通过</span>') + "</button>"; }).join("");
+    return "<h5>起草 Jira</h5>" +
+      '<div class="explainer-strip"><div><b>一组 = 一张 Jira 单</b>上一步把 8 个失败合成了 ' + total + " 组，其中 " + gs.length + " 组需要建单，所以这里有 " + gs.length + " 份草稿。</div>" +
+      "<div><b>所有草稿在同一页</b>左边点哪份，右边就显示哪份。真实文件是一个 drafts.json，里面放着全部草稿。</div>" +
+      "<div><b>审核也只有一张表</b>下一步的 review.xlsx 是一个 Excel 文件，一行对应一份草稿。</div></div>" +
+      '<div class="dgrid"><div class="dlist">' + list +
+      '<button class="btn ghost" style="text-align:center" data-act="broken">' + (s.brokenDraft ? "恢复正常草稿" : "模拟一份有问题的草稿") + "</button></div>" +
+      '<div><div class="jira"><div class="jh"><span>Jira 新建单预览 · ' + g.id + "（" + cases.length + " 个用例）</span>" +
+      '<span><span class="src sc">脚本</span> 自动填写　<span class="src ai">AI</span> 起草</span></div>' +
+      field("Project", "ROTQA", src("配置", "sc")) +
+      field("Issue type", g.cat === "PRODUCT_DEFECT" ? "Bug" : "Task", src("按分类", "sc")) +
+      field("Summary", "<b>" + esc(d.summary) + "</b>", src("AI 按模板", "ai")) +
+      field("System", "NBS", src("用例标签", "sc")) +
+      field("Components", "SYSTEM-QA", src("配置", "sc")) +
+      field("Priority", d.priority, src("规则建议", "sc")) +
+      field("Labels", "regression, auto-triage, run-2026-11-03_142142, triage-…-" + g.id, src("脚本", "sc")) +
+      field("Assignee", '<span class="muted">留空，由你在审核时填写</span>') +
+      field("Environment", "<pre>" + env + "</pre>", src("运行记录", "sc")) +
+      field("Description", "<pre>" + esc(d.desc) + "</pre>", src("AI 按 8 小节模板", "ai")) +
+      field("Attachments", cases.map(c => '<span class="mono">' + c + "_fail.png</span>").join("　"), src("失败截图", "sc")) +
+      "</div>" +
+      (errs.length ? '<div class="errs" style="margin-top:10px"><b>校验未通过（' + errs.length + "）</b><br>" + errs.map(e => "· " + esc(e)).join("<br>") + "<br>不通过就不能生成审核表，AI 会按提示修改后重新校验。</div>"
+        : '<div class="pass" style="margin-top:10px"><b>校验通过</b>：已检查格式、根因来源、用例列表、截图引用和个人信息。</div>') +
+      "</div></div>";
+  };
+
+  T.review = function (s) {
+    const gs = S.groups(s).filter(g => g.needsJira);
+    return "<h5>审核表</h5><p class=\"hint\">对应 review.xlsx：<b>一个 Excel 文件，一行 = 一张待建的 Jira</b>。每行选一个处理方式；“编辑”可以改标题、优先级、指派人；“改分类”必须写原因。</p>" +
+      '<table class="t"><tr><th>组</th><th>分类</th><th>Summary</th><th>优先级</th><th>审核状态</th><th></th></tr>' +
+      gs.map(g => { const d = S.draft(g, s), v = s.review[g.id] || "待审核";
+        return '<tr><td class="mono">' + g.id + "</td><td>" + tag(s.manualCat[g.rows[0].c.id] || g.cat) + '</td><td style="font-size:12.5px">' + esc(d.summary) +
+          (g.dup.length ? '<br><span style="color:var(--todo);font-size:12px">疑似重复：' + g.dup[0].key + "</span>" : "") + "</td><td>" + d.priority +
+          '</td><td><select data-act="rstat" data-id="' + g.id + '" style="background:#fffbea;border:1px solid var(--line);padding:4px">' +
+          ["待审核", "通过", "追加到已有单", "驳回"].map(o => "<option" + (o === v ? " selected" : "") + ">" + o + "</option>").join("") + "</select>" +
+          (v === "追加到已有单" ? '<br><span class="mono" style="font-size:11.5px">→ ' + (g.dup[0] ? g.dup[0].key : "请在编辑中填写单号") + "</span>" : "") +
+          '</td><td class="row"><button class="btn ghost" data-act="dlg" data-d="edit" data-id="' + g.id + '">编辑</button><button class="btn ghost" data-act="dlg" data-d="recat" data-id="' + g.id + '">改分类</button></td></tr>'; }).join("") +
+      "</table>";
+  };
+
+  T.submit = function (s) {
+    const gs = S.groups(s).filter(g => g.needsJira);
+    const ready = gs.filter(g => ["通过", "追加到已有单"].includes(s.review[g.id]));
+    const modes = [["api", "REST API 自动提交"], ["csv", "导出 Jira CSV（待改进）"], ["copy", "生成可复制内容"]];
+    let res = "";
+    if (s.submitted) res = '<div class="pass" style="margin-top:14px"><b>提交完成</b><br>' + s.submitted.map(x => esc(x)).join("<br>") + "</div>";
+    return "<h5>提交</h5><p class=\"hint\">先演练，看清楚要做什么，确认后才写入。只处理审核状态为“通过”或“追加到已有单”的组。</p>" +
+      '<div class="row" style="margin-bottom:12px"><span class="muted">提交方式</span><span class="toggle">' +
+      modes.map(([k, t]) => '<button class="' + (s.submitMode === k ? "on" : "") + '" data-act="mode" data-v="' + k + '">' + t + "</button>").join("") + "</span></div>" +
+      '<table class="t"><tr><th>组</th><th>审核状态</th><th>将执行</th></tr>' + gs.map(g => { const v = s.review[g.id] || "待审核";
+        return '<tr><td class="mono">' + g.id + "</td><td>" + v + "</td><td>" + (v === "通过" ? "新建 Jira 单，上传截图 " + g.rows.length + " 张" : v === "追加到已有单" ? "在 " + (g.dup[0] ? g.dup[0].key : "?") + " 下追加评论和截图" : '<span class="muted">跳过</span>') + "</td></tr>"; }).join("") +
+      '</table><div class="row" style="margin-top:14px"><button class="btn" data-act="dlg" data-d="dryrun"' + (ready.length && !s.submitted ? "" : " disabled") + ">演练</button>" +
+      '<span class="muted">' + (ready.length ? "" : "请先在第 9 步把至少一组改为“通过”或“追加到已有单”") + "</span></div>" + res;
+  };
+})();
+
+  </script>
+  <script>
+/* 弹窗设计 */
+(function () {
+  const S = window.SKILL, esc = S.esc;
+  const D = {};
+  S.dialogs = D;
+
+  const evList = (ev, ids) => ids.length ? ids.map(id => { const e = ev.find(x => x.id === id);
+    return '<div class="eitem"><b>' + id + "</b>" + esc(e.kind) + "：" + esc(e.text) + "</div>"; }).join("") : '<div class="eitem muted">无</div>';
+
+  D.case = function (s, a) {
+    const c = S.CASES.find(x => x.id === a.id);
+    const r = S.classify(c, s);
+    const classified = s.step >= 4;
+    let body = S.shot(c) + '<div class="shot-cap">E2 · ' + c.id + "_fail.png（示意）</div>";
+    if (!classified) {
+      body += '<h4 style="margin:14px 0 6px;font-size:13px">原始证据</h4>' + evList(r.ev, r.ev.map(e => e.id)) +
+        '<p class="muted" style="font-size:12.5px">这一步只读取数据，还没有分类。</p>';
+    } else {
+      body += '<div class="row" style="margin:14px 0 8px">' + S.tag(r.cat) + S.stTag(r.status) + '<span class="mono">规则 ' + r.rule + "</span></div>" +
+        "<p style=\"margin:0 0 10px\">" + esc(r.reason) + "</p>" +
+        '<div class="evi"><div class="box cause"><h6>原因证据：说明为什么这样分类</h6>' + evList(r.ev, r.cause) +
+        '</div><div class="box"><h6>现象证据：只说明出了什么现象</h6>' + evList(r.ev, r.phen) + "</div></div>";
+      if (r.status === "suspected") body += '<p style="font-size:12.5px;color:var(--todo);margin-top:10px">这是“疑似”结论：需要 AI 看截图复核，或由你确认。</p>';
+    }
+    return { title: "用例 " + c.id + " · " + (classified ? "判定依据" : "证据"), body,
+      note: classified ? "“原因证据 / 现象证据”分两栏显示，是上次讨论后的改进设计，代码中尚未实现。" : "",
+      buttons: [{ label: "关闭", cls: "btn", act: "close" }] };
+  };
+
+  D.rerunConfirm = function (s) {
+    const yes = S.CASES.filter(c => s.rerunSel[c.id]), no = S.CASES.filter(c => !s.rerunSel[c.id]);
+    return { title: "确认重跑计划",
+      body: "<p>将<b>串行</b>重跑 " + yes.length + " 个用例，预计约 " + yes.length * 2 + " 分钟：</p><p class=\"mono\">" + yes.map(c => c.id).join("、") + "</p>" +
+        "<p>不重跑 " + no.length + " 个：</p><ul style=\"padding-left:18px;margin:0\">" + no.map(c => "<li><span class=\"mono\">" + c.id + "</span>：" + esc(c.rerun.why) + "</li>").join("") + "</ul>" +
+        '<p style="margin-top:10px">重跑会使用共用测试环境。如果环境正在维护，建议稍后再执行。</p>',
+      note: "这一确认步骤是改进后的设计，代码中尚未实现。",
+      buttons: [{ label: "取消", cls: "btn ghost", act: "close" }, { label: "确认，进入重跑", cls: "btn", act: "confirmPlan" }] };
+  };
+
+  D.check = function (s) {
+    const m = s.check40200Meta || {};
+    return { title: "填写核查结果 · agent_code=40200",
+      body: '<p class="muted" style="margin-top:0">涉及用例 S07：页面提示“Agent record not found”。请在测试环境数据库用只读账号查询后填写。</p>' +
+        '<div class="field"><label>核查结果</label><select id="f-res" class="edit">' +
+        [["ok", "ok：记录存在且状态正确"], ["missing", "missing：记录不存在"], ["used", "used：数据已被使用"], ["invalid_state", "invalid_state：状态不符合用例前提"]]
+          .map(([v, t]) => '<option value="' + v + '"' + (s.check40200 === v ? " selected" : "") + ">" + t + "</option>").join("") + "</select></div>" +
+        '<div class="field"><label>核查人</label><input id="f-by" class="edit" value="' + esc(m.by || "同事B") + '"></div>' +
+        '<div class="field"><label>查询方式</label><input id="f-method" class="edit" value="' + esc(m.method || "SIT2 只读账号查询 AGENT 表") + '"></div>' +
+        '<div class="field"><label>说明（可选）</label><input id="f-note" class="edit" value="' + esc(m.note || "") + '"></div>' +
+        '<p style="font-size:12.5px">选 ok：S07 会归为<b>产品缺陷</b>，并和 S01 合成一张单。选 missing / used：归为<b>测试数据问题</b>。</p>',
+      buttons: [{ label: "取消", cls: "btn ghost", act: "close" }, { label: "保存", cls: "btn", act: "saveCheck" }] };
+  };
+
+  D.edit = function (s, a) {
+    const g = S.groups(s).find(x => x.id === a.id), d = S.draft(g, s);
+    return { title: "编辑草稿 · " + g.id,
+      body: '<div class="field"><label>Summary</label><input id="f-sum" class="edit" value="' + esc(d.summary) + '"></div>' +
+        '<div class="field"><label>Priority</label><select id="f-pri" class="edit">' + ["Highest", "High", "Medium", "Low"].map(p => "<option" + (p === d.priority ? " selected" : "") + ">" + p + "</option>").join("") + "</select></div>" +
+        '<div class="field"><label>Assignee（对方的 Atlassian 邮箱，留空则不指派）</label><input id="f-asg" class="edit" value="' + esc(d.assignee) + '" placeholder="name@fwd.com"></div>' +
+        '<div class="field"><label>Description</label><textarea id="f-desc" class="edit" style="min-height:180px">' + esc(d.desc) + "</textarea></div>",
+      buttons: [{ label: "取消", cls: "btn ghost", act: "close" }, { label: "保存修改", cls: "btn", act: "saveEdit", id: g.id }] };
+  };
+
+  D.recat = function (s, a) {
+    const g = S.groups(s).find(x => x.id === a.id);
+    return { title: "修改分类 · " + g.id,
+      body: "<p style=\"margin-top:0\">当前分类：" + S.tag(g.cat) + "（规则 " + g.rows.map(r => r.rule).join("/") + "）</p>" +
+        '<div class="field"><label>改为</label><select id="f-cat" class="edit">' + Object.keys(S.CATS).map(k => '<option value="' + k + '"' + (k === g.cat ? " selected" : "") + ">" + S.CATS[k].cn + "</option>").join("") + "</select></div>" +
+        '<div class="field"><label>修改原因（必填）</label><textarea id="f-why" class="edit" style="min-height:70px;font-family:inherit" placeholder="例如：和开发确认过，这是测试环境配置问题"></textarea></div>' +
+        '<div id="f-err"></div><p class="muted" style="font-size:12.5px">这条记录会写入 corrections.jsonl，每两周汇总一次，用来改进分类规则。</p>',
+      buttons: [{ label: "取消", cls: "btn ghost", act: "close" }, { label: "保存", cls: "btn", act: "saveRecat", id: g.id }] };
+  };
+
+  D.dryrun = function (s) {
+    const gs = S.groups(s).filter(g => g.needsJira && ["通过", "追加到已有单"].includes(s.review[g.id]));
+    const mode = { api: "REST API 自动提交", csv: "导出 Jira CSV", copy: "生成可复制内容" }[s.submitMode];
+    return { title: "演练结果 · 尚未写入 Jira",
+      body: "<p style=\"margin-top:0\">提交方式：<b>" + mode + "</b></p><table class=\"t\"><tr><th>组</th><th>操作</th><th>附件</th></tr>" +
+        gs.map(g => { const v = s.review[g.id], d = S.draft(g, s);
+          return '<tr><td class="mono">' + g.id + "</td><td>" + (v === "通过" ? "新建：" + esc(d.summary) : "追加评论到 " + (g.dup[0] ? g.dup[0].key : "?")) + "</td><td>" + g.rows.length + " 张截图</td></tr>"; }).join("") +
+        "</table><p>每张新单都会带标签 <span class=\"mono\">triage-2026-11-03_142142-G0x</span>，重复执行不会重复建单。</p>" +
+        (s.submitMode === "csv" ? '<p style="color:var(--todo)">CSV 方式无法自动上传本地截图，导入后需要手动补传。</p>' : ""),
+      note: s.submitMode === "api" ? "" : "CSV 导出和可复制内容是改进后的设计，代码中尚未实现。",
+      buttons: [{ label: "取消", cls: "btn ghost", act: "close" }, { label: "确认提交", cls: "btn warn", act: "doSubmit" }] };
+  };
+
+  D.jiraType = function () {
+    return { title: "确认 Jira 版本",
+      body: "<p style=\"margin-top:0\">在浏览器打开：</p><p class=\"mono\" style=\"background:var(--paper-2);padding:6px 10px\">https://你们的Jira地址/rest/api/2/serverInfo</p>" +
+        "<p>看返回内容里的 <span class=\"mono\">deploymentType</span>：</p><ul style=\"padding-left:18px\"><li><b>Cloud</b>：用邮箱 + API Token 认证</li>" +
+        "<li><b>Server / DataCenter</b>：用个人访问令牌（PAT）认证，接口路径也不同</li></ul><p>两者的认证方式和接口都不一样，选错了提交会失败。</p>",
+      buttons: [{ label: "还不确定", cls: "btn ghost", act: "jira", v: "还不确定" }, { label: "Data Center", cls: "btn ghost", act: "jira", v: "Data Center" }, { label: "Cloud", cls: "btn", act: "jira", v: "Cloud" }] };
+  };
+
+  D.unknownPopup = function () {
+    return { title: "发现未知弹窗",
+      body: '<p style="margin-top:0">以下弹窗文字不在干扰清单里，也不在业务报错清单里，用例已归为“需人工判断”：</p>' +
+        '<p style="background:var(--paper-2);padding:8px 10px">“Your password will expire in 3 days. Change now?”<br><span class="muted" style="font-size:12px">出现 3 次 · 页面 /login/redirect · 用例 S11、S14、S19</span></p>' +
+        '<div class="field"><label>这是什么弹窗？</label><select class="edit"><option>干扰：加入 noise_popups</option><option>业务报错：加入 business_errors</option><option>暂不处理</option></select></div>' +
+        '<div class="field"><label>建议的根治办法</label><input class="edit" value="请 IT 延长测试账号的密码有效期"></div>',
+      note: "这是示例弹窗，只在弹窗图鉴里展示；对应的规则更新需要人工修改 rules.yaml。",
+      buttons: [{ label: "取消", cls: "btn ghost", act: "close" }, { label: "记录到弹窗清单", cls: "btn", act: "close", toast: "已记录（示例）" }] };
+  };
+
+  D.validateFail = function (s) {
+    const g = S.groups(s).find(x => x.cat === "PRODUCT_DEFECT") || S.groups(s)[0];
+    const d = S.draft(g, Object.assign({}, s, { brokenDraft: true, edits: {} }));
+    return { title: "草稿校验未通过",
+      body: '<p style="margin-top:0">' + g.id + " 的 Summary：</p><p class=\"mono\" style=\"background:var(--paper-2);padding:6px 10px\">" + esc(d.summary) + "</p>" +
+        '<div class="errs">' + S.validate(g, d).map(e => "· " + esc(e)).join("<br>") + "</div><p>AI 会按提示修改后重新校验，直到通过，才能生成审核表。</p>",
+      buttons: [{ label: "知道了", cls: "btn", act: "close" }] };
+  };
+
+  D.gallery = function () {
+    const items = [
+      ["case", "用例判定依据", "看截图、规则编号、原因证据和现象证据", { id: "S04" }],
+      ["rerunConfirm", "确认重跑计划", "重跑前列出跑哪些、不跑哪些、为什么"],
+      ["check", "填写数据核查结果", "业务报错类必须由人查库后填写"],
+      ["unknownPopup", "发现未知弹窗", "清单里没有的弹窗，由人判断后加入清单"],
+      ["validateFail", "草稿校验未通过", "根因编不出来源时，会被这样拦下"],
+      ["edit", "编辑 Jira 草稿", "改标题、优先级、指派人、描述", { id: "G01" }],
+      ["recat", "修改分类", "必须填写原因，用来改进规则", { id: "G01" }],
+      ["dryrun", "提交前演练", "确认后才真正写入 Jira"],
+      ["jiraType", "确认 Jira 版本", "Cloud 和 Data Center 的接口不同"],
+    ];
+    return { title: "弹窗图鉴",
+      body: '<p class="muted" style="margin-top:0">这个 Skill 里所有需要你参与的弹窗。点“打开”查看实际效果。</p><div class="gallery">' +
+        items.map(([k, t, p, a]) => '<div class="gcard"><h6>' + t + "</h6><p>" + p + '</p><button class="btn ghost" data-act="dlg" data-d="' + k + '"' +
+          (a && a.id ? ' data-id="' + a.id + '"' : "") + ">打开</button></div>").join("") + "</div>",
+      buttons: [{ label: "关闭", cls: "btn", act: "close" }] };
+  };
+})();
+
+  </script>
+  <script>
+/* 页面控制：左侧步骤、讲解、原型、弹窗、动作 */
+(function () {
+  const S = window.SKILL, esc = S.esc;
+  // 在渲染之前保存页面原始内容，用于“下载离线版”
+  const SOURCE = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+  const $ = sel => document.querySelector(sel);
+  let dlgCtx = null;
+
+  function saveFile(name, text) {
+    try {
+      const blob = new Blob([text], { type: "text/html;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      toast("已开始下载 " + name);
+    } catch (e) { toast("下载失败，请用浏览器菜单“另存为”"); }
+  }
+
+  function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1800); }
+
+  function renderRail() {
+    const s = S.state;
+    $("#rail").innerHTML = "<h3>流程 · 点击任一步</h3>" + S.STEPS.map((p, i) =>
+      '<button class="step' + (i === s.step ? " active" : "") + (s.visited[i] && i !== s.step ? " visited" : "") + '" data-act="go" data-i="' + i + '">' +
+      '<span class="no">' + p.no + '</span><span><span class="t">' + p.title + '</span><span class="who">' +
+      p.actor.map(a => '<span class="chip ' + a + '">' + a + "</span>").join("") +
+      (p.status === "todo" ? '<span class="flag todo">待改进</span>' : p.status === "mixed" ? '<span class="flag mixed">部分待改进</span>' : "") +
+      "</span></span></button>").join("");
+  }
+
+  function renderExplain() {
+    const s = S.state, p = S.STEPS[s.step];
+    const actorLine = p.actor.map(a => ({ 脚本: "脚本自动执行", AI: "AI 执行", 你: "需要你操作", IT: "可能需要 IT 配合" }[a])).join(" · ");
+    $("#explain").innerHTML =
+      '<div class="stage">第 ' + p.no + " 步 · " + actorLine + "</div><h2>" + p.title + '</h2><p class="what">' + p.what + "</p>" +
+      "<h4>用到的文件</h4><div class=\"files\">" + p.files.map(f => "<code>" + esc(f) + "</code>").join("") + "</div>" +
+      (p.say ? "<h4>你怎么操作</h4><div class=\"say\">" + esc(p.say) + "</div>" : "") +
+      (p.how ? "<h4>你怎么操作</h4><ul>" + p.how.map(x => "<li>" + esc(x) + "</li>").join("") + "</ul>" : "") +
+      (p.cmd ? "<h4>AI 实际执行的命令</h4><div class=\"cmd\">" + esc(p.cmd) + "</div>" : "") +
+      "<h4>内部怎么判断</h4><ul>" + p.inside.map(x => "<li>" + esc(x) + "</li>").join("") + "</ul>" +
+      (p.out ? "<h4>产出</h4><div class=\"files\"><code>" + esc(p.out) + "</code></div>" : "") +
+      (p.todo ? '<div class="todo-box"><h4>待改进（已讨论，尚未写进代码）</h4><ul>' + p.todo.map(x => "<li>" + esc(x) + "</li>").join("") + "</ul></div>" : "") +
+      '<div class="nav-steps"><button data-act="go" data-i="' + (s.step - 1) + '"' + (s.step === 0 ? " disabled" : "") + '>← 上一步</button>' +
+      '<button class="next" data-act="go" data-i="' + (s.step + 1) + '"' + (s.step === S.STEPS.length - 1 ? " disabled" : "") + ">下一步 →</button></div>";
+  }
+
+  function renderProto() {
+    const s = S.state, p = S.STEPS[s.step];
+    $("#protoLabel").textContent = "界面原型 · " + p.title;
+    $("#addr").textContent = "triage_runs/2026-11-03_142142/  ·  " + (p.out || "准备");
+    $("#screen").innerHTML = S.screens[p.screen](s);
+  }
+
+  function render() { renderRail(); renderExplain(); renderProto(); }
+
+  function go(i) {
+    const s = S.state;
+    if (i < 0 || i >= S.STEPS.length) return;
+    s.step = i; s.visited[i] = true;
+    render();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /* ---------------- 弹窗 ---------------- */
+  function openDialog(name, args) {
+    const spec = S.dialogs[name](S.state, args || {});
+    dlgCtx = { name, args, spec };
+    $("#dlgTitle").textContent = spec.title;
+    $("#dlgBody").innerHTML = spec.body + (spec.note ? '<div class="design-note">' + esc(spec.note) + "</div>" : "");
+    $("#dlgFoot").innerHTML = spec.buttons.map((b, i) => '<button class="' + b.cls + '" data-dlg="' + i + '">' + b.label + "</button>").join("");
+    $("#overlay").classList.add("open");
+  }
+  function closeDialog() { $("#overlay").classList.remove("open"); dlgCtx = null; }
+
+  const DLG_ACTS = {
+    close(b) { closeDialog(); if (b.toast) toast(b.toast); },
+    confirmPlan() { S.state.planConfirmed = true; closeDialog(); toast("重跑计划已确认"); go(3); },
+    saveCheck() {
+      const s = S.state;
+      s.check40200 = $("#f-res").value;
+      s.check40200Meta = { by: $("#f-by").value, method: $("#f-method").value, note: $("#f-note").value };
+      closeDialog(); render(); toast("已保存，分类已重新计算");
+    },
+    saveEdit(b) {
+      S.state.edits[b.id] = { summary: $("#f-sum").value, priority: $("#f-pri").value, assignee: $("#f-asg").value, desc: $("#f-desc").value };
+      closeDialog(); render(); toast("已保存 " + b.id);
+    },
+    saveRecat(b) {
+      const why = $("#f-why").value.trim(), cat = $("#f-cat").value;
+      if (!why) { $("#f-err").innerHTML = '<div class="errs">必须填写修改原因</div>'; return; }
+      const g = S.groups(S.state).find(x => x.id === b.id);
+      g.rows.forEach(r => { S.state.manualCat[r.c.id] = cat; });
+      closeDialog(); render(); toast("分类已修改，已记录原因");
+    },
+    doSubmit() {
+      const s = S.state, out = [];
+      let n = 5401;
+      S.groups(s).filter(g => g.needsJira).forEach(g => {
+        const v = s.review[g.id];
+        if (s.submitMode === "csv") { if (["通过"].includes(v)) out.push(g.id + " → 已写入 jira_import.csv（截图需导入后手动上传）"); return; }
+        if (s.submitMode === "copy") { if (["通过", "追加到已有单"].includes(v)) out.push(g.id + " → 已生成可复制的标题和描述"); return; }
+        if (v === "通过") out.push(g.id + " → 已新建 ROTQA-" + (n++) + "，上传截图 " + g.rows.length + " 张（示例单号）");
+        if (v === "追加到已有单") out.push(g.id + " → 已在 " + (g.dup[0] ? g.dup[0].key : "?") + " 下追加评论和截图");
+      });
+      s.submitted = out.length ? out : ["没有需要提交的组"];
+      closeDialog(); render(); toast("提交完成（模拟）");
+    },
+    jira(b) { S.state.jiraType = b.v; closeDialog(); render(); },
+  };
+
+  /* ---------------- 动作 ---------------- */
+  function runRerun() {
+    const s = S.state, sel = S.CASES.filter(c => s.rerunSel[c.id]);
+    s.running = true; s.rerunLog = []; render();
+    let i = 0;
+    (function next() {
+      if (i >= sel.length) { s.running = false; s.rerunDone = true; render(); toast("重跑完成"); return; }
+      const c = sel[i++];
+      setTimeout(() => { s.rerunLog.push({ id: c.id, res: c.rerunResult || "failed", t: 40 + Math.round(Math.random() * 60) }); render(); next(); }, 650);
+    })();
+  }
+
+  document.addEventListener("click", e => {
+    const dbtn = e.target.closest("[data-dlg]");
+    if (dbtn && dlgCtx) { const b = dlgCtx.spec.buttons[+dbtn.dataset.dlg]; DLG_ACTS[b.act](b); return; }
+    if (e.target.id === "overlay" || e.target.id === "dlgX") { closeDialog(); return; }
+    const el = e.target.closest("[data-act]");
+    if (!el) return;
+    const s = S.state, a = el.dataset.act;
+    if (a === "go") go(+el.dataset.i);
+    else if (a === "dlg") openDialog(el.dataset.d, { id: el.dataset.id });
+    else if (a === "rsel") { if (s.planConfirmed) { toast("重跑计划已确认，不能再修改"); return; } s.rerunSel[el.dataset.id] = el.dataset.v === "1"; render(); }
+    else if (a === "runRerun") runRerun();
+    else if (a === "dsel") { s.draftSel = el.dataset.id; render(); }
+    else if (a === "broken") { s.brokenDraft = !s.brokenDraft; render(); }
+    else if (a === "mode") { s.submitMode = el.dataset.v; s.submitted = null; render(); }
+    else if (a === "gallery") openDialog("gallery");
+    else if (a === "download") saveFile("回归失败分诊Skill_交互说明.html", SOURCE);
+    else if (a === "reset") { S.state = S.initialState(); render(); toast("演示已重置"); }
+  });
+  document.addEventListener("change", e => {
+    const el = e.target.closest("[data-act]");
+    if (!el) return;
+    if (el.dataset.act === "setup") S.state.setupDone[el.dataset.k] = el.checked;
+    if (el.dataset.act === "rstat") { S.state.review[el.dataset.id] = el.value; S.state.submitted = null; render(); }
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeDialog(); });
+
+  render();
+})();
+
+  </script>
+</body>
+</html>

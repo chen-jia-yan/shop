@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>回归对比汇总 Policy Schedule</title>
+<style>
+:root {
+  --bg: #f5f9fd; --card: #ffffff; --ink: #1c2f45; --ink-2: #44596f; --muted: #7488a0;
+  --line: #d9e5f1; --line-2: #edf3f9; --accent: #2b6cb0; --accent-2: #e5f0fb;
+  --add: #e3f6e8; --add-b: #2f8a4a; --del: #fde8e8; --del-b: #c0392b; --chg: #fff5d6; --chg-b: #b7860b;
+  --ign: #eef2f7; --ign-b: #8a9bb0; --mark: #ffd96a;
+  --mono: "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --sans: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+body { padding-bottom: 60px; }
+button, select, input { font: inherit; }
+button { cursor: pointer; }
+
+.top { background: #fff; border-bottom: 1px solid var(--line); padding: 16px 24px 14px; position: sticky; top: 0; z-index: 20; }
+.top-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.title { margin-right: auto; }
+.title small { display: block; font-size: 11px; letter-spacing: .14em; color: var(--accent); text-transform: uppercase; font-family: var(--mono); }
+.title h1 { margin: 2px 0 0; font-size: 21px; font-weight: 600; }
+.ctl { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); }
+.ctl select { border: 1px solid var(--line); background: #fff; padding: 5px 8px; font-size: 12.5px; color: var(--ink); }
+.seg { display: inline-flex; border: 1px solid var(--accent); border-radius: 6px; overflow: hidden; }
+.seg button { border: none; background: #fff; color: var(--accent); padding: 6px 14px; font-size: 13px; }
+.seg button.on { background: var(--accent); color: #fff; }
+.btn { border: 1px solid var(--line); background: #fff; color: var(--ink); padding: 6px 12px; font-size: 12.5px; border-radius: 6px; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.pri:hover { color: #fff; filter: brightness(1.08); }
+
+.wrap { padding: 16px 24px; }
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.kpi { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; cursor: pointer; text-align: left; }
+.kpi:hover, .kpi.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-2); }
+.kpi b { display: block; font-size: 26px; font-weight: 600; }
+.kpi span { font-size: 12px; color: var(--muted); }
+.kpi.real b { color: var(--del-b); } .kpi.ign b { color: var(--ign-b); } .kpi.unm b { color: var(--chg-b); }
+
+details.panel { background: #fff; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 14px; }
+details.panel > summary { list-style: none; padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+details.panel > summary::-webkit-details-marker { display: none; }
+details.panel > summary::before { content: "▸"; color: var(--accent); transition: transform .15s; }
+details.panel[open] > summary::before { transform: rotate(90deg); }
+details.panel > summary .sub { font-weight: 400; color: var(--muted); font-size: 12.5px; }
+.clusters { padding: 0 14px 12px; }
+.cl { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line-2); font-size: 13px; }
+.cl .f { font-weight: 600; }
+.cl .v { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.cl .n { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+.main { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 14px; align-items: start; }
+.side { background: #fff; border: 1px solid var(--line); border-radius: 8px; position: sticky; top: 92px; max-height: calc(100vh - 110px); display: flex; flex-direction: column; min-width: 0; }
+.side .filters { padding: 10px; border-bottom: 1px solid var(--line); }
+.side input { width: 100%; border: 1px solid var(--line); padding: 6px 9px; font-size: 13px; border-radius: 6px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.chip { border: 1px solid var(--line); background: #fff; font-size: 12px; padding: 3px 9px; border-radius: 999px; color: var(--ink-2); }
+.chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.clist { overflow-y: auto; flex: 1; }
+.ci { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; width: 100%; text-align: left; border: none; border-bottom: 1px solid var(--line-2); background: #fff; padding: 9px 12px; }
+.ci:hover { background: #f4f8fd; }
+.ci.on { background: var(--accent-2); box-shadow: inset 3px 0 0 var(--accent); }
+.ci .nm { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ci .meta { font-size: 11.5px; color: var(--muted); }
+.badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; align-self: center; }
+.badge.real { background: var(--del); color: var(--del-b); }
+.badge.ign { background: var(--ign); color: var(--ign-b); }
+.badge.unm { background: var(--chg); color: var(--chg-b); }
+
+.viewer { background: #fff; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.vh { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.vh h2 { margin: 0; font-size: 16px; }
+.vh .path { font-family: var(--mono); font-size: 11px; color: var(--muted); width: 100%; word-break: break-all; }
+.legend { display: flex; gap: 10px; font-size: 11.5px; color: var(--ink-2); flex-wrap: wrap; padding: 8px 14px; border-bottom: 1px solid var(--line-2); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 4px; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); font-family: var(--mono); font-size: 12px; }
+.cols .hd { position: sticky; top: 92px; background: #f7fafd; border-bottom: 1px solid var(--line); padding: 6px 10px; font-family: var(--sans); font-size: 12px; color: var(--ink-2); z-index: 2; }
+.cols .hd + .hd { border-left: 1px solid var(--line); }
+.ln { display: grid; grid-template-columns: 40px minmax(0, 1fr); border-bottom: 1px solid #f3f6fa; min-height: 24px; }
+.ln + .ln { }
+.cols .ln.r { border-left: 1px solid var(--line); }
+.ln .no { color: #a8b6c6; text-align: right; padding: 4px 8px 4px 0; user-select: none; }
+.ln .tx { padding: 4px 8px; white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+.ln.add { background: var(--add); } .ln.del { background: var(--del); } .ln.chg { background: var(--chg); }
+.ln.ign { background: var(--ign); color: #5d6f84; }
+.ln.blank { background: repeating-linear-gradient(45deg, #fafcfe, #fafcfe 6px, #f1f5fa 6px, #f1f5fa 12px); }
+.ln mark { background: var(--mark); padding: 0 1px; border-radius: 2px; }
+.ln.ign mark { background: #d6dfea; }
+.rtag { display: inline-block; font-family: var(--sans); font-size: 10.5px; padding: 0 5px; border-radius: 3px; margin-left: 6px; background: #fff; border: 1px solid var(--ign-b); color: var(--ign-b); }
+.rtag.warn { border-color: var(--del-b); color: var(--del-b); }
+.note { font-family: var(--sans); display: block; font-size: 11px; color: var(--del-b); margin-top: 2px; }
+.fold { grid-column: 1 / -1; text-align: center; background: #f7fafd; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); padding: 5px; font-family: var(--sans); font-size: 12px; color: var(--accent); cursor: pointer; border-left: none; border-right: none; width: 100%; }
+.fold:hover { background: var(--accent-2); }
+.fold.ignf { color: var(--ign-b); }
+.vfoot { padding: 10px 14px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); }
+.empty { padding: 40px; text-align: center; color: var(--muted); }
+.unmatched { padding: 24px; background: var(--chg); color: #6b5207; font-size: 13.5px; line-height: 1.7; margin: 14px; border-radius: 6px; }
+
+.overlay { position: fixed; inset: 0; background: rgba(28, 47, 69, .35); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+.overlay.open { display: flex; }
+.dialog { background: #fff; border-radius: 10px; width: min(720px, 100%); max-height: 86vh; overflow: auto; box-shadow: 0 18px 50px rgba(28,47,69,.25); }
+.dialog header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.dialog header h3 { margin: 0; font-size: 17px; }
+.dialog header button { border: none; background: none; font-size: 22px; color: var(--muted); }
+.dialog .db { padding: 14px 18px; font-size: 13px; line-height: 1.65; }
+table.t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.t th { text-align: left; font-weight: 600; color: var(--ink-2); background: #f7fafd; border-bottom: 1px solid var(--line); padding: 6px 8px; }
+table.t td { border-bottom: 1px solid var(--line-2); padding: 7px 8px; vertical-align: top; }
+.proto-note { background: var(--accent-2); color: var(--ink-2); font-size: 12.5px; padding: 8px 12px; border-radius: 6px; margin-bottom: 14px; line-height: 1.6; }
+#toast { position: fixed; right: 24px; bottom: 70px; background: var(--ink); color: #fff; padding: 9px 14px; font-size: 13px; border-radius: 6px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 60; }
+#toast.show { opacity: 1; }
+
+@media (max-width: 1000px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; max-height: 360px; }
+  .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cols .hd { top: 0; }
+}
+@media print {
+  .top { position: static; } .side, .seg, .btn, details.panel { display: none !important; }
+  .main { display: block; } .cols .hd { position: static; }
+}
+
+</style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-row">
+      <div class="title"><small>Regression Compare · Policy Schedule</small><h1>回归对比汇总</h1></div>
+      <label class="ctl">基线 <select id="base"></select></label>
+      <span class="ctl">本次 <b id="cur" style="font-family:var(--mono);font-size:12.5px"></b></span>
+      <span class="seg"><button data-view="ignore" class="on">过滤版 Ignore</button><button data-view="total">完整版 Total</button></span>
+      <button class="btn" id="bRules">过滤规则</button>
+      <button class="btn" id="bCsv">导出差异清单</button>
+      <button class="btn" id="bAbout">说明</button>
+      <button class="btn pri" id="bDl">下载离线版 HTML</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="proto-note">页面设计原型：24 个虚构 Case，用来确认页面布局和交互。<b>过滤版</b>只显示真实差异及其上下 2 行，相同的内容和被忽略的差异都折叠起来；<b>完整版</b>显示全文，被忽略的差异用灰色标出。快捷键：j / k 切换 Case。</div>
+    <div class="kpis" id="kpis"></div>
+    <details class="panel" id="clPanel" open><summary>差异聚类 <span class="sub" id="clSub"></span></summary><div class="clusters" id="clusters"></div></details>
+    <div class="main">
+      <aside class="side">
+        <div class="filters"><input id="q" placeholder="搜索 Case 编号、产品代码、文件名"><div class="chips" id="chips"></div></div>
+        <div class="clist" id="clist"></div>
+      </aside>
+      <section class="viewer" id="viewer"></section>
+    </div>
+  </div>
+
+  <div class="overlay" id="ov"><div class="dialog"><header><h3 id="dTitle"></h3><button id="dX">×</button></header><div class="db" id="dBody"></div></div></div>
+  <div id="toast"></div>
+  <script>
+/* 同事A：回归对比汇总页的示例数据与对比逻辑（虚构数据，模拟“保单资料页”PDF 提取出的文字） */
+window.CMP = (function () {
+  const RUNS = [
+    { id: "2026-10-30_101210", date: "2026-10-30" },
+    { id: "2026-11-06_101530", date: "2026-11-06" },
+    { id: "2026-11-20_142142", date: "2026-11-20" },
+  ];
+  const CURRENT = 2;
+
+  const NAMES = ["楊宜庭", "楊傑克", "GARCIA YRW", "KATHRYN OOS", "陳大文", "李小玲", "黃志明", "張美儀", "WONG KA HO", "LEE MEI", "周偉", "何嘉欣"];
+  const PRODUCTS = [
+    { code: "BZ600", plan: "富衛「盈富」儲蓄計劃 BZ600", sum: 1000000, basic: 18250.00, hcy6: 906.12 },
+    { code: "UR67", plan: "富衛「愛無憂」危疾保障 UR67", sum: 800000, basic: 12480.50, hcy6: 906.12 },
+    { code: "PA20", plan: "富衛個人意外保障 PA20", sum: 500000, basic: 2360.00, hcy6: null },
+    { code: "UL10", plan: "富衛萬用壽險 UL10", sum: 2000000, basic: 30600.00, hcy6: null },
+  ];
+  // 每个 Case 的差异场景（虚构）
+  const SCEN = {
+    3: ["clause"], 5: ["hcy6price"], 7: ["hcy6price"], 8: ["hcy6price"], 10: ["addCI"], 11: ["nameInconsistent"],
+    12: ["hcy6price"], 13: ["hcy6price"], 14: ["hcy6price"], 16: ["clause"], 18: ["matWrong"], 19: ["clause"],
+    22: ["addCI"], 24: ["unmatched"],
+  };
+  const CASES = Array.from({ length: 24 }, (_, i) => {
+    const no = i + 1;
+    const p = no <= 8 ? PRODUCTS[0] : no <= 14 ? PRODUCTS[1] : no <= 20 ? PRODUCTS[2] : PRODUCTS[3];
+    return { no, id: "Case" + no, product: p, scen: SCEN[no] || [], file: "Case" + no + "_PolSchedule-" + p.code + "_HK.pdf" };
+  });
+
+  const pad = n => String(n).padStart(2, "0");
+  const fmtD = d => d.getFullYear() + " " + pad(d.getMonth() + 1) + " " + pad(d.getDate());
+  const addY = (d, y) => new Date(d.getFullYear() + y, d.getMonth(), d.getDate());
+  const money = v => "HKD " + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  function doc(c, runIdx) {
+    const run = RUNS[runIdx], cur = runIdx === CURRENT, has = s => cur && c.scen.includes(s);
+    if (has("unmatched")) return null;
+    const p = c.product, eff = new Date(run.date + "T00:00:00");
+    const nm = k => NAMES[(c.no * 3 + runIdx * 5 + k) % NAMES.length];
+    const insured = nm(0), owner = nm(1), benef = nm(2);
+    const hcy6 = p.hcy6 == null ? null : (has("hcy6price") ? 910.00 : p.hcy6);
+    const ci = has("addCI") ? 1250.00 : 0;
+    const total = p.basic + (hcy6 || 0) + ci;
+    const L = [];
+    const add = (key, label, val) => L.push({ key, label, val });
+    add("co", "", "富衛人壽保險（百慕達）有限公司 FWD Life Insurance Company (Bermuda) Limited");
+    add("title", "", "保單資料頁 Policy Schedule");
+    add("print", "列印日期 Print Date:", run.date.replace(/-/g, " ") + " " + (runIdx === 0 ? "10:12:33" : runIdx === 1 ? "10:15:47" : "14:21:42"));
+    add("polno", "保單號碼 Policy No.:", "P" + run.date.slice(2).replace(/-/g, "") + pad(c.no) + "7");
+    add("plan", "計劃名稱 Plan:", p.plan);
+    add("owner", "保單持有人 Policy Owner:", owner);
+    add("insured", "受保人 Insured:", insured);
+    add("dob", "受保人出生日期 Date of Birth:", "1990 05 12");
+    add("eff", "保單生效日 Policy Date:", fmtD(eff));
+    add("ann", "保單周年日 Policy Anniversary:", fmtD(addY(eff, 1)));
+    add("due", "首期保費到期日 First Premium Due:", fmtD(eff));
+    add("mat", "滿期日 Maturity Date:", fmtD(addY(eff, has("matWrong") ? 24 : 25)));
+    add("sum", "保額 Sum Insured:", money(p.sum));
+    add("term", "供款年期 Premium Term:", "25 年 Years");
+    add("basic", "基本計劃保費 Basic Premium:", money(p.basic));
+    if (hcy6 != null) add("hcy6", "附加保障 HCY6 住院保障保費 Rider Premium:", money(hcy6));
+    if (ci) add("rider_ci", "附加保障 CI88 危疾保障保費 Rider Premium:", money(ci));
+    add("total", "總保費 Total Premium:", money(total));
+    add("mode", "繳費方式 Payment Mode:", "年繳 Annual");
+    add("agent", "代理人編號 Agent Code:", "40100");
+    add("benef", "受益人 Beneficiary:", benef + "（100%）");
+    const clauses = [
+      ["1.1", "保障範圍：本公司按本保單條款於受保人身故時支付身故賠償。"],
+      ["1.2", "保單生效：本保單於保單生效日起生效。"],
+      ["2.1", "保費繳付：保費須於每個保單周年日或之前繳付。"],
+      ["2.2", "寬限期：保費到期日後三十一天為寬限期。"],
+      ["3.1", "退保：保單持有人可隨時以書面形式申請退保。"],
+      ["3.2", "保單貸款：保單持有人可按保證現金價值申請貸款。"],
+      ["4.1", "不保事項：自殺於保單生效日起一年內不受保障。"],
+      ["4.2", has("clause") ? "不保事項：因戰爭、暴動或恐怖活動引致之損失不受保障。" : "不保事項：因戰爭或暴動引致之損失不受保障。"],
+      ["5.1", "冷靜期：保單持有人可於冷靜期內取消保單並獲退回已繳保費。"],
+      ["5.2", "管轄法律：本保單受香港特別行政區法律管轄。"],
+    ];
+    clauses.forEach(([n, t]) => add("cl" + n, "第 " + n + " 條", t));
+    add("sign", "受保人簽署 Insured Signature:", has("nameInconsistent") ? nm(7) : insured);
+    add("page", "", "— 第 1 頁 共 3 頁 Page 1 of 3 —");
+    return L;
+  }
+
+  /* ---------------- 过滤（归一化）规则 ---------------- */
+  const RULES = [
+    { id: "R1", name: "日期按“相对生效日”比较", keys: ["eff", "ann", "due", "mat"], reason: "每次运行的系统日期不同，日期会整体平移；换算成相对生效日的偏移后再比较，满期日算错仍会被发现", by: "同事A" },
+    { id: "R2", name: "姓名替换为占位符", keys: ["owner", "insured", "benef", "sign"], reason: "测试数据每次随机生成姓名；同时检查同一份文档内受保人姓名前后一致", by: "同事A" },
+    { id: "R3", name: "忽略列印时间", keys: ["print"], reason: "每次生成 PDF 的时间不同", by: "同事A" },
+    { id: "R4", name: "忽略保单号码", keys: ["polno"], reason: "每次新建保单都会分配新号码", by: "同事A" },
+  ];
+  const PROTECTED = ["sum", "term", "basic", "hcy6", "rider_ci", "total", "mode", "agent"];
+  const ruleOf = key => RULES.find(r => r.keys.includes(key));
+  const parseD = s => { const m = /(\d{4}) (\d{2}) (\d{2})/.exec(s); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+  const rel = (d, base) => {
+    const months = (d.getFullYear() - base.getFullYear()) * 12 + d.getMonth() - base.getMonth();
+    return d.getDate() === base.getDate() ? "生效日" + (months >= 0 ? "+" : "") + months + "月" : "生效日" + Math.round((d - base) / 864e5) + "天";
+  };
+  const text = l => (l.label ? l.label + "  " : "") + l.val;
+
+  function compare(c, baseIdx) {
+    const A = doc(c, baseIdx), B = doc(c, CURRENT);
+    if (!B) return { c, unmatched: true, rows: [], real: 0, ign: 0, status: "unm" };
+    const get = (D, k) => D.find(l => l.key === k);
+    const effA = parseD(get(A, "eff").val), effB = parseD(get(B, "eff").val);
+    const nameOk = D => get(D, "insured").val === get(D, "sign").val;
+    const keys = [];
+    B.forEach(l => keys.push(l.key));
+    A.forEach((l, i) => { if (!keys.includes(l.key)) keys.splice(Math.min(i, keys.length), 0, l.key); });
+    const rows = keys.map(k => {
+      const a = get(A, k), b = get(B, k);
+      const r = { key: k, a: a ? text(a) : null, b: b ? text(b) : null, label: (a || b).label || (a || b).val.slice(0, 12) };
+      if (!a) return Object.assign(r, { type: "add" });
+      if (!b) return Object.assign(r, { type: "del" });
+      if (a.val === b.val) {
+        if (k === "sign" && !nameOk(B)) return Object.assign(r, { type: "chg", note: "同一文档内“受保人簽署”与“受保人”姓名不一致（R2 一致性检查）" });
+        return Object.assign(r, { type: "same" });
+      }
+      const rule = PROTECTED.includes(k) ? null : ruleOf(k);
+      if (!rule) return Object.assign(r, { type: "chg" });
+      if (rule.id === "R1") {
+        const ra = rel(parseD(a.val), effA), rb = rel(parseD(b.val), effB);
+        if (ra !== rb) return Object.assign(r, { type: "chg", note: "按 R1 换算后仍不同：基线 " + ra + "，本次 " + rb + "（日期本身算错了）" });
+        return Object.assign(r, { type: "ign", rule: "R1", norm: ra });
+      }
+      if (rule.id === "R2" && k === "sign" && !nameOk(B))
+        return Object.assign(r, { type: "chg", note: "同一文档内“受保人簽署”与“受保人”姓名不一致（R2 一致性检查）" });
+      return Object.assign(r, { type: "ign", rule: rule.id });
+    });
+    const real = rows.filter(r => ["chg", "add", "del"].includes(r.type)).length;
+    const ign = rows.filter(r => r.type === "ign").length;
+    return { c, rows, real, ign, status: real ? "real" : "ign" };
+  }
+
+  function clusterKey(r, A) {
+    const val = s => (s || "").replace(/^.*?:\s{2}/, "").replace(/^第 [\d.]+ 條\s{2}/, "");
+    if (r.note) return r.label + "｜" + r.note.split("：")[0].replace(/（.*$/, "");
+    if (r.type === "add") return "新增：" + r.b;
+    if (r.type === "del") return "删除：" + r.a;
+    if (r.key === "total") {
+      const n = s => parseFloat(val(s).replace(/[^\d.]/g, ""));
+      const d = (n(r.b) - n(r.a)).toFixed(2);
+      return r.label + "｜" + (d > 0 ? "+" : "") + d;
+    }
+    return r.label + "｜" + val(r.a) + " → " + val(r.b);
+  }
+
+  return { RUNS, CURRENT, CASES, RULES, PROTECTED, compare, clusterKey };
+})();
+
+  </script>
+  <script>
+/* 同事A：回归对比汇总页交互 */
+(function () {
+  const C = window.CMP;
+  const SOURCE = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+  const st = { base: 1, view: "ignore", filter: "all", q: "", sel: null, cluster: null, open: {}, showIgn: false };
+  let results = [];
+
+  function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1800); }
+  function save(name, text, type) {
+    try {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([text], { type: type || "text/plain;charset=utf-8" }));
+      a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      toast("已开始下载 " + name);
+    } catch (e) { toast("下载失败，请用浏览器菜单“另存为”"); }
+  }
+
+  function compute() {
+    results = C.CASES.map(c => C.compare(c, st.base));
+    if (!st.sel || !results.find(r => r.c.id === st.sel)) st.sel = (results.find(r => r.status === "real") || results[0]).c.id;
+  }
+
+  function clusters() {
+    const m = new Map();
+    results.forEach(r => r.rows.filter(x => ["chg", "add", "del"].includes(x.type)).forEach(x => {
+      const k = C.clusterKey(x);
+      if (!m.has(k)) m.set(k, { k, cases: [] });
+      if (!m.get(k).cases.includes(r.c.id)) m.get(k).cases.push(r.c.id);
+    }));
+    const un = results.filter(r => r.status === "unm");
+    const list = Array.from(m.values());
+    if (un.length) list.push({ k: "无法配对｜基线有、本次没有生成 PDF", cases: un.map(r => r.c.id) });
+    return list.sort((a, b) => b.cases.length - a.cases.length);
+  }
+
+  /* ---------------- 总览 ---------------- */
+  function renderKpis() {
+    const n = s => results.filter(r => r.status === s).length;
+    const k = [["all", "", results.length, "Case 总数"], ["real", "real", n("real"), "有真实差异，需要看"], ["ign", "ign", n("ign"), "过滤后一致"],
+               ["unm", "unm", n("unm"), "无法配对"], ["cl", "", clusters().length, "差异聚类（同类差异合并）"]];
+    $("#kpis").innerHTML = k.map(([f, cls, v, t]) => '<button class="kpi ' + cls + (st.filter === f && !st.cluster ? " on" : "") + '" data-f="' + f + '"><b>' + v + "</b><span>" + t + "</span></button>").join("");
+  }
+
+  function renderClusters() {
+    const cl = clusters();
+    $("#clSub").textContent = "同一种差异出现在多个 Case 里时只列一次，共 " + cl.length + " 类";
+    $("#clusters").innerHTML = cl.map((x, i) => { const [f, v] = x.k.split("｜");
+      return '<div class="cl"><div><div class="f">' + esc(f) + '</div><div class="v">' + esc(v || "") + '</div></div><span class="n">' + x.cases.length + " 个 Case：" +
+        esc(x.cases.slice(0, 6).join("、")) + (x.cases.length > 6 ? "…" : "") + '</span><button class="btn" data-cl="' + i + '">只看这些</button></div>'; }).join("");
+    window.__cl = cl;
+  }
+
+  function visibleCases() {
+    return results.filter(r => {
+      if (st.cluster) return st.cluster.includes(r.c.id);
+      if (st.filter !== "all" && st.filter !== "cl" && r.status !== st.filter) return false;
+      if (st.q && !(r.c.id + " " + r.c.product.code + " " + r.c.file).toLowerCase().includes(st.q.toLowerCase())) return false;
+      return true;
+    });
+  }
+
+  function renderList() {
+    const chips = [["all", "全部"], ["real", "有真实差异"], ["ign", "过滤后一致"], ["unm", "无法配对"]];
+    $("#chips").innerHTML = (st.cluster ? '<button class="chip on" data-clear="1">聚类筛选中（' + st.cluster.length + "）×</button>" : "") +
+      chips.map(([k, t]) => '<button class="chip' + (!st.cluster && st.filter === k ? " on" : "") + '" data-f="' + k + '">' + t + "</button>").join("");
+    const list = visibleCases();
+    $("#clist").innerHTML = list.length ? list.map(r => {
+      const b = r.status === "real" ? '<span class="badge real">' + r.real + " 处差异</span>" : r.status === "unm" ? '<span class="badge unm">无法配对</span>' : '<span class="badge ign">一致 · 忽略 ' + r.ign + "</span>";
+      return '<button class="ci' + (r.c.id === st.sel ? " on" : "") + '" data-case="' + r.c.id + '"><span><span class="nm">' + r.c.id + " · " + r.c.product.code +
+        '</span><span class="meta">' + esc(r.c.file) + "</span></span>" + b + "</button>"; }).join("") : '<div class="empty">没有符合条件的 Case</div>';
+  }
+
+  /* ---------------- 对比视图 ---------------- */
+  function marks(a, b) {
+    if (a == null || b == null) return [esc(a), esc(b)];
+    let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++;
+    let j = 0; while (j < a.length - i && j < b.length - i && a[a.length - 1 - j] === b[b.length - 1 - j]) j++;
+    const w = (s) => esc(s.slice(0, i)) + "<mark>" + esc(s.slice(i, s.length - j)) + "</mark>" + esc(s.slice(s.length - j));
+    return [w(a), w(b)];
+  }
+
+  function cellPair(r, nums) {
+    const left = r.a != null ? ++nums.a : "", right = r.b != null ? ++nums.b : "";
+    const cls = r.type === "same" ? "" : r.type;
+    let [ta, tb] = (r.type === "chg" || r.type === "ign") ? marks(r.a, r.b) : [esc(r.a), esc(r.b)];
+    if (r.type === "ign") tb += '<span class="rtag" title="' + esc((C.RULES.find(x => x.id === r.rule) || {}).name) + '">已忽略 · ' + r.rule + (r.norm ? " · " + esc(r.norm) : "") + "</span>";
+    if (r.note) tb += '<span class="note">⚠ ' + esc(r.note) + "</span>";
+    const L = r.a == null ? '<div class="ln blank"><span class="no"></span><span class="tx"></span></div>' : '<div class="ln ' + cls + '"><span class="no">' + left + '</span><span class="tx">' + ta + "</span></div>";
+    const R = r.b == null ? '<div class="ln r blank"><span class="no"></span><span class="tx"></span></div>' : '<div class="ln r ' + cls + '"><span class="no">' + right + '</span><span class="tx">' + tb + "</span></div>";
+    return L + R;
+  }
+
+  function renderViewer() {
+    const r = results.find(x => x.c.id === st.sel);
+    const path = "C:/PolicySchedule_Compare/Different/" + C.RUNS[C.CURRENT].id + "/report/" + r.c.file.replace(".pdf", ".html");
+    let head = '<div class="vh"><h2>' + r.c.id + " · " + esc(r.c.product.plan) + "</h2>" +
+      (r.status === "real" ? '<span class="badge real">' + r.real + " 处真实差异</span>" : r.status === "unm" ? '<span class="badge unm">无法配对</span>' : '<span class="badge ign">过滤后一致</span>') +
+      (r.ign ? '<span class="badge ign">已忽略 ' + r.ign + " 处</span>" : "") +
+      '<span style="flex:1"></span><button class="btn" data-nav="-1">← 上一个</button><button class="btn" data-nav="1">下一个 →</button>' +
+      '<span class="path">' + esc(path) + "</span></div>";
+    head += '<div class="legend"><span><i style="background:var(--chg)"></i>修改</span><span><i style="background:var(--add)"></i>新增</span><span><i style="background:var(--del)"></i>删除</span>' +
+      '<span><i style="background:var(--ign)"></i>已忽略（只在完整版显示）</span><span><i style="background:var(--mark)"></i>变化的文字</span>' +
+      '<span style="margin-left:auto">当前：<b>' + (st.view === "ignore" ? "过滤版 Ignore" : "完整版 Total") + "</b></span></div>";
+    if (r.status === "unm") {
+      $("#viewer").innerHTML = head + '<div class="unmatched"><b>基线里有 ' + r.c.id + "，本次运行没有生成对应的 PDF。</b><br>可能原因：用例没有执行；执行失败没有出 PDF；文件名变了。<br>这种情况不能算作“没有差异”，需要单独确认。</div>";
+      return;
+    }
+    const nums = { a: 0, b: 0 };
+    let body = '<div class="cols"><div class="hd">基线 ' + C.RUNS[st.base].id + '</div><div class="hd">本次 ' + C.RUNS[C.CURRENT].id + "</div>";
+    if (st.view === "total") {
+      r.rows.forEach(x => { body += cellPair(x, nums); });
+    } else {
+      const real = r.rows.map(x => ["chg", "add", "del"].includes(x.type));
+      const near = i => real.some((v, j) => v && Math.abs(i - j) <= 2);
+      const show = r.rows.map((x, i) => real[i] || (x.type === "same" && near(i)));
+      let i = 0, fold = 0;
+      while (i < r.rows.length) {
+        if (show[i]) { body += cellPair(r.rows[i], nums); i++; continue; }
+        let j = i; while (j < r.rows.length && !show[j]) j++;
+        const seg = r.rows.slice(i, j), key = r.c.id + ":" + fold++;
+        if (st.open[key]) { seg.forEach(x => { body += cellPair(x, nums); }); body += '<button class="fold" data-fold="' + key + '">收起</button>'; }
+        else {
+          seg.forEach(x => { if (x.a != null) nums.a++; if (x.b != null) nums.b++; });
+          const ig = seg.filter(x => x.type === "ign");
+          const by = {}; ig.forEach(x => { by[x.rule] = (by[x.rule] || 0) + 1; });
+          body += '<button class="fold' + (ig.length ? " ignf" : "") + '" data-fold="' + key + '">… ' + seg.length + " 行" +
+            (ig.length ? "，其中已忽略 " + ig.length + " 处（" + Object.entries(by).map(([k, v]) => k + "×" + v).join("，") + "）" : "相同") + "，点击展开 …</button>";
+        }
+        i = j;
+      }
+    }
+    body += "</div>";
+    const ig = r.rows.filter(x => x.type === "ign");
+    let foot = "";
+    if (ig.length) {
+      foot = '<div class="vfoot"><details' + (st.showIgn ? " open" : "") + ' id="ignDet"><summary>本 Case 被忽略的 ' + ig.length + " 处内容（点击查看原文和命中的规则）</summary>" +
+        '<table class="t" style="margin-top:8px"><tr><th>字段</th><th>基线</th><th>本次</th><th>规则</th></tr>' +
+        ig.map(x => { const rule = C.RULES.find(y => y.id === x.rule);
+          return "<tr><td>" + esc(x.label) + '</td><td style="font-family:var(--mono);font-size:11.5px">' + esc(x.a) + '</td><td style="font-family:var(--mono);font-size:11.5px">' + esc(x.b) +
+            "</td><td>" + x.rule + " " + esc(rule.name) + (x.norm ? "<br><span style=\"color:var(--muted)\">换算后均为 " + esc(x.norm) + "</span>" : "") + "</td></tr>"; }).join("") + "</table></details></div>";
+    }
+    $("#viewer").innerHTML = head + body + foot;
+  }
+
+  function render() { renderKpis(); renderClusters(); renderList(); renderViewer();
+    document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === st.view)); }
+
+  /* ---------------- 弹窗 ---------------- */
+  function dialog(title, html) { $("#dTitle").textContent = title; $("#dBody").innerHTML = html; $("#ov").classList.add("open"); }
+  function rulesDialog() {
+    dialog("过滤规则", "<p style=\"margin-top:0\">过滤版只隐藏下面这些规则命中的差异。规则写在配置文件 <code>ignore_rules.yaml</code> 里，修改要经过评审。</p>" +
+      '<table class="t"><tr><th>规则</th><th>作用字段</th><th>为什么可以忽略</th><th>批准人</th></tr>' +
+      C.RULES.map(r => "<tr><td><b>" + r.id + "</b> " + esc(r.name) + "</td><td>" + r.keys.join(", ") + "</td><td>" + esc(r.reason) + "</td><td>" + esc(r.by) + "</td></tr>").join("") + "</table>" +
+      '<p><b>受保护字段（任何规则都不能隐藏）：</b>保额、供款年期、基本保费、附加保障保费、总保费、繳費方式、代理人編號。</p>' +
+      '<p style="color:var(--muted)">例子：Case18 的满期日按 R1 换算后，基线是“生效日+300月”，本次是“生效日+288月”，所以仍然报为真实差异。如果只是简单地忽略所有日期，这个错误就会漏掉。</p>');
+  }
+  function aboutDialog() {
+    dialog("这个页面是怎么来的", "<p style=\"margin-top:0\">这是<b>页面设计原型</b>，里面是 24 个虚构的保单资料页 Case。</p>" +
+      "<p>真实使用时，由一个 Python 脚本完成：</p><ol style=\"padding-left:18px\"><li>读取每个 Case 从 PDF 提取出的文字，也就是同事A现有流程里已经有的那一步</li>" +
+      "<li>按字段对比基线和本次，套用过滤规则</li><li>计算差异聚类</li><li>把全部结果写进<b>一个</b> HTML 文件。双击就能用 Edge 打开，不需要联网，也不需要安装软件</li></ol>" +
+      "<p>要写这个脚本，需要先拿到同事A的 3–5 组 PDF 样本，以及他现在用的对比脚本。</p>");
+  }
+
+  /* ---------------- 事件 ---------------- */
+  document.addEventListener("click", e => {
+    const t = e.target.closest("button, summary, [data-case]");
+    if (e.target.id === "ov" || e.target.id === "dX") { $("#ov").classList.remove("open"); return; }
+    if (!t) return;
+    const d = t.dataset;
+    if (d.view) { st.view = d.view; render(); }
+    else if (d.f) { if (d.f !== "cl") { st.filter = d.f; st.cluster = null; } else document.getElementById("clPanel").open = true; render(); }
+    else if (d.cl != null) { st.cluster = window.__cl[+d.cl].cases; st.sel = st.cluster[0]; render(); toast("已筛选 " + st.cluster.length + " 个 Case"); }
+    else if (d.clear) { st.cluster = null; render(); }
+    else if (d.case) { st.sel = d.case; renderList(); renderViewer(); window.scrollTo({ top: document.getElementById("viewer").offsetTop - 100, behavior: "smooth" }); }
+    else if (d.fold) { st.open[d.fold] = !st.open[d.fold]; renderViewer(); }
+    else if (d.nav) { const L = visibleCases(), i = L.findIndex(r => r.c.id === st.sel), n = L[i + +d.nav]; if (n) { st.sel = n.c.id; renderList(); renderViewer(); } }
+    else if (t.id === "bRules") rulesDialog();
+    else if (t.id === "bAbout") aboutDialog();
+    else if (t.id === "bCsv") {
+      const rows = [["Case", "产品", "状态", "真实差异数", "已忽略数", "差异字段"]].concat(results.map(r =>
+        [r.c.id, r.c.product.code, { real: "有真实差异", ign: "过滤后一致", unm: "无法配对" }[r.status], r.real, r.ign,
+         r.rows.filter(x => ["chg", "add", "del"].includes(x.type)).map(x => x.label).join(" / ")]));
+      save("回归对比_" + C.RUNS[C.CURRENT].id + ".csv", "\ufeff" + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",")).join("\n"), "text/csv;charset=utf-8");
+    }
+    else if (t.id === "bDl") save("回归对比汇总页_原型.html", SOURCE, "text/html;charset=utf-8");
+  });
+  document.addEventListener("toggle", e => { if (e.target.id === "ignDet") st.showIgn = e.target.open; }, true);
+  $("#base").addEventListener("change", e => { st.base = +e.target.value; st.open = {}; compute(); render(); toast("已切换基线"); });
+  $("#q").addEventListener("input", e => { st.q = e.target.value; st.cluster = null; renderList(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") $("#ov").classList.remove("open");
+    if (e.target.tagName === "INPUT") return;
+    if (e.key === "j" || e.key === "k") { const L = visibleCases(), i = L.findIndex(r => r.c.id === st.sel), n = L[i + (e.key === "j" ? 1 : -1)]; if (n) { st.sel = n.c.id; renderList(); renderViewer(); } }
+  });
+
+  $("#base").innerHTML = C.RUNS.slice(0, C.CURRENT).map((r, i) => '<option value="' + i + '"' + (i === st.base ? " selected" : "") + ">" + r.id + "</option>").join("");
+  $("#cur").textContent = C.RUNS[C.CURRENT].id;
+  compute(); render();
+})();
+
+  </script>
+</body>
+</html>
