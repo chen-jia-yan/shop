@@ -1,0 +1,41 @@
+case_id,human_category,note
+No.2,NEEDS_HUMAN,弹窗出现但文字为空（SYS-EMPTY）
+No.3,NEEDS_HUMAN,掩盖型 bool.type_keys（MASK1）
+No.4,SCRIPT_ISSUE,ElementNotVisible（DSK-VIS，suspected）
+No.5,SCRIPT_ISSUE,已 Job submitted；ElementAmbiguousError（DSK-AMB）
+No.6,NEEDS_HUMAN,掩盖型 bool.type_keys（MASK1）
+No.7,ENVIRONMENT,弹窗 transport-level error（ENV2）
+No.9,NEEDS_HUMAN,掩盖型 NoneType not subscriptable（MASK1）
+No.10,NEEDS_HUMAN,Cannot get MSP Config（SYS-CFG）
+No.14,SCRIPT_ISSUE,已 Reversal succeeded；Reversal not in list（DSK-OPT，suspected）
+No.17,NEEDS_HUMAN,找不到 Transaction Log 窗口（DSK-NF）
+No.20,NEEDS_HUMAN,ElementNotEnabled（DSK-DIS）
+No.23,TEST_DATA,Contract is currently used by other user（DATA-LOCK）
+No.24,SCRIPT_ISSUE,Failed to set time in Date Time Picker（DSK-DTP，suspected）
+No.25,NEEDS_HUMAN,ElementNotEnabled + 截图失败；环境中断边界
+No.26,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.27,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.28,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.29,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.30,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.31,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.32,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.33,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.34,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.35,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.36,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.37,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.38,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.39,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.40,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.41,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.42,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.43,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.44,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.45,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.46,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.47,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.48,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.49,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.50,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）
+No.51,ENVIRONMENT,no active desktop / SetCursorPos（ENV-DESK）

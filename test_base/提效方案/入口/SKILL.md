@@ -4,7 +4,7 @@ description: 分析自动化回归测试的失败用例，按有证据的规则�
 compatibility: 需要 Python 3.10+，可访问 Jira Cloud（REST API 或 Atlassian Rovo MCP），可读取本次回归的结果目录（Allure 结果、JUnit XML 或标准化 JSON）。
 metadata:
   owner: IT QA team (Guangzhou)
-  version: "1.0.0"
+  version: "1.1.0"
   jira-project: ROTQA
 ---
 
@@ -36,6 +36,10 @@ metadata:
 6. **未经人工审核不得写入 Jira。** 审核表中“审核状态”不是“通过”或“追加到已有单”的行，`submit_jira.py` 一律跳过。默认是演练模式，必须加 `--confirm` 才真正写入。
 7. **不泄露个人信息。** 任何内容交给模型阅读或写入 Jira 之前，先经过 `common.mask_pii`。只保留测试需要的业务编码（agent code、product code、保单号），姓名、证件号、手机号、邮箱一律替换。
 8. **数字和日期不让 AI 算。** 用例数量、通过率、时间等由脚本统计后直接引用。
+9. **先看整批，再看单个。** 逐条判断之前，先看断崖（某个用例之后连续因环境失败到结束）、通过用例中出现的同样报错、同功能通过/失败对比、残留窗口（`references/root-cause-method.md` 第 1 步）。大面积同一原因的失败合并处理，不逐个提单。
+10. **看异常链的第一段，不看最后一行。** Python 日志的最后一行几乎总是 `SystemExit: 0` 或截图函数的 `screen grab failed`，都不是原因。先读步骤日志里的系统原话（`pop-up error:`、`Validation Error:`），再读最先发生的异常和项目代码里的失败位置。
+11. **报错是现象，不是根因。** 结论分“现象 / 直接原因 / 根因”三层，证据支持到哪一层就写到哪一层，其余写“待确认”。掩盖型报错（`'bool'/'NoneType' object ...`）不得直接判为脚本问题。
+12. **截图是 C 级证据。** 先验证截图有效（不是 `screen grab failed`、时间/窗口/保单号对得上），只描述看得见的东西；勾选框、灰色按钮、密集数字不凭截图下结论（`references/evidence-and-screenshots.md`）。
 
 ## 运行前检查
 
@@ -83,8 +87,12 @@ python scripts/classify_rules.py --failures triage_runs/<run_id>/failures.json \
 
 ### 第 4 步：AI 复核疑似分类（只看证据，不推测）
 
+**开始之前先完整读一遍 `references/root-cause-method.md`，按它的 7 个步骤逐条复核。** Windows 桌面程序（LAS 等）的报错含义查 `references/pywinauto-desktop.md`；截图判读按 `references/evidence-and-screenshots.md`。
+
 读取 `classified.json` 中 `status` 为 `suspected` 或类别为 `NEEDS_HUMAN` 的用例，逐个查看截图和报错：
 
+- 先看 `log_summary`（失败位置、业务成功标记、当时打开的窗口）和 `flags`（`env_boundary`、`screenshot_failed`）。`screenshot_failed: true` 的用例没有有效截图，不要用报告里的图片下结论。
+- `phase: verify` 的用例：业务操作已经提交成功，失败在结果校验阶段，不要写成业务功能缺陷。
 - 只能写你在截图或报错中**直接看到**的内容，例如：“截图 E2 中页面中央有标题为‘System Notice’的对话框，遮挡了 Submit 按钮”。
 - 能用看到的内容确认或否定规则的疑似结论时，在 `ai_review` 字段写下结论和依据；看不清、看不出来，就保留原分类。
 - `confirmed` 的分类不要改动。
@@ -95,6 +103,7 @@ python scripts/classify_rules.py --failures triage_runs/<run_id>/failures.json \
                  "evidence_ids": ["E2"], "confidence": "medium"}}
   ```
 - `confidence` 只能是 `high`（证据直接、明确）、`medium`（证据明确但只有一项）、`low`（只能提供线索）。`low` 不能改变分类，只作为给审核人的提示。
+- 每条复核结论都要按 `root-cause-method.md` 第 6 步的格式写出“现象 / 直接原因 / 根因 / 依据 / 反证检查 / 下一步”，写进 `ai_review.analysis`。
 
 ### 第 5 步：按根因合并
 
@@ -196,6 +205,9 @@ Jira：新建 p 张，追加评论 q 条，驳回 r 组
 
 ## 文件索引
 
+- `references/root-cause-method.md`：**失败归因方法（手把手）**：先看整批、拆日志、判断异常含义、按文字含义分类弹窗、核对截图、写结论、自检；附 2026-10-30 LAS HK 回归 40 条失败的完整归因范例
+- `references/evidence-and-screenshots.md`：证据等级、截图识别工具的取舍与准确性、截图有效性检查、截图与日志冲突时怎么办、建议框架补充的证据采集
+- `references/pywinauto-desktop.md`：Windows 桌面端（pywinauto + BeautifulReport）报错对照表：每种异常证明了什么、没证明什么、归哪类
 - `references/taxonomy.md`：七类失败的定义、判定规则、证据要求、反例
 - `references/popup-catalog.md`：三种弹窗的识别与处理，已知弹窗清单
 - `references/jira-template.md`：Summary 格式、Description 结构、字段映射、优先级规则
@@ -204,4 +216,6 @@ Jira：新建 p 张，追加评论 q 条，驳回 r 组
 - `config/config.example.yaml`：项目、字段、重跑命令、分组设置
 - `config/rules.yaml`：分类规则用到的异常类型、报错关键字、弹窗清单
 - `scripts/popup_evidence.py`：接入测试框架，用于在失败时收集弹窗证据
-- `evals/`：用历史人工分类结果检验分类准确率
+- `scripts/log_parser.py`：拆解 Python 日志的步骤日志和异常链（被 `classify_rules.py` 调用）
+- `scripts/desktop_evidence.py`：接入桌面端测试框架，失败时采集窗口清单、对话框文字、控件状态；用例开始前检查桌面是否可交互
+- `evals/`：用历史人工分类结果检验分类准确率；`evals/las_hk_20261030/` 是第一批真实数据样本

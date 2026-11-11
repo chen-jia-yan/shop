@@ -19,6 +19,15 @@ environment:
     - Read timed out
     - Max retries exceeded with url
     - "re:This version of \\w+ ?Driver only supports"
+    # Windows 桌面端：执行机没有可交互的桌面（远程桌面最小化、断开或锁屏）
+    - There is no active desktop
+    - DESKTOP_UNAVAILABLE
+    - "re:'SetCursorPos'"
+    # 被测系统与数据库/后台服务的连接中断（SQL Server 客户端报错原文）
+    - A transport-level error has occurred
+    - An existing connection was forcibly closed by the remote host
+    - "re:A network-related or instance-specific error"
+    - "re:Timeout expired\\.\\s+The timeout period elapsed"
 
 popup:
   # 遮挡元素的 class/id 中出现这些关键字，视为弹框遮挡（POP3）
@@ -81,3 +90,36 @@ assertion:
     - "re:expected[^\\n]{0,80}(actual|but (was|got))"
     - "re:assert .+ == .+"
     - "re:期望.{0,40}实际"
+
+# ---------------------------------------------------------------- 日志与异常链解析（Python unittest / BeautifulReport / pytest）
+log:
+  # 这些路径下的堆栈帧属于框架或第三方库，不作为“失败发生在哪个业务步骤”
+  framework_paths: ["unittest\\", "unittest/", "BeautifulReport", "pywinauto\\", "pywinauto/", "PIL\\", "PIL/",
+                    "site-packages", "_pytest", "pluggy", "selenium/", "selenium\\", "appium"]
+  # 失败后才执行的处理函数：其中的异常说明证据缺失，不是失败原因
+  handler_funcs: [save_img, tearDown, teardown, take_screenshot, screenshot]
+  # 步骤日志中表示业务操作已经成功的文字；之后再失败说明失败在结果校验阶段
+  success_marks:
+    - "re:job submitted(?!\\s*failed)"
+    - "re:\\b\\w+ succeeded\\b"
+    - Save Successed
+    - Record Submitted
+    - "re:trans_status\\s*:\\s*COMPLETED"
+    - "re:transaction COMPLETED"
+
+# ---------------------------------------------------------------- 系统提示（桌面端弹窗 pop-up error、Validation Error）的含义
+system_messages:
+  lock: [currently used by other user, used by another user, is locked, locked by, being used by, 正在被使用, 被锁定]
+  config: ["re:Cannot get [\\w ]*Config", not configured, configuration not found, 未配置, 找不到配置]
+  crash: [Unhandled exception has occurred, "re:has stopped working", 未经处理的异常, 未處理的例外]
+
+# ---------------------------------------------------------------- 桌面端控件异常（pywinauto）
+desktop:
+  ambiguous: [ElementAmbiguousError]
+  not_found: [ElementNotFoundError, MatchError, "re:Can't find window", "re:Could not find '"]
+  not_visible: [ElementNotVisible]
+  not_enabled: [ElementNotEnabled]
+  option_missing: ["re:'[^']+' is not in list"]
+  datetime: [Failed to set time in Date Time Picker]
+  # 掩盖型：前一步查找返回了 False/None，报错本身不是原因（排在 python_errors 之前判断）
+  masked_patterns: ["re:'(bool|NoneType)' object (has no attribute|is not subscriptable|is not iterable|is not callable)"]

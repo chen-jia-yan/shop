@@ -45,6 +45,9 @@ def root_text(case: dict) -> str | None:
 
 def signature(case: dict) -> tuple[str, str]:
     """返回 (用于合并的特征, 根因短语提示)。"""
+    # 分类规则已经给出统一的分组键（例如所有“桌面不可用”的用例），直接使用，不再按报错文字细分
+    if case.get("group_key"):
+        return case["group_key"], case["group_key"].split(":", 1)[-1].replace("-", " ")
     text = root_text(case)
     if text:
         hint = text.splitlines()[0].strip().rstrip(".。!！").lower()[:100]

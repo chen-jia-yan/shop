@@ -1,0 +1,2285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>测试分析助手</title>
+<style>
+:root {
+  --side: #1f2d3d; --side-2: #18232f; --side-ink: #bfcbd9; --side-on: #409eff;
+  --bg: #f0f2f5; --card: #fff; --ink: #303133; --ink-2: #606266; --muted: #909399;
+  --line: #dcdfe6; --line-2: #ebeef5; --th: #f5f7fa;
+  --pri: #409eff; --pri-2: #ecf5ff; --ok: #67c23a; --ok-2: #f0f9eb; --warn: #e6a23c; --warn-2: #fdf6ec;
+  --err: #f56c6c; --err-2: #fef0f0; --gray-2: #f4f4f5;
+  --mono: "Cascadia Mono", Consolas, Menlo, monospace;
+  --sans: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font-family: var(--sans); color: var(--ink); background: var(--bg); font-size: 13px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--pri); text-decoration: none; cursor: pointer; }
+
+/* ---------- 框架 ---------- */
+.app { display: grid; grid-template-columns: 210px minmax(0, 1fr); height: 100vh; }
+.side { background: var(--side); color: var(--side-ink); overflow-y: auto; }
+.logo { height: 56px; display: flex; align-items: center; gap: 8px; padding: 0 18px; color: #fff; font-weight: 600; font-size: 16px; border-bottom: 1px solid #2b3a4b; }
+.logo i { width: 26px; height: 26px; border-radius: 6px; background: var(--pri); display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 13px; }
+.proj { margin: 12px 14px; background: var(--side-2); border-radius: 4px; padding: 7px 10px; font-size: 12.5px; color: #fff; }
+.proj small { display: block; color: var(--side-ink); font-size: 11px; }
+.menu { list-style: none; margin: 0; padding: 0 0 20px; }
+.menu .grp { padding: 12px 20px 6px; font-size: 12px; color: #7d8b9a; display: flex; justify-content: space-between; }
+.menu .it { display: flex; align-items: center; gap: 10px; padding: 0 20px 0 34px; height: 42px; cursor: pointer; font-size: 13.5px; }
+.menu .it:hover { background: var(--side-2); color: #fff; }
+.menu .it.on { background: var(--side-on); color: #fff; }
+.menu .it.dis { color: #5f6e7d; cursor: not-allowed; }
+.menu .it.dis:hover { background: none; color: #5f6e7d; }
+.menu .it .cnt { margin-left: auto; background: var(--err); color: #fff; border-radius: 9px; padding: 0 6px; font-size: 11px; line-height: 17px; }
+.menu .it .soon { margin-left: auto; font-size: 10.5px; border: 1px solid #5f6e7d; border-radius: 3px; padding: 0 4px; }
+
+.body { display: flex; flex-direction: column; min-width: 0; height: 100vh; }
+.head { height: 50px; background: #fff; display: flex; align-items: center; padding: 0 18px; border-bottom: 1px solid var(--line-2); gap: 14px; }
+.crumb { color: var(--muted); }
+.crumb b { color: var(--ink); font-weight: 400; }
+.head .right { margin-left: auto; display: flex; gap: 14px; align-items: center; color: var(--ink-2); font-size: 12.5px; }
+.tabs { height: 36px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 6px; padding: 0 12px; box-shadow: 0 1px 3px rgba(0,0,0,.04); overflow-x: auto; }
+.tab { border: 1px solid var(--line); background: #fff; height: 26px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.tab.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+.tab.on::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #fff; }
+.tab .x { border: none; background: none; padding: 0 0 0 2px; font-size: 13px; line-height: 1; color: inherit; opacity: .7; }
+.content { flex: 1; overflow-y: auto; padding: 14px; }
+
+/* ---------- 卡片、表单 ---------- */
+.card { background: var(--card); border-radius: 4px; padding: 16px 18px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+.card h3 { margin: 0 0 12px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.card h3 .sub { font-weight: 400; color: var(--muted); font-size: 12.5px; }
+.card h3 .acts { margin-left: auto; display: flex; gap: 8px; }
+.hint { color: var(--muted); font-size: 12.5px; line-height: 1.7; }
+.form { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center; }
+.fi { display: flex; align-items: center; gap: 8px; }
+.fi > span { color: var(--ink-2); white-space: nowrap; }
+.inp, .sel { height: 32px; border: 1px solid var(--line); border-radius: 4px; padding: 0 10px; background: #fff; min-width: 170px; outline: none; }
+.inp:focus, .sel:focus, textarea:focus { border-color: var(--pri); }
+textarea.ta { width: 100%; border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; font-family: var(--mono); font-size: 12px; outline: none; resize: vertical; }
+.btn { height: 32px; padding: 0 15px; border: 1px solid var(--line); background: #fff; border-radius: 4px; font-size: 13px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn:hover { color: var(--pri); border-color: #c6e2ff; background: var(--pri-2); }
+.btn.pri { background: var(--pri); border-color: var(--pri); color: #fff; }
+.btn.pri:hover { background: #66b1ff; border-color: #66b1ff; }
+.btn.okb { border-color: var(--ok); color: var(--ok); }
+.btn.okb:hover { background: var(--ok-2); }
+.btn.dang { border-color: #fbc4c4; color: var(--err); }
+.btn.sm { height: 26px; padding: 0 10px; font-size: 12px; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.bar .sp { flex: 1; }
+.subtabs { display: flex; gap: 22px; border-bottom: 1px solid var(--line-2); margin-bottom: 12px; }
+.subtabs button { border: none; background: none; padding: 8px 0; color: var(--ink-2); border-bottom: 2px solid transparent; }
+.subtabs button.on { color: var(--pri); border-bottom-color: var(--pri); }
+
+/* ---------- 表格 ---------- */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line-2); }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.tbl th { background: var(--th); color: var(--muted); font-weight: 600; text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line-2); white-space: nowrap; }
+.tbl td { padding: 9px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.tbl tr:hover td { background: #f5f7fa; }
+.tbl td.mono { font-family: var(--mono); font-size: 12px; }
+.tbl .ops a { margin-right: 10px; font-size: 12px; white-space: nowrap; }
+.tbl .clip { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbl tr.sel td { background: var(--pri-2); }
+.pager { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 12px; color: var(--ink-2); font-size: 12.5px; }
+.pager button { min-width: 28px; height: 28px; border: none; background: var(--gray-2); border-radius: 2px; }
+.pager button.on { background: var(--pri); color: #fff; }
+.empty { text-align: center; color: var(--muted); padding: 46px 10px; }
+.empty b { display: block; color: var(--ink-2); font-size: 14px; margin-bottom: 6px; font-weight: 500; }
+
+/* ---------- 标签 ---------- */
+.tag { display: inline-block; font-size: 12px; line-height: 20px; padding: 0 7px; border-radius: 3px; border: 1px solid; white-space: nowrap; }
+.tag.blue { color: var(--pri); background: var(--pri-2); border-color: #d9ecff; }
+.tag.green { color: var(--ok); background: var(--ok-2); border-color: #e1f3d8; }
+.tag.orange { color: var(--warn); background: var(--warn-2); border-color: #faecd8; }
+.tag.red { color: var(--err); background: var(--err-2); border-color: #fde2e2; }
+.tag.gray { color: var(--muted); background: var(--gray-2); border-color: #e9e9eb; }
+.tag.purple { color: #7c4dff; background: #f3efff; border-color: #e3d9ff; }
+.dot { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--muted)); }
+
+/* ---------- 统计卡片 ---------- */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.kpi { background: #fff; border-radius: 4px; padding: 14px 16px; border-left: 3px solid var(--c, var(--pri)); cursor: default; text-align: left; border-top: none; border-right: none; border-bottom: none; }
+button.kpi { cursor: pointer; }
+button.kpi:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.kpi b { display: block; font-size: 24px; font-weight: 600; color: var(--ink); }
+.kpi span { color: var(--muted); font-size: 12px; }
+
+/* ---------- 抽屉、对话框 ---------- */
+.mask { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 40; display: none; }
+.mask.open { display: block; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 96vw); background: #fff; z-index: 41; transform: translateX(100%); transition: transform .2s; display: flex; flex-direction: column; box-shadow: -4px 0 16px rgba(0,0,0,.1); }
+.drawer.open { transform: none; }
+.drawer header, .dlg header { padding: 14px 18px; border-bottom: 1px solid var(--line-2); display: flex; align-items: center; gap: 10px; }
+.drawer header h4, .dlg header h4 { margin: 0; font-size: 15px; font-weight: 600; }
+.drawer header .x, .dlg header .x { margin-left: auto; border: none; background: none; font-size: 20px; color: var(--muted); }
+.drawer .db { flex: 1; overflow-y: auto; padding: 16px 18px; }
+.drawer footer, .dlg footer { padding: 12px 18px; border-top: 1px solid var(--line-2); display: flex; gap: 8px; justify-content: flex-end; }
+.dlg { position: fixed; left: 50%; top: 8vh; transform: translateX(-50%); width: min(640px, 94vw); max-height: 84vh; background: #fff; border-radius: 4px; z-index: 42; display: none; flex-direction: column; }
+.dlg.open { display: flex; }
+.dlg .db { padding: 16px 18px; overflow-y: auto; line-height: 1.7; }
+
+.sec { margin-bottom: 18px; }
+.sec > h5 { margin: 0 0 8px; font-size: 13px; color: var(--ink); font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 12px; font-size: 12.5px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; word-break: break-all; }
+.ev { border: 1px solid var(--line-2); border-radius: 4px; margin-bottom: 8px; }
+.ev .eh { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: var(--th); font-size: 12px; color: var(--ink-2); }
+.ev .eh b { font-family: var(--mono); color: var(--pri); }
+.ev pre { margin: 0; padding: 8px 10px; font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; line-height: 1.5; }
+.ev img { display: block; max-width: 100%; border-top: 1px solid var(--line-2); }
+mark { background: #ffe58f; padding: 0 1px; border-radius: 2px; }
+.verdict { border: 1px solid #d9ecff; background: var(--pri-2); border-radius: 4px; padding: 10px 12px; line-height: 1.7; font-size: 12.5px; }
+.verdict.sus { border-color: #faecd8; background: var(--warn-2); }
+.verdict ul { margin: 4px 0 0; padding-left: 18px; }
+
+/* ---------- 流程讲解 ---------- */
+.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.step { border: 1px solid var(--line-2); border-radius: 4px; padding: 12px 14px; position: relative; background: #fff; }
+.step .n { width: 24px; height: 24px; border-radius: 50%; background: var(--pri); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; margin-right: 6px; }
+.step h6 { margin: 0 0 6px; font-size: 13.5px; display: flex; align-items: center; }
+.step p { margin: 0; color: var(--ink-2); font-size: 12.5px; line-height: 1.7; }
+.step .who { margin-top: 8px; }
+.step.later { background: #fafafa; border-style: dashed; }
+.prose { line-height: 1.8; color: var(--ink-2); font-size: 13px; max-width: 980px; }
+.prose code, .hint code { font-family: var(--mono); background: var(--gray-2); padding: 0 5px; border-radius: 3px; font-size: 12px; color: var(--ink); }
+
+/* ---------- 导入 ---------- */
+.drop { border: 1px dashed #c0c4cc; border-radius: 6px; padding: 22px; text-align: center; color: var(--ink-2); background: #fafcff; }
+.drop.over { border-color: var(--pri); background: var(--pri-2); }
+.drop b { display: block; font-size: 14px; color: var(--ink); margin-bottom: 4px; }
+.map { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 22px; }
+.map label { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; gap: 8px; }
+.map label span { color: var(--ink-2); }
+.map label span i { color: var(--err); font-style: normal; }
+.map .sel { min-width: 0; width: 100%; }
+
+/* ---------- 回归对比 ---------- */
+.cmp { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 14px; align-items: start; }
+.clist { max-height: calc(100vh - 290px); overflow-y: auto; border: 1px solid var(--line-2); }
+.clist .ci { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; width: 100%; text-align: left; border: none; border-bottom: 1px solid var(--line-2); background: #fff; padding: 8px 10px; }
+.clist .ci:hover { background: #f5f7fa; }
+.clist .ci.on { background: var(--pri-2); box-shadow: inset 3px 0 0 var(--pri); }
+.clist .ci .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 12.5px; }
+.clist .ci .meta { font-size: 11.5px; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--pri); border-radius: 4px; overflow: hidden; }
+.seg button { border: none; background: #fff; color: var(--pri); height: 30px; padding: 0 14px; }
+.seg button.on { background: var(--pri); color: #fff; }
+.seg button[disabled] { color: #c0c4cc; cursor: not-allowed; }
+.dv { border: 1px solid var(--line-2); font-family: var(--mono); font-size: 12px; }
+.dv .row { display: grid; grid-template-columns: 46px minmax(0, 1fr) 46px minmax(0, 1fr); border-bottom: 1px solid #f2f3f5; }
+.dv .row.hd { background: var(--th); font-family: var(--sans); color: var(--ink-2); position: sticky; top: 0; z-index: 1; }
+.dv .no { color: #b0b3b8; text-align: right; padding: 3px 6px; user-select: none; background: #fafafa; }
+.dv .tx { padding: 3px 8px; white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+.dv .row.chg .tx { background: #fffbe6; }
+.dv .tx.blank { background: repeating-linear-gradient(45deg, #fafafa, #fafafa 6px, #f2f3f5 6px, #f2f3f5 12px) !important; }
+.dv .d_add { background: #c9f0d1; } .dv .d_sub { background: #ffd6d6; } .dv .d_chg { background: #ffe58f; }
+.dv .fold { grid-column: 1 / -1; text-align: center; padding: 4px; color: var(--pri); background: #f7f9fc; border: none; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); font-family: var(--sans); font-size: 12px; width: 100%; }
+.dv .row.ign .tx { color: var(--muted); }
+
+#toast { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); background: #fff; border: 1px solid #e1f3d8; color: var(--ok); padding: 9px 16px; border-radius: 4px; box-shadow: 0 2px 12px rgba(0,0,0,.1); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 60; }
+#toast.show { opacity: 1; }
+#toast.err { color: var(--err); border-color: #fde2e2; }
+
+@media (max-width: 900px) {
+  .app { grid-template-columns: 160px minmax(0, 1fr); }
+  .cmp { grid-template-columns: minmax(0, 1fr); }
+  .clist { max-height: 300px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="logo"><i>TA</i>测试分析助手</div>
+    <div class="proj" id="projInfo"></div>
+    <ul class="menu" id="menu"></ul>
+  </aside>
+  <div class="body">
+    <div class="head"><span class="crumb" id="crumb"></span><span class="right"><span>本机离线运行 · 数据不上传</span></span></div>
+    <div class="tabs" id="tabs"></div>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+<div class="mask" id="mask"></div>
+<div class="drawer" id="drawer"><header><h4 id="drwT"></h4><button class="x" id="drwX">×</button></header><div class="db" id="drwB"></div><footer id="drwF"></footer></div>
+<div class="dlg" id="dlg"><header><h4 id="dlgT"></h4><button class="x" id="dlgX">×</button></header><div class="db" id="dlgB"></div><footer id="dlgF"></footer></div>
+<div id="toast"></div>
+<script>
+/* 规则、分类、文件解析。所有计算都在本机浏览器内完成，不上传任何数据。 */
+window.ENG = (function () {
+  /* ======================= 默认规则（可在“规则配置”页修改） ======================= */
+  const DEFAULT_RULES = {
+    env_exceptions: ["SessionNotCreatedException"],
+    env_patterns: [
+      "ERR_CONNECTION_REFUSED", "ERR_CONNECTION_RESET", "ERR_CONNECTION_TIMED_OUT", "ERR_NAME_NOT_RESOLVED",
+      "ERR_INTERNET_DISCONNECTED", "ERR_SSL_PROTOCOL_ERROR", "502 Bad Gateway", "503 Service Unavailable",
+      "504 Gateway Time-out", "Connection refused", "Connection reset by peer", "Read timed out",
+      "Max retries exceeded with url", "re:This version of \\w+ ?Driver only supports",
+      "device offline", "设备离线", "device not found", "adb: device",
+      // Windows 桌面端：执行机没有可交互的桌面（远程桌面最小化、断开或锁屏）
+      "There is no active desktop", "DESKTOP_UNAVAILABLE", "re:'SetCursorPos'",
+      // 被测系统与数据库/服务之间的连接中断（SQL Server 客户端报错原文）
+      "A transport-level error has occurred", "An existing connection was forcibly closed by the remote host",
+      "re:A network-related or instance-specific error", "re:Timeout expired\\.\\s+The timeout period elapsed",
+    ],
+    mass_min_cases: 5, mass_ratio: 30, mass_window_min: 15,
+    // ---------- 日志与异常链解析 ----------
+    // 这些路径下的堆栈帧属于测试框架或第三方库，不是“失败发生在哪个业务步骤”
+    framework_paths: ["unittest\\", "unittest/", "BeautifulReport", "pywinauto\\", "pywinauto/", "PIL\\", "PIL/", "site-packages", "_pytest", "pluggy", "selenium/", "selenium\\", "appium"],
+    // 失败后才执行的处理函数（截图、清理）：这里的异常说明证据缺失，不是失败原因
+    handler_funcs: ["save_img", "tearDown", "teardown", "take_screenshot", "screenshot"],
+    // 步骤日志中表示业务操作已经成功的文字（出现后再失败，说明失败在结果校验阶段）
+    success_marks: ["re:job submitted(?!\\s*failed)", "re:\\b\\w+ succeeded\\b", "Save Successed", "Record Submitted", "re:trans_status\\s*:\\s*COMPLETED", "re:transaction COMPLETED"],
+    // ---------- 系统提示（弹窗/校验提示）的含义 ----------
+    lock_messages: ["currently used by other user", "used by another user", "is locked", "locked by", "being used by", "正在被使用", "被锁定"],
+    config_messages: ["re:Cannot get [\\w ]*Config", "not configured", "configuration not found", "未配置", "找不到配置"],
+    crash_messages: ["Unhandled exception has occurred", "re:has stopped working", "未经处理的异常", "未處理的例外"],
+    // ---------- 桌面端控件异常（pywinauto） ----------
+    desk_ambiguous: ["ElementAmbiguousError"],
+    desk_not_found: ["ElementNotFoundError", "MatchError", "re:Can't find window", "re:Could not find '"],
+    desk_not_visible: ["ElementNotVisible"],
+    desk_not_enabled: ["ElementNotEnabled"],
+    desk_option_missing: ["re:'[^']+' is not in list"],
+    desk_datetime: ["Failed to set time in Date Time Picker"],
+    masked_patterns: ["re:'(bool|NoneType)' object (has no attribute|is not subscriptable|is not iterable|is not callable)"],
+    overlay_keywords: ["modal", "dialog", "popup", "overlay", "mask", "backdrop", "toast", "cdk-overlay", "loading"],
+    noise_popups: [
+      "Your session has expired", "會話已逾時", "会话已过期", "Save password", "要保存密码吗", "Restore pages",
+      "还原页面", "We use cookies", "System Notice", "系統公告", "Allow notifications", "允许通知",
+    ],
+    business_errors: [
+      "record not found", "not found", "invalid", "not allowed", "System error", "Internal Server Error",
+      "please contact", "failed to", "錯誤", "错误", "失敗", "失败", "不存在", "無效", "无效",
+    ],
+    locator_exceptions: ["NoSuchElementException", "StaleElementReferenceException", "TimeoutException", "ElementNotInteractableException", "ElementNotVisibleException"],
+    intercept_exceptions: ["ElementClickInterceptedException"],
+    alert_exceptions: ["UnexpectedAlertPresentException"],
+    invalid_selector: ["InvalidSelectorException"],
+    code_errors: ["NameError", "AttributeError", "TypeError", "KeyError", "IndexError", "ImportError", "ModuleNotFoundError", "SyntaxError", "NullPointerException", "ClassCastException"],
+    test_code_paths: ["tests/", "testcases/", "test_", "pages/", "test_case", "system_view", "base_view"],
+    assertion_exceptions: ["AssertionError", "AssertionFailedError", "ComparisonFailure"],
+    expected_actual: ["re:expected[^\\n]{0,80}(actual|but (was|got)|but found)", "re:assert .+ == .+", "re:期望.{0,40}实际", "re:预期.{0,40}实际"],
+    fail_words: ["failed", "fail", "failure", "error", "broken", "失败", "错误", "不通过", "未通过", "异常"],
+  };
+
+  const CATS = {
+    RERUN_PASS: { name: "重跑可过", owner: "测试", color: "green" },
+    ENVIRONMENT: { name: "环境问题", owner: "环境/运维", color: "purple" },
+    POPUP_INTERFERENCE: { name: "弹窗干扰", owner: "测试", color: "orange" },
+    SCRIPT_ISSUE: { name: "脚本问题", owner: "测试", color: "blue" },
+    TEST_DATA: { name: "测试数据问题", owner: "测试", color: "blue" },
+    PRODUCT_DEFECT: { name: "疑似产品缺陷", owner: "开发", color: "red" },
+    NEEDS_HUMAN: { name: "需人工判断", owner: "待定", color: "gray" },
+  };
+  const REASONS = {
+    pending_data_check: "有业务报错，等待数据核查",
+    unknown_popup: "出现不在清单中的弹窗",
+    insufficient_evidence: "没有报错信息或报错过于笼统",
+    conflicting_evidence: "证据互相矛盾",
+    no_rule_matched: "没有规则命中",
+    assertion_no_values: "断言失败但没有期望值/实际值",
+    masked_failure: "代码把“没找到”变成了空值，真实原因被掩盖",
+    system_config: "系统提示缺少配置",
+    control_state: "控件不可用，原因待确认",
+    generic_error: "报错过于笼统，真实原因在别处",
+    env_boundary: "处在环境中断的边界",
+  };
+
+  /* ======================= Python 日志与异常链解析 =======================
+     unittest / BeautifulReport / pytest 的输出：先是步骤日志，然后是一条或多条 Traceback，
+     用 “During handling of the above exception, another exception occurred” 串起来。
+     第一段是最先发生的异常；后面的段是在处理它的过程中又发生的异常（包装、清理、截图、退出）。 */
+  const FRAME_RE = /File\s+"([^"]+)",\s*line\s+(\d+),\s*in\s+([\w<>.]+)/g;
+  const CHAIN_SPLIT = /During handling of the (?:above )?exception,? another exception occurred:?|The above exception was the direct cause of the following exception:?/i;
+  const EXC_FIND = /(?:^|[\s>])((?:[A-Za-z_]\w*\.)*(?:[A-Z]\w*(?:Error|Exception|Exit|Warning|Failure|NotVisible|NotEnabled|NotFound|Interrupt)|Exception)|(?:[A-Za-z_]\w*\.)+error)(?::[ \t]?|\s*$)/;
+  function analyzeLog(text, rules) {
+    if (!text || !/Traceback|During handling|Exception:|Error:/.test(text)) return null;
+    const isFw = f => findAny(f.file, rules.framework_paths);
+    const segs = text.split(CHAIN_SPLIT).map(s => {
+      let body = s;
+      const tb = s.indexOf("Traceback (most recent call last):");
+      if (tb >= 0) body = s.slice(tb + 34);
+      const frames = []; let m, end = 0; FRAME_RE.lastIndex = 0;
+      while ((m = FRAME_RE.exec(body))) { frames.push({ file: m[1].replace(/\s+/g, ""), line: +m[2], func: m[3] }); end = FRAME_RE.lastIndex; }
+      const tail = body.slice(end);
+      const em = EXC_FIND.exec(tail);
+      const type = em ? em[1] : "", msg = em ? tail.slice(em.index + em[0].length).trim() : "";
+      const handler = frames.some(f => (rules.handler_funcs || []).includes(f.func));
+      return { type, msg, frames, project: frames.filter(f => !isFw(f)), handler, exit: /SystemExit$/.test(type) };
+    });
+    const main = segs.filter(s => !s.handler && !s.exit && s.type);
+    const root = main[0] || null;
+    const withTest = segs.find(s => s.project.some(f => /^test/i.test(f.func))) || segs.find(s => s.project.length);
+    const path = withTest ? withTest.project.map(f => f.func + "（" + f.file.split(/[\\/]/).pop() + " 第" + f.line + "行）") : [];
+    const rootAt = root && root.project.length ? root.project[root.project.length - 1] : null;
+    const testFn = withTest ? (withTest.project.find(f => /^test/i.test(f.func)) || {}).func : "";
+    // 步骤日志：第一个 Traceback（或第一条异常）之前打印的内容
+    const first = text.split(CHAIN_SPLIT)[0];
+    const tbi = first.indexOf("Traceback (most recent call last):");
+    let stepLog;
+    if (tbi >= 0) stepLog = first.slice(0, tbi);
+    else { const em = EXC_FIND.exec(first); stepLog = em ? first.slice(0, em.index) : first; }
+    stepLog = stepLog.trim();
+    // 弹窗处理函数读到的文字：只从真正的异常段里取（SystemExit 的 “0” 之类不算）
+    let popupText = null;
+    main.some(s => { const pm = /pop-?up error:\s*([\s\S]*)/i.exec(s.msg); if (pm) popupText = pm[1].replace(/\s+/g, " ").trim(); return !!pm; });
+    const sysMsgs = [];
+    let vm; const VRE = /(Validation Error|Error Message|Life\/Asia Message)\s*:\s*(.+?)(?=\s{2,}|Traceback|$)/gi;
+    while ((vm = VRE.exec(stepLog))) sysMsgs.push(vm[1] + ": " + vm[2].trim());
+    if (popupText) sysMsgs.unshift(popupText);
+    const success = [];
+    (rules.success_marks || []).forEach(p => { const h = findAny(stepLog, [p]); if (h) success.push(h.hit); });
+    const wl = /dict_keys\(\[([\s\S]*?)\]\)/.exec(text);
+    const windows = wl ? (wl[1].match(/'([^']+)'/g) || []).map(x => x.slice(1, -1)) : [];
+    const expectWin = (/Could not find '([^']+)'/.exec(text) || [])[1] || (/Can't find window ([^\n]+?)(?=\s+During|\s*$)/.exec(text) || [])[1] || "";
+    const sn = Array.from(stepLog.matchAll(/([A-Za-z][\w\/&.' -]{2,80}?)\s*\([^)]{2,30}\)\s*window wait success/g)).map(x => x[1].replace(/^.*?finding transaction window\s*/i, "").replace(/^[\d\/]+\s*/, "").trim());
+    const mainText = [stepLog].concat(main.map(s => s.type + ": " + s.msg)).join("\n");
+    return {
+      segs, root, rootAt, path, testFn, stepLog, popupText, sysMsgs, success, windows, expectWin, screen: sn[0] || "",
+      types: main.map(s => s.type), mainText,
+      shotFailed: segs.some(s => s.handler && /screen grab failed/i.test(s.msg)),
+      handlerErr: segs.filter(s => s.handler).map(s => s.type + ": " + s.msg).join("；"),
+    };
+  }
+  const shortType = t => { if (!t) return ""; const p = t.split("."); const last = p.pop(); return last === "error" && p.length ? p.pop() + ".error" : last; };
+
+  /* ======================= 文本工具 ======================= */
+  function toMatcher(p) {
+    if (p.startsWith("re:")) { try { return new RegExp(p.slice(3), "i"); } catch (e) { return null; } }
+    return p.toLowerCase();
+  }
+  // 在 text 里找第一个命中的规则项，返回 {pattern, hit}
+  function findAny(text, list) {
+    if (!text) return null;
+    const low = text.toLowerCase();
+    for (const p of list || []) {
+      const m = toMatcher(p);
+      if (!m) continue;
+      if (typeof m === "string") { const i = low.indexOf(m); if (i >= 0) return { pattern: p, hit: text.substr(i, m.length) }; }
+      else { const r = m.exec(text); if (r) return { pattern: p, hit: r[0] }; }
+    }
+    return null;
+  }
+  const hasExc = (exc, list) => !!exc && (list || []).some(x => exc.toLowerCase() === x.toLowerCase() || exc.toLowerCase().endsWith("." + x.toLowerCase()));
+
+  function extractException(text) {
+    if (!text) return "";
+    const m = /\b((?:[a-z_][\w]*\.)*[A-Z][A-Za-z0-9]*(?:Exception|Error|Failure|Failed))\b/.exec(text);
+    if (!m) return "";
+    return m[1].split(".").pop();
+  }
+  function extractAlertText(text) {
+    if (!text) return "";
+    const m = /Alert\s*Text\s*[:：]\s*([^\n}]+)/i.exec(text) || /\{Alert text\s*:\s*([^}]*)\}/i.exec(text) || /unexpected alert open:\s*\{?([^\n}]+)/i.exec(text);
+    return m ? m[1].trim().replace(/^Alert text\s*:\s*/i, "") : "";
+  }
+  function extractInterceptor(text) {
+    if (!text) return "";
+    const m = /Other element would receive the click:\s*(<[^>]{0,400}>)/i.exec(text) || /is not clickable at point[^\n]*?(<[^>]{0,400}>)/i.exec(text);
+    return m ? m[1] : "";
+  }
+
+  const NORMALIZERS = [
+    [/\(Session info:[^)]*\)/gi, ""],
+    [/Stacktrace:[\s\S]*/gi, ""],
+    [/https?:\/\/\S+/g, "<url>"],
+    [/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "<uuid>"],
+    [/\b0x[0-9a-f]+\b/gi, "<hex>"],
+    [/\b[0-9a-f]{16,}\b/gi, "<hex>"],
+    [/\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?/g, "<time>"],
+    [/\d+/g, "<n>"],
+    [/\s+/g, " "],
+  ];
+  function signature(text, max) {
+    if (!text) return "";
+    let s = text;
+    NORMALIZERS.forEach(([re, r]) => { s = s.replace(re, r); });
+    return s.trim().toLowerCase().slice(0, max || 160);
+  }
+
+  /* ---------- 个人信息脱敏（复制给 AI / 导出时使用） ---------- */
+  const PII = [
+    ["<HKID>", /\b[A-Z]{1,2}\d{6}\s?\(?[0-9A]\)?(?![0-9])/g],
+    ["<CN_ID>", /(?<!\d)\d{17}[\dXx](?!\d)/g],
+    ["<MO_ID>", /(?<!\d)[157]\d{6}\(\d\)/g],
+    ["<EMAIL>", /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g],
+    ["<PHONE>", /(?<!\d)1[3-9]\d{9}(?!\d)/g],
+    ["<PHONE>", /\+85[23][\s-]?[2-9]\d{3}[\s-]?\d{4}(?!\d)/g],
+  ];
+  function luhn(d) { let t = 0, alt = false; for (let i = d.length - 1; i >= 0; i--) { let n = +d[i]; if (alt) { n *= 2; if (n > 9) n -= 9; } t += n; alt = !alt; } return t % 10 === 0; }
+  function mask(text) {
+    if (!text) return text;
+    let s = String(text);
+    s = s.replace(/(?<!\d)(?:\d[ -]?){15,18}\d(?!\d)/g, m => { const d = m.replace(/\D/g, ""); return luhn(d) ? "<CARD>" : m; });
+    PII.forEach(([r, re]) => { s = s.replace(re, r); });
+    s = s.replace(/((?:tel|phone|mobile|contact|電話|电话|手機|手机|聯絡|联系)[^0-9\n]{0,12})([2-9]\d{3}[\s-]?\d{4})(?!\d)/gi, "$1<PHONE>");
+    return s;
+  }
+
+  /* ======================= 分类 ======================= */
+  function isFail(result, rules) {
+    if (!result) return false;
+    const r = String(result).trim().toLowerCase();
+    if (/^(passed|pass|success|ok|通过|成功|skipped|skip|跳过)$/.test(r)) return false;
+    return (rules.fail_words || []).some(w => r.includes(w.toLowerCase()));
+  }
+
+  // 给用例编证据号：只有真实存在的材料才编号
+  function evidenceOf(c) {
+    const ev = [];
+    const add = (kind, label, text, extra) => { if (text) ev.push(Object.assign({ id: "E" + (ev.length + 1), kind, label, text }, extra || {})); };
+    const L = c.L;
+    if (L) {
+      // 有异常链时，把日志拆开编号：步骤日志、系统提示原文、原始异常、失败位置，各自是独立的证据
+      add("step", "步骤日志（失败前打印的内容）", L.stepLog);
+      if (L.popupText !== null || L.sysMsgs.length) add("sys", "系统提示原文（弹窗/校验信息）", L.popupText === "" && !L.sysMsgs.filter(Boolean).length ? "（弹窗出现了，但脚本没有读到文字）" : L.sysMsgs.filter(Boolean).join("\n"));
+      if (L.root) add("root", "最先发生的异常", L.root.type + (L.root.msg ? ": " + L.root.msg : ""));
+      if (L.path.length) add("loc", "失败位置（项目代码调用链）", L.path.join(" → "));
+      if (L.windows.length) add("win", "当时打开的窗口", L.windows.join("\n"));
+      if (L.handlerErr) add("handler", "失败处理过程中的异常（截图/清理）", L.handlerErr);
+      add("stack", "完整日志", [c.error, c.stack].filter(Boolean).join("\n"));
+    } else {
+      add("msg", "报错信息", c.error);
+      add("exc", "异常类型", c.exception, { derived: !c.exceptionRaw });
+      add("page", "页面/弹窗文字", c.pageText || c.alertText, { derived: !c.pageText });
+      add("stack", "堆栈/日志", c.stack);
+    }
+    if (c.shots && c.shots.length) c.shots.forEach(s => add("shot", "截图", s.name, { src: s.src }));
+    else add("shot", "截图（路径）", c.screenshot);
+    if (c.rerun) add("rerun", "重跑记录", (c.rerun === "pass" ? "重跑通过" : "重跑仍失败") + (c.rerunNote ? "：" + c.rerunNote : ""));
+    if (c.dataCheck) add("data", "数据核查", DATA_CHECK[c.dataCheck] + (c.dataNote ? "：" + c.dataNote : ""));
+    return ev;
+  }
+  const DATA_CHECK = { ok: "数据存在且状态正确", missing: "数据不存在", used: "数据已被使用", invalid: "数据状态不符合用例前提" };
+  const evId = (ev, kind) => (ev.find(e => e.kind === kind) || {}).id;
+
+  // 返回 {cat, status: confirmed|suspected, rule, reason, why[], need[], hits[], flags[]}
+  function classify(c, ctx, rules) {
+    const ev = evidenceOf(c);
+    const E = k => evId(ev, k);
+    const L = c.L;
+    const text = L ? L.mainText : [c.error, c.stack].filter(Boolean).join("\n");
+    const exc = c.exception;
+    const out = (cat, status, rule, why, need, hits, extra) => Object.assign({ cat, status, rule, why: why || [], need: need || [], hits: hits || [], flags: [], ev }, extra || {});
+    const flags = [];
+    const anyExc = list => L ? L.types.some(t => hasExc(shortType(t), list) || hasExc(t, list)) : hasExc(exc, list);
+    const rootTxt = L && L.root ? L.root.type + ": " + L.root.msg : "";
+    const where = L && L.rootAt ? "，位置 " + L.rootAt.func + " 第" + L.rootAt.line + "行（" + E("loc") + "）" : "";
+
+    // ---------- 环境 ----------
+    let envHit = null;
+    if (hasExc(exc, rules.env_exceptions)) envHit = out("ENVIRONMENT", "confirmed", "ENV1", ["异常类型 " + exc + " 表示浏览器/驱动/设备无法启动会话（" + (E("exc") || E("root")) + "）"], [], [exc]);
+    else {
+      const h = findAny(text, rules.env_patterns);
+      if (h) {
+        const src = L ? (findAny(L.stepLog, [h.pattern]) ? E("step") : findAny(L.sysMsgs.join("\n"), [h.pattern]) ? E("sys") : E("root")) : (E("msg") || E("stack"));
+        envHit = out("ENVIRONMENT", "confirmed", /SetCursorPos|active desktop|DESKTOP_UNAVAILABLE/i.test(h.hit) ? "ENV-DESK" : "ENV2", ["报错中出现环境类关键字“" + h.hit + "”（" + src + "）"].concat(/active desktop|SetCursorPos|DESKTOP_UNAVAILABLE/i.test(h.hit) ? ["含义：执行机没有可交互的桌面（远程桌面窗口最小化、断开或锁屏时会这样），脚本无法移动鼠标、输入文字"] : /transport-level|forcibly closed|network-related|Timeout expired/i.test(h.hit) ? ["含义：被测系统与数据库/后台服务之间的连接中断，是被测系统运行环境的问题，不是脚本问题"] : []),
+          ["向环境负责人确认该时段执行机/服务的状态；环境恢复后重跑"], [h.hit], { groupKey: /SetCursorPos|active desktop|DESKTOP_UNAVAILABLE/i.test(h.hit) ? "env:desktop" : /transport-level|forcibly closed|network-related|Timeout expired/i.test(h.hit) ? "env:backend-connection" : "env:" + h.pattern.toLowerCase() });
+      }
+    }
+    if (!envHit && ctx.mass[c.uid]) {
+      const m = ctx.mass[c.uid];
+      envHit = out("ENVIRONMENT", "suspected", "ENV3", ["同一报错特征在本次运行中出现在 " + m.n + " 个用例（占失败数 " + m.pct + "%）" + (m.span ? "，" + m.span : "")], ["确认该时段环境（服务、网络、设备）是否异常；如果是同一个产品问题导致的大面积失败，请改为疑似产品缺陷"], []);
+    }
+    if (envHit) { if (c.rerun === "pass") envHit.flags.push("重跑通过"); return envHit; }
+
+    // ---------- 重跑 ----------
+    const alertText = c.alertText || "";
+    const pageText = [c.pageText, alertText].concat(L ? L.sysMsgs : []).filter(Boolean).join("\n");
+    const bizInPage = findAny(pageText, rules.business_errors);
+    if (c.rerun === "pass") {
+      const r = out("RERUN_PASS", "confirmed", "R1", ["重跑通过（" + E("rerun") + "），说明这次失败不是必现"], ["重跑通过不等于没有问题；并发、异步、时序类缺陷也会偶发"], []);
+      if (bizInPage) { r.flags.push("原失败有业务报错"); r.need.push("原失败时出现“" + bizInPage.hit + "”，请判断是否需要跟进"); }
+      return r;
+    }
+
+    // ---------- 系统提示（桌面端弹窗、校验提示）：按提示文字的含义分类，不按“是不是弹窗”分类 ----------
+    if (L && (L.popupText !== null || L.sysMsgs.length)) {
+      const sys = L.sysMsgs.filter(Boolean).join("\n");
+      if (L.popupText === "" && !sys) return out("NEEDS_HUMAN", "suspected", "SYS-EMPTY", ["提交后出现了弹窗，脚本报“pop-up error”，但没有读到弹窗文字（" + E("sys") + "）"], ["弹窗内容只能从截图确认" + (E("shot") ? "（" + E("shot") + "）" : "，当前没有截图") + "；建议修改弹窗处理函数，读取对话框内全部文字控件后再关闭"], [], { reason: "unknown_popup" });
+      const lock = findAny(sys, rules.lock_messages);
+      if (lock) return out("TEST_DATA", "confirmed", "DATA-LOCK", ["系统提示“" + lock.hit + "”（" + E("sys") + "）：用例要用的保单/合同正被其他会话占用"], ["查是谁占用：同一批次里前面失败的用例有没有留下未关闭的窗口；有没有其他批次或同事同时使用这张保单"], [lock.hit], { groupKey: "data:lock" });
+      const cfg = findAny(sys, rules.config_messages);
+      if (cfg) return out("NEEDS_HUMAN", "suspected", "SYS-CFG", ["系统提示“" + cfg.hit + "”（" + E("sys") + "）：被测系统缺少某项配置"], ["向开发或配置负责人确认这项配置在测试环境中是否应该存在：应该存在但缺失 → 环境问题；配置正确但仍报错 → 产品缺陷"], [cfg.hit], { reason: "system_config" });
+      const crash = findAny(sys, rules.crash_messages);
+      if (crash) return out("PRODUCT_DEFECT", "suspected", "SYS-CRASH", ["被测程序弹出未处理异常对话框“" + crash.hit + "”（" + E("sys") + "）"], ["保存对话框中的异常详情，确认同样操作能否重现"], [crash.hit]);
+    }
+
+    // ---------- 原生对话框 ----------
+    if (hasExc(exc, rules.alert_exceptions)) {
+      const noise = findAny(alertText, rules.noise_popups);
+      if (noise) return out("POPUP_INTERFERENCE", "confirmed", "POP1", ["出现原生对话框（" + E("exc") + "），文字“" + noise.hit + "”在干扰弹窗清单中（" + (E("page") || E("msg")) + "）"], [], [noise.hit]);
+      if (!findAny(alertText, rules.business_errors)) {
+        return out("NEEDS_HUMAN", "suspected", "POP1-未知", ["出现原生对话框（" + E("exc") + "）" + (alertText ? "，文字为“" + alertText + "”" : "，但报错里没有带出弹窗文字")], ["判断这个弹窗是干扰还是业务报错，并补充到“规则配置 → 弹窗清单”"], alertText ? [alertText] : [], { reason: "unknown_popup" });
+      }
+    }
+
+    // ---------- 业务报错（只看页面/弹窗文字和断言信息，不看技术异常文本，避免把 invalid selector 之类当成业务报错） ----------
+    const isAssert = hasExc(exc, rules.assertion_exceptions);
+    // 报错信息里没有任何技术异常类型时，它多半就是系统返回的提示文字，也按业务报错处理
+    const biz = bizInPage || ((isAssert || !exc) ? findAny(c.error, rules.business_errors) : null);
+    if (biz) {
+      const src = bizInPage ? E("page") : E("msg");
+      if (c.dataCheck === "ok") return out("PRODUCT_DEFECT", "confirmed", "BIZ2", ["出现业务报错“" + biz.hit + "”（" + src + "）", "数据已核查且正常（" + E("data") + "），系统仍报错"], [], [biz.hit]);
+      if (c.dataCheck) return out("TEST_DATA", "confirmed", "BIZ1", ["出现业务报错“" + biz.hit + "”（" + src + "）", "数据核查结果：" + DATA_CHECK[c.dataCheck] + "（" + E("data") + "）"], [], [biz.hit]);
+      return out("NEEDS_HUMAN", "suspected", "BIZ3", ["出现业务报错“" + biz.hit + "”（" + src + "）", "只凭报错文字分不清是测试数据问题还是系统问题"], ["到“数据核查”页查这条用例用到的数据，填写核查结果后会自动重新分类"], [biz.hit], { reason: "pending_data_check" });
+    }
+
+    // ---------- 网页弹框 ----------
+    const clickish = hasExc(exc, rules.intercept_exceptions) || hasExc(exc, rules.locator_exceptions);
+    const noiseInPage = findAny(c.pageText, rules.noise_popups);
+    if (noiseInPage && clickish) return out("POPUP_INTERFERENCE", "confirmed", "POP2", ["失败时页面上有弹框，文字“" + noiseInPage.hit + "”在干扰弹窗清单中（" + E("page") + "）", "异常类型 " + exc + " 属于点击/定位失败（" + E("exc") + "）"], [], [noiseInPage.hit]);
+    if (hasExc(exc, rules.intercept_exceptions)) {
+      const el = extractInterceptor(text);
+      const kw = el ? findAny(el, rules.overlay_keywords) : null;
+      const why = ["点击被其他元素挡住（" + E("exc") + "）"];
+      if (el) why.push("挡住点击的元素：" + el.slice(0, 160) + (kw ? "，包含弹框特征“" + kw.hit + "”" : ""));
+      return out("POPUP_INTERFERENCE", "suspected", kw ? "POP3" : "POP3-弱", why, ["看截图" + (E("shot") ? "（" + E("shot") + "）" : "") + "确认遮挡物是什么：弹窗、加载遮罩，还是页面布局变化（布局变化应改为脚本问题）"], kw ? [kw.hit] : []);
+    }
+
+    // ---------- 桌面端（pywinauto）与 Python 日志 ----------
+    if (L && L.root) {
+      const done = L.success.length ? "步骤日志显示业务操作已经成功（“" + L.success[0] + "”，" + E("step") + "），失败发生在之后的结果校验阶段" : "";
+      const shot = E("shot") ? "（" + E("shot") + "）" : "（当前没有截图）";
+      const extra = done ? { phase: "verify" } : {};
+      // 掩盖型：前一步“没找到”时返回了 False/None，下一步才报错，报错本身不是原因
+      const mk = findAny(rootTxt, rules.masked_patterns);
+      if (mk) return out("NEEDS_HUMAN", "suspected", "MASK1", ["最先发生的异常是 " + L.root.type + "：" + L.root.msg.slice(0, 120) + where, "含义：前一步查找控件/窗口/数据时没找到，函数返回了 " + (/NoneType/.test(mk.hit) ? "None" : "False") + "，代码没有检查就继续使用，才出现这个报错。真实原因是“前一步没找到什么”，报错没有说"],
+        ["打开 " + (L.rootAt ? L.rootAt.file.split(/[\\/]/).pop() + " 第" + L.rootAt.line + "行" : "报错所在行") + "，看这一行用的变量来自哪个查找函数，查的是哪个控件/数据", "看失败时截图" + shot + "：要找的控件是否在屏幕上、是否被其他窗口挡住、页面是否停在别的界面", "建议修改脚本：查找函数找不到时直接抛出带控件名称的异常，不要返回 False/None"], [mk.hit], Object.assign({ reason: "masked_failure" }, extra));
+      if (anyExc(rules.desk_ambiguous)) return out("SCRIPT_ISSUE", "confirmed", "DSK-AMB", ["异常 ElementAmbiguousError：定位条件同时匹配到多个控件（" + E("root") + "）" + where].concat(done ? [done] : []),
+        ["定位条件需要改得更精确（加上所在窗口、控件类型或序号）", "同时检查是否有前面用例留下的窗口没关，导致出现了多个同名控件"], [], extra);
+      const opt = findAny(rootTxt, rules.desk_option_missing);
+      if (opt) return out("SCRIPT_ISSUE", "suspected", "DSK-OPT", ["下拉框里没有脚本要选的选项：" + opt.hit + "（" + E("root") + "）" + where].concat(done ? [done] : []),
+        ["看截图或手工打开这个下拉框，确认实际选项名称：名称改了 → 改脚本；选项本应存在却没有 → 疑似产品缺陷", "建议脚本报错时把下拉框里的全部选项一起打印出来"], [opt.hit], extra);
+      const dtp = findAny(rootTxt, rules.desk_datetime);
+      if (dtp) return out("SCRIPT_ISSUE", "suspected", "DSK-DTP", ["日期控件设置失败：“" + dtp.hit + "”（" + E("root") + "）" + where],
+        ["确认脚本要设置的日期值（日志里没有打印）：常见原因是日期超出控件允许的范围（例如早于保单生效日、晚于系统日期），属于测试数据问题；控件类型变化则是脚本问题", "建议脚本报错时打印要设置的日期"], [dtp.hit], extra);
+      if (anyExc(rules.desk_not_enabled)) return out("NEEDS_HUMAN", "suspected", "DSK-DIS", ["要点击/输入的控件处于不可用（灰色）状态：ElementNotEnabled（" + E("root") + "）" + where],
+        ["看截图" + shot + "确认是哪个按钮不可用、界面上有没有提示", "按钮不可用通常是业务规则限制（前面必填项没填、保单状态不允许这项操作）：数据不满足 → 测试数据问题；步骤漏了 → 脚本问题；条件都满足仍不可用 → 疑似产品缺陷"], [], Object.assign({ reason: "control_state" }, extra));
+      if (anyExc(rules.desk_not_visible)) return out("SCRIPT_ISSUE", "suspected", "DSK-VIS", ["控件存在但不可见：ElementNotVisible（" + E("root") + "）" + where],
+        ["看截图" + shot + "：控件所在的页签/区域是否没切换过去、窗口是否被最小化或被其他窗口挡住", "界面正常但控件被隐藏 → 可能是被测系统界面改了，需要确认"], [], extra);
+      const nf = anyExc(rules.desk_not_found) || findAny(rootTxt, rules.desk_not_found);
+      if (nf) {
+        const why = ["找不到窗口或控件" + (L.expectWin ? "“" + L.expectWin + "”" : "") + "（" + E("root") + "）" + where];
+        if (done) why.push(done);
+        return out("NEEDS_HUMAN", "suspected", "DSK-NF", why, ["看截图" + shot + "确认当时屏幕上是什么窗口：目标窗口没打开 → 前一步操作没生效（重跑确认）；打开了但名称不同 → 脚本问题；出现了别的对话框 → 按对话框文字判断", "如果日志里列出了当时打开的窗口，检查有没有前面用例留下的窗口"], [], Object.assign({ reason: "insufficient_evidence" }, extra));
+      }
+      // 笼统的包装异常：项目代码自己抛出的 Exception，文字只说“失败了”，真实原因在步骤日志或截图里
+      if (/^Exception$/.test(L.root.type) && !findAny(L.root.msg, rules.business_errors.concat(["not found"]))) {
+        return out("NEEDS_HUMAN", "suspected", "GEN1", ["报错只说明“" + L.root.msg.slice(0, 100) + "”（" + E("root") + "），没有说明原因" + where], ["看步骤日志" + (E("step") ? "（" + E("step") + "）" : "") + "最后几行和截图" + shot + "，找系统给出的提示"], [], { reason: "generic_error" });
+      }
+    }
+
+    // ---------- 脚本问题 ----------
+    if (hasExc(exc, rules.invalid_selector)) return out("SCRIPT_ISSUE", "confirmed", "SCR2", ["定位表达式本身写错（" + E("exc") + "）"], [], [exc]);
+    if (hasExc(exc, rules.code_errors)) {
+      const inTest = findAny(c.stack || c.error, rules.test_code_paths);
+      return out("SCRIPT_ISSUE", inTest ? "confirmed" : "suspected", "SCR3", ["测试代码运行时错误 " + exc + "（" + E("exc") + "）"].concat(inTest ? ["堆栈中出现测试代码路径“" + inTest.hit + "”（" + E("stack") + "）"] : []), inTest ? [] : ["堆栈中没有找到测试代码路径，也可能是被测系统返回了异常数据，请看堆栈确认出错位置"], [exc]);
+    }
+    if (hasExc(exc, rules.locator_exceptions)) {
+      return out("SCRIPT_ISSUE", "suspected", "SCR1", ["找不到元素/等待超时（" + E("exc") + "），没有弹框文字和业务报错证据"],
+        ["看截图" + (E("shot") ? "（" + E("shot") + "）" : "，当前没有截图") + "：页面正常、只是元素变了 → 脚本问题；页面空白、报错、缺少整块内容 → 改为疑似产品缺陷；页面上有弹窗 → 改为弹窗干扰"], [exc]);
+    }
+
+    // ---------- 断言 ----------
+    if (isAssert) {
+      const ea = findAny(c.error, rules.expected_actual);
+      if (ea) return out("PRODUCT_DEFECT", "suspected", "AST1", ["断言失败且有明确的期望值与实际值（" + E("msg") + "）"], ["对照当前需求确认期望值是否过时；过时请改为脚本问题"], [ea.hit]);
+      return out("NEEDS_HUMAN", "suspected", "AST2", ["断言失败，但没有期望值和实际值（" + E("msg") + "）"], ["查看日志确认断言的内容"], [], { reason: "assertion_no_values" });
+    }
+
+    if (!c.error && !c.stack) return out("NEEDS_HUMAN", "suspected", "NONE", ["没有报错信息"], ["查看原始日志或截图"], [], { reason: "insufficient_evidence" });
+    return out("NEEDS_HUMAN", "suspected", "NONE", ["没有规则命中" + (exc ? "（异常类型 " + exc + "）" : "")], ["人工判断后可在“规则配置”中补充规则"], [], { reason: "no_rule_matched" });
+  }
+
+  // 整批分类。顺序很重要：先看整批（大面积相同报错、环境中断的边界），再看单个用例
+  function prepare(c, rules) {
+    c.L = analyzeLog([c.error, c.stack].filter(Boolean).join("\n"), rules);
+    if (c.L && c.L.root && !c.exceptionRaw) c.exception = shortType(c.L.root.type);
+    const r = c.L && c.L.root;
+    c.sig0 = r ? signature(shortType(r.type) + " " + r.msg.split(/\n/)[0] + (c.L.rootAt ? " @" + c.L.rootAt.func : c.L.path.length ? " @" + c.L.path[c.L.path.length - 1].split("（")[0] : ""))
+      : signature((c.exception ? c.exception + " " : "") + (c.error || c.stack || "").split(/\n/)[0]);
+  }
+  function classifyAll(cases, rules) {
+    cases.forEach(c => prepare(c, rules));
+    const failed = cases.filter(c => c.failed);
+    const mass = {};
+    // 大面积相同报错：同一特征 ≥ N 个且占比 ≥ X%，并且要么在执行顺序上连续，要么集中在同一时间窗口
+    const bySig = {};
+    failed.forEach(c => { if (c.sig0) (bySig[c.run + "|" + c.sig0] = bySig[c.run + "|" + c.sig0] || []).push(c); });
+    Object.values(bySig).forEach(list => {
+      const runFailed = failed.filter(x => x.run === list[0].run).length;
+      const pct = Math.round(list.length * 100 / Math.max(runFailed, 1));
+      if (list.length < rules.mass_min_cases || pct < rules.mass_ratio) return;
+      const runCases = cases.filter(x => x.run === list[0].run).sort((a, b) => a.seq - b.seq);
+      const idx = list.map(c => runCases.indexOf(c)).sort((a, b) => a - b);
+      const contiguous = idx[idx.length - 1] - idx[0] + 1 === idx.length;
+      const ts = list.map(c => Date.parse(c.start)).filter(t => !isNaN(t)).sort((a, b) => a - b);
+      const mins = ts.length >= 2 ? Math.round((ts[ts.length - 1] - ts[0]) / 60000) : null;
+      if (!contiguous && (mins == null || mins > rules.mass_window_min)) return;
+      const span = contiguous ? "在执行顺序上连续（第 " + list[0].seq + "–" + list[list.length - 1].seq + " 个）" : "集中在 " + mins + " 分钟内";
+      list.forEach(c => { mass[c.uid] = { n: list.length, pct, span }; });
+    });
+    failed.forEach(c => {
+      c.auto = classify(c, { mass }, rules);
+      c.sig = c.auto.groupKey || c.sig0;
+      c.final = c.override ? c.override.cat : c.auto.cat;
+    });
+    crossCase(cases, rules);
+  }
+
+  // 跨用例的证据：环境中断的起点和边界、通过用例里出现的同样报错、同一功能的通过/失败对比、残留窗口
+  function crossCase(cases, rules) {
+    const runs = {};
+    cases.forEach(c => (runs[c.run] = runs[c.run] || []).push(c));
+    Object.values(runs).forEach(list => {
+      list.sort((a, b) => a.seq - b.seq);
+      const isEnv = c => c.failed && c.auto && c.auto.cat === "ENVIRONMENT" && c.auto.status === "confirmed";
+      // 从末尾往前找：连续的环境失败一直持续到运行结束，说明环境在某个时刻中断后再没恢复
+      let k = list.length;
+      while (k > 0 && isEnv(list[k - 1])) k--;
+      const tailN = list.length - k;
+      if (tailN >= (rules.mass_min_cases || 5)) {
+        const startC = list[k];
+        list.slice(k).forEach(c => c.auto.why.push("从第 " + startC.seq + " 个用例（" + startC.id + "）起，后面连续 " + tailN + " 个用例都因环境原因失败，直到运行结束：环境在这之前中断后没有恢复"));
+        const prev = list[k - 1];
+        if (prev && prev.failed && prev.auto) {
+          prev.auto.flags.push("环境中断边界");
+          prev.auto.need.unshift("这个用例紧挨着环境中断的起点（第 " + startC.seq + " 个用例起全部因环境失败），它的失败可能也受环境影响：先重跑，再判断");
+          if (prev.auto.cat !== "ENVIRONMENT" && !prev.auto.reason) prev.auto.reason = "env_boundary";
+        }
+      }
+      list.filter(c => c.failed && c.auto).forEach(c => {
+        const L = c.L;
+        if (L && L.shotFailed) {
+          c.auto.flags.push("失败时截图失败");
+          c.auto.need.push("失败处理时截图失败（screen grab failed），这说明当时桌面已不可用；报告里如果显示了截图，那不是这个用例失败时的画面");
+        }
+        // 环境类报错是否也出现在通过的用例日志里（说明环境本身不稳定，而不是这个用例的问题）
+        if (c.auto.cat === "ENVIRONMENT" && c.auto.hits[0]) {
+          const seen = list.filter(x => !x.failed && findAny([x.error, x.stack].join("\n"), [c.auto.hits[0]]));
+          if (seen.length) c.auto.why.push("同样的报错也出现在本次通过的用例日志中：" + seen.map(x => x.id).slice(0, 5).join("、") + "（那些用例没有因此失败），说明这段时间环境本身不稳定");
+        }
+        // 同一功能在本次运行中有通过的用例：把问题范围缩小到这个用例特有的参数、数据或配置
+        if (L && L.screen && c.auto.cat !== "ENVIRONMENT") {
+          const okSame = list.filter(x => !x.failed && x.L && x.L.screen === L.screen);
+          if (okSame.length) c.auto.need.push("同一功能“" + L.screen + "”在本次运行中有通过的用例（" + okSame.map(x => x.id).slice(0, 5).join("、") + "），对比两者的测试数据和参数，差异处就是重点怀疑对象");
+        }
+        // 残留窗口：找窗口失败时，列出的窗口里有其他功能的窗口
+        if (L && L.windows.length) {
+          const others = L.windows.filter(w => !/^WindowsForms|Main Menu/i.test(w) && w !== L.expectWin);
+          if (others.length) {
+            const cnt = {}; others.forEach(w => { cnt[w] = (cnt[w] || 0) + 1; });
+            c.auto.flags.push("有残留窗口");
+            c.auto.why.push("找不到目标窗口时，屏幕上还开着其他功能的窗口：" + Object.keys(cnt).map(w => w + (cnt[w] > 1 ? " ×" + cnt[w] : "")).join("、") + "（" + evId(c.auto.ev, "win") + "）：前面的用例失败后没有关闭窗口");
+          }
+        }
+      });
+    });
+  }
+
+  /* ======================= 文件解析 ======================= */
+  function parseDelimited(text) {
+    text = text.replace(/^﻿/, "");
+    const first = text.split(/\r?\n/, 1)[0] || "";
+    const delim = (first.split("\t").length > first.split(",").length) ? "\t" : (first.split(";").length > first.split(",").length ? ";" : ",");
+    const rows = []; let row = [], cell = "", q = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (q) {
+        if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+        else cell += ch;
+      } else if (ch === '"' && cell === "") q = true;
+      else if (ch === delim) { row.push(cell); cell = ""; }
+      else if (ch === "\n" || ch === "\r") { if (ch === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+      else cell += ch;
+    }
+    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+    const nonEmpty = rows.filter(r => r.some(x => x.trim() !== ""));
+    if (nonEmpty.length < 2) return [];
+    const head = nonEmpty[0].map((h, i) => h.trim() || "列" + (i + 1));
+    return nonEmpty.slice(1).map(r => { const o = {}; head.forEach((h, i) => { o[h] = (r[i] || "").trim(); }); return o; });
+  }
+
+  function flatten(obj, pre, out) {
+    out = out || {};
+    if (obj == null) return out;
+    if (Array.isArray(obj)) {
+      if (obj.every(x => x == null || typeof x !== "object")) out[pre] = obj.join("; ");
+      else if (/attach|screenshot|截图|image/i.test(pre)) out[pre] = obj.map(x => (x && (x.source || x.path || x.url || x.name)) || "").filter(Boolean).join("; ");
+      else if (obj.length && obj.length <= 5) obj.forEach((x, i) => flatten(x, pre + "[" + i + "]", out));
+      else out[pre] = "[" + obj.length + " 项]";
+      return out;
+    }
+    if (typeof obj === "object") { Object.keys(obj).forEach(k => flatten(obj[k], pre ? pre + "." + k : k, out)); return out; }
+    out[pre] = String(obj);
+    return out;
+  }
+  // 在 JSON 中找出所有“对象数组”，供用户选择哪一个是用例列表
+  function findArrays(obj, path, acc) {
+    acc = acc || [];
+    if (Array.isArray(obj)) {
+      if (obj.length && obj.every(x => x && typeof x === "object" && !Array.isArray(x))) acc.push({ path: path || "(根)", arr: obj });
+      obj.slice(0, 50).forEach((x, i) => { if (x && typeof x === "object") findArrays(x, path + "[" + i + "]", acc); });
+    } else if (obj && typeof obj === "object") {
+      Object.keys(obj).forEach(k => findArrays(obj[k], path ? path + "." + k : k, acc));
+    }
+    return acc;
+  }
+  function isAllureResult(o) { return o && typeof o === "object" && "status" in o && ("uuid" in o || "historyId" in o) && "name" in o; }
+  function allureRow(o) {
+    const sd = o.statusDetails || {};
+    const labels = {}; (o.labels || []).forEach(l => { labels[l.name] = (labels[l.name] ? labels[l.name] + "," : "") + l.value; });
+    const atts = [];
+    const walk = s => { (s.attachments || []).forEach(a => atts.push(a.source || a.name)); (s.steps || []).forEach(walk); };
+    walk(o);
+    return {
+      "name": o.name || "", "fullName": o.fullName || "", "testCaseId": o.testCaseId || o.historyId || "", "status": o.status || "",
+      "message": sd.message || "", "trace": sd.trace || "", "start": o.start ? new Date(o.start).toISOString() : "",
+      "duration(ms)": o.start && o.stop ? String(o.stop - o.start) : "", "suite": labels.suite || labels.parentSuite || "", "feature": labels.feature || "",
+      "attachments": atts.join("; "),
+    };
+  }
+  function parseJUnit(xml) {
+    const doc = new DOMParser().parseFromString(xml, "application/xml");
+    if (doc.querySelector("parsererror")) throw new Error("XML 格式不正确");
+    return Array.from(doc.getElementsByTagName("testcase")).map(tc => {
+      const f = tc.getElementsByTagName("failure")[0] || tc.getElementsByTagName("error")[0];
+      const sk = tc.getElementsByTagName("skipped")[0];
+      const out = tc.getElementsByTagName("system-out")[0];
+      const suite = tc.parentNode && tc.parentNode.getAttribute ? tc.parentNode.getAttribute("name") : "";
+      return {
+        "name": tc.getAttribute("name") || "", "classname": tc.getAttribute("classname") || "", "suite": suite || "",
+        "status": f ? (f.tagName === "error" ? "error" : "failed") : (sk ? "skipped" : "passed"),
+        "message": f ? (f.getAttribute("message") || "") : "", "type": f ? (f.getAttribute("type") || "") : "",
+        "trace": f ? f.textContent.trim() : "", "time(s)": tc.getAttribute("time") || "", "system-out": out ? out.textContent.trim().slice(0, 4000) : "",
+      };
+    });
+  }
+  // 返回 {kind, tables:[{path, rows}]}
+  function parseFile(name, text) {
+    const n = name.toLowerCase();
+    if (n.endsWith(".xml") || /^\s*<\?xml|^\s*<testsuites?[\s>]/.test(text)) return { kind: "JUnit XML", tables: [{ path: "testcase", rows: parseJUnit(text) }] };
+    if (n.endsWith(".json") || /^\s*[\[{]/.test(text)) {
+      const obj = JSON.parse(text.replace(/^﻿/, ""));
+      if (isAllureResult(obj)) return { kind: "Allure 结果", tables: [{ path: "allure", rows: [allureRow(obj)] }] };
+      const arrs = findArrays(obj, "");
+      if (!arrs.length && obj && typeof obj === "object") return { kind: "JSON", tables: [{ path: "(根)", rows: [flatten(obj, "")] }] };
+      return { kind: "JSON", tables: arrs.map(a => ({ path: a.path, rows: a.arr.map(x => isAllureResult(x) ? allureRow(x) : flatten(x, "")) })) };
+    }
+    return { kind: n.endsWith(".tsv") || text.indexOf("\t") >= 0 ? "表格（制表符）" : "CSV", tables: [{ path: "表格", rows: parseDelimited(text) }] };
+  }
+
+  /* ======================= 字段映射 ======================= */
+  const FIELDS = [
+    { key: "id", name: "用例标识", req: true, guess: ["caseid", "case_id", "case id", "标识", "用例编号", "用例id", "testcaseid", "编号", "id", "historyid"] },
+    { key: "name", name: "用例名称", req: true, guess: ["casename", "用例名称", "名称", "name", "title", "标题", "fullname"] },
+    { key: "result", name: "执行结果", req: true, guess: ["result", "结果", "status", "状态", "执行结果", "outcome"] },
+    { key: "error", name: "报错信息", guess: ["message", "errormessage", "error", "失败原因", "错误信息", "报错", "异常信息", "reason", "statusdetails.message", "failure"] },
+    { key: "stack", name: "堆栈/日志", guess: ["trace", "stacktrace", "stack", "堆栈", "日志", "log", "statusdetails.trace", "system-out", "detail"] },
+    { key: "exceptionRaw", name: "异常类型", guess: ["exception", "exceptiontype", "异常类型", "type", "errortype"] },
+    { key: "pageText", name: "页面/弹窗文字", guess: ["pagetext", "alerttext", "弹窗", "页面提示", "dialog", "popup", "toast"] },
+    { key: "screenshot", name: "截图路径", guess: ["screenshot", "截图", "attachments", "image", "picture", "img"] },
+    { key: "start", name: "开始时间", guess: ["starttime", "start", "开始时间", "执行时间", "time", "date"] },
+    { key: "duration", name: "耗时", guess: ["duration", "耗时", "time(s)", "duration(ms)", "elapsed"] },
+    { key: "module", name: "模块/套件", guess: ["module", "模块", "suite", "套件", "feature", "classname", "目录", "path"] },
+    { key: "device", name: "执行设备", guess: ["device", "设备", "执行设备", "browser", "浏览器", "platform"] },
+  ];
+  function guessMapping(cols, saved) {
+    const map = {};
+    const norm = s => s.toLowerCase().replace(/[\s_\-]/g, "");
+    FIELDS.forEach(f => {
+      if (saved && saved[f.key] && cols.includes(saved[f.key])) { map[f.key] = saved[f.key]; return; }
+      for (const g of f.guess) {
+        const hit = cols.find(c => norm(c) === norm(g)) || cols.find(c => norm(c).endsWith(norm(g)) && norm(g).length > 3) || cols.find(c => norm(c).includes(norm(g)) && norm(g).length > 4);
+        if (hit && !Object.values(map).includes(hit)) { map[f.key] = hit; return; }
+      }
+    });
+    return map;
+  }
+  function toCases(rows, map, rules, runId, startIdx) {
+    return rows.map((r, i) => {
+      const g = k => (map[k] ? String(r[map[k]] == null ? "" : r[map[k]]) : "").trim();
+      const error = g("error"), stack = g("stack");
+      const exceptionRaw = g("exceptionRaw");
+      const exception = exceptionRaw ? exceptionRaw.split(".").pop() : extractException(error) || extractException(stack);
+      const alertText = extractAlertText(error) || extractAlertText(stack);
+      const c = {
+        uid: runId + "#" + (startIdx + i + 1), seq: startIdx + i + 1, run: runId,
+        id: g("id") || "第" + (startIdx + i + 1) + "行", name: g("name"), result: g("result"),
+        error: error.slice(0, 8000), stack: stack.slice(0, 20000), exceptionRaw, exception, pageText: g("pageText"), alertText,
+        screenshot: g("screenshot"), start: g("start"), duration: g("duration"), module: g("module"), device: g("device"),
+      };
+      c.failed = isFail(c.result, rules);
+      prepare(c, rules); c.sig = c.sig0;
+      return c;
+    });
+  }
+
+  return { DEFAULT_RULES, CATS, REASONS, DATA_CHECK, FIELDS, classifyAll, evidenceOf, signature, mask, findAny, parseFile, guessMapping, toCases, isFail, analyzeLog };
+})();
+
+</script>
+<script>
+/* 框架：存储、菜单、页签、通用组件 */
+window.APP = (function () {
+  const KEY = "testAnalysis.v1";
+  const S = { runs: [], cases: [], rules: null, mapping: {}, shots: {}, cmp: null, view: {}, drafts: [], jira: null, jiraLog: [] };
+
+  function load() {
+    try {
+      const d = JSON.parse(localStorage.getItem(KEY) || "{}");
+      S.runs = d.runs || []; S.cases = d.cases || []; S.mapping = d.mapping || {};
+      S.rules = Object.assign({}, ENG.DEFAULT_RULES, d.rules || {});
+      // 旧版本保存的规则没有桌面端规则：补上新增的环境关键字，其余新增项用默认值
+      if (d.rules && !d.rules.framework_paths) S.rules.env_patterns = Array.from(new Set((d.rules.env_patterns || []).concat(ENG.DEFAULT_RULES.env_patterns)));
+      S.drafts = d.drafts || []; S.jira = d.jira || null; S.jiraLog = d.jiraLog || [];
+    } catch (e) { S.rules = Object.assign({}, ENG.DEFAULT_RULES); }
+  }
+  let saveWarned = false;
+  function save() {
+    const strip = S.cases.map(c => { const o = Object.assign({}, c); delete o.auto; delete o.shots; delete o._adv; delete o.L; return o; });
+    try { localStorage.setItem(KEY, JSON.stringify({ runs: S.runs, cases: strip, rules: S.rules, mapping: S.mapping, drafts: S.drafts, jira: S.jira, jiraLog: S.jiraLog })); }
+    catch (e) { if (!saveWarned) { toast("浏览器本地存储空间不足，刷新后数据会丢失。请先导出 CSV 保存结果", true); saveWarned = true; } }
+  }
+  function reclassify() {
+    S.cases.forEach(c => { c.shots = S.shots[c.uid] || null; });
+    ENG.classifyAll(S.cases, S.rules);
+  }
+
+  /* ---------- 小工具 ---------- */
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  const $ = (sel, root) => (root || document).querySelector(sel);
+  const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+  function highlight(text, hits) {
+    let s = esc(text);
+    (hits || []).filter(h => h && h.length > 1).forEach(h => {
+      const e = esc(h).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      s = s.replace(new RegExp(e, "gi"), m => "<mark>" + m + "</mark>");
+    });
+    return s;
+  }
+  let tt;
+  function toast(msg, err) {
+    const t = $("#toast"); t.textContent = msg; t.className = "show" + (err ? " err" : "");
+    clearTimeout(tt); tt = setTimeout(() => { t.className = ""; }, 2600);
+  }
+  function copy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+    document.body.removeChild(ta);
+    if (ok) { toast("已复制到剪贴板"); return; }
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast("已复制到剪贴板"), () => showText("请手动复制", text));
+    else showText("请手动复制", text);
+  }
+  function showText(title, text) {
+    dialog(title, '<textarea class="ta" style="height:360px" readonly>' + esc(text) + "</textarea>", [{ t: "关闭" }]);
+    const ta = $("#dlg textarea"); ta.focus(); ta.select();
+  }
+  function download(name, text, type) {
+    try {
+      const blob = new Blob([text], { type: type || "text/plain;charset=utf-8" });
+      if (window.navigator.msSaveOrOpenBlob) { window.navigator.msSaveOrOpenBlob(blob, name); return; }
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+      toast("已开始下载 " + name + "；如果没有反应，请用“复制内容”");
+    } catch (e) { showText("下载失败，请手动复制后保存为 " + name, text); }
+  }
+  const csvCell = v => { const s = String(v == null ? "" : v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const toCSV = rows => "﻿" + rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+  function readFile(file) {
+    return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsText(file, "utf-8"); });
+  }
+  const catTag = (cat, small) => { const c = ENG.CATS[cat] || ENG.CATS.NEEDS_HUMAN; return '<span class="tag ' + c.color + '">' + c.name + "</span>"; };
+  const statusTag = c => c.override ? '<span class="dot" style="--c:#409eff">人工已改</span>' : c.auto.status === "confirmed" ? '<span class="dot" style="--c:#67c23a">规则确认</span>' : '<span class="dot" style="--c:#e6a23c">待复核</span>';
+  function pager(total, page, size, onGo) {
+    const pages = Math.max(1, Math.ceil(total / size));
+    let html = '<div class="pager"><span>共 ' + total + " 条</span><span>" + size + " 条/页</span>";
+    const show = [];
+    for (let i = 1; i <= pages; i++) if (i === 1 || i === pages || Math.abs(i - page) <= 2) show.push(i);
+    let last = 0;
+    show.forEach(i => { if (i - last > 1) html += "<span>…</span>"; html += '<button data-pg="' + i + '" class="' + (i === page ? "on" : "") + '">' + i + "</button>"; last = i; });
+    html += "</div>";
+    return { html, bind: root => $$("[data-pg]", root).forEach(b => b.onclick = () => onGo(+b.dataset.pg)) };
+  }
+  const emptyBlock = (title, text, btn) => '<div class="empty"><b>' + title + "</b>" + (text || "") + (btn ? '<div style="margin-top:12px">' + btn + "</div>" : "") + "</div>";
+
+  /* ---------- 对话框、抽屉 ---------- */
+  function dialog(title, body, buttons) {
+    $("#dlg").style.width = ""; $("#dlgT").textContent = title; $("#dlgB").innerHTML = body;
+    const f = $("#dlgF"); f.innerHTML = "";
+    (buttons || [{ t: "关闭" }]).forEach(b => {
+      const el = document.createElement("button"); el.className = "btn" + (b.pri ? " pri" : ""); el.textContent = b.t;
+      el.onclick = () => { if (b.fn && b.fn() === false) return; closeDialog(); }; f.appendChild(el);
+    });
+    $("#mask").classList.add("open"); $("#dlg").classList.add("open");
+  }
+  function closeDialog() { $("#dlg").classList.remove("open"); if (!$("#drawer").classList.contains("open")) $("#mask").classList.remove("open"); }
+  function drawer(title, body, foot) {
+    $("#drwT").innerHTML = title; $("#drwB").innerHTML = body; $("#drwF").innerHTML = foot || "";
+    $("#mask").classList.add("open"); $("#drawer").classList.add("open"); $("#drwB").scrollTop = 0;
+  }
+  function closeDrawer() { $("#drawer").classList.remove("open"); $("#mask").classList.remove("open"); $("#dlg").classList.remove("open"); }
+
+  /* ---------- 菜单与页签 ---------- */
+  const MENU = [
+    { grp: "概览" },
+    { id: "home", name: "工作台", crumb: "工作台" },
+    { id: "flow", name: "流程讲解", crumb: "使用说明 / 流程讲解" },
+    { grp: "测试分析" },
+    { id: "import", name: "数据导入", crumb: "测试分析 / 数据导入" },
+    { id: "triage", name: "失败分诊", crumb: "测试分析 / 失败分诊", badge: () => S.cases.filter(c => c.failed && !c.override && c.auto && c.auto.status === "suspected").length },
+    { id: "groups", name: "原因分组", crumb: "测试分析 / 原因分组" },
+    { id: "rerun", name: "重跑清单", crumb: "测试分析 / 重跑清单" },
+    { id: "datacheck", name: "数据核查", crumb: "测试分析 / 数据核查", badge: () => S.cases.filter(c => c.failed && !c.override && c.auto && c.auto.reason === "pending_data_check").length },
+    { id: "compare", name: "回归对比", crumb: "测试分析 / 回归对比" },
+    { grp: "缺陷提报" },
+    { id: "jira", name: "Jira 起草", crumb: "缺陷提报 / Jira 起草", badge: () => (S.drafts || []).filter(d => d.status === "draft").length },
+    { id: "jirasub", name: "提交与导出", crumb: "缺陷提报 / 提交与导出" },
+    { grp: "配置" },
+    { id: "rules", name: "规则配置", crumb: "配置 / 规则配置" },
+    { id: "jiracfg", name: "Jira 配置", crumb: "配置 / Jira 配置" },
+  ];
+  let open = ["home"], cur = "home";
+  const PAGES = {};
+  function go(id, opts) {
+    const m = MENU.find(x => x.id === id);
+    if (!m || m.dis) return;
+    if (!open.includes(id)) open.push(id);
+    cur = id;
+    if (opts) S.view[id] = Object.assign(S.view[id] || {}, opts);
+    render();
+  }
+  function closeTab(id) {
+    if (id === "home") return;
+    const i = open.indexOf(id); open.splice(i, 1);
+    if (cur === id) cur = open[Math.max(0, i - 1)];
+    render();
+  }
+  function renderMenu() {
+    $("#menu").innerHTML = MENU.map(m => {
+      if (m.grp) return '<li class="grp">' + m.grp + "</li>";
+      const n = m.badge ? m.badge() : 0;
+      return '<li class="it' + (m.id === cur ? " on" : "") + (m.dis ? " dis" : "") + '" data-go="' + m.id + '">' + m.name +
+        (m.dis ? '<span class="soon">后续</span>' : n ? '<span class="cnt">' + n + "</span>" : "") + "</li>";
+    }).join("");
+    $$("#menu [data-go]").forEach(li => li.onclick = () => go(li.dataset.go));
+    $("#tabs").innerHTML = open.map(id => {
+      const m = MENU.find(x => x.id === id);
+      return '<span class="tab' + (id === cur ? " on" : "") + '" data-tab="' + id + '">' + m.name + (id === "home" ? "" : '<button class="x" data-x="' + id + '">×</button>') + "</span>";
+    }).join("");
+    $$("#tabs [data-tab]").forEach(t => t.onclick = e => { if (e.target.dataset.x) closeTab(e.target.dataset.x); else go(t.dataset.tab); });
+    const m = MENU.find(x => x.id === cur);
+    $("#crumb").innerHTML = "首页 / <b>" + esc(m.crumb) + "</b>";
+    const failed = S.cases.filter(c => c.failed).length;
+    $("#projInfo").innerHTML = (S.runs.length ? "已导入 " + S.runs.length + " 个批次" : "尚未导入数据") + "<small>" + (S.runs.length ? "失败用例 " + failed + " 条" : "数据只保存在本机浏览器") + "</small>";
+  }
+  function render() {
+    renderMenu();
+    const c = $("#content");
+    c.innerHTML = "";
+    (PAGES[cur] || (() => { c.innerHTML = emptyBlock("页面不存在"); }))(c, S.view[cur] || (S.view[cur] = {}));
+    c.scrollTop = 0;
+  }
+  function refreshMenu() { renderMenu(); }
+
+  function init() {
+    load(); reclassify();
+    $("#mask").onclick = closeDrawer;
+    $("#drwX").onclick = closeDrawer;
+    $("#dlgX").onclick = closeDialog;
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
+    render();
+  }
+
+  return { S, KEY, save, reclassify, esc, $, $$, highlight, toast, copy, showText, download, toCSV, readFile, catTag, statusTag, pager, emptyBlock, dialog, closeDialog, drawer, closeDrawer, go, render, refreshMenu, PAGES, init, MENU };
+})();
+
+</script>
+<script>
+/* 页面：工作台、流程讲解、数据导入、规则配置 */
+(function () {
+  const A = APP, E = ENG, S = A.S, esc = A.esc, $ = A.$, $$ = A.$$;
+  const failedOf = runId => S.cases.filter(c => c.failed && (!runId || c.run === runId));
+
+  /* ============================== 工作台 ============================== */
+  A.PAGES.home = function (root) {
+    if (!S.runs.length) {
+      root.innerHTML = '<div class="card"><h3>开始使用</h3><p class="hint" style="margin:0 0 14px">这个页面在本机浏览器里运行，不联网，导入的数据只保存在这台电脑的浏览器中。按下面三步开始；每一步怎么判断，可以先看“流程讲解”。</p>' +
+        '<div class="flow">' +
+        step(1, "导入执行结果", "从平台导出（或通过 SDK 接口取到）的 JSON / CSV / JUnit XML，或者直接从平台页面复制表格粘贴进来。第一次导入需要对一下字段。", "你") +
+        step(2, "自动初步分类", "失败用例按固定顺序过一遍规则：环境 → 重跑 → 弹窗 → 业务报错 → 脚本 → 断言。每条结论都写明依据和证据编号。", "脚本") +
+        step(3, "复核与导出", "“待复核”的用例看证据后确认或改分类；业务报错去数据核查；最后导出 CSV，或按原因分组起草 Jira，审核后导出或提交。", "你") +
+        "</div><div style=\"margin-top:16px;display:flex;gap:8px\"><button class=\"btn pri\" data-go=\"import\">去导入数据</button><button class=\"btn\" data-go=\"flow\">先看流程讲解</button></div></div>";
+      bindGo(root); return;
+    }
+    const f = failedOf();
+    const cnt = k => f.filter(c => c.final === k).length;
+    const sus = f.filter(c => !c.override && c.auto.status === "suspected").length;
+    const pend = f.filter(c => !c.override && c.auto.reason === "pending_data_check").length;
+    const total = S.runs.reduce((a, r) => a + r.total, 0);
+    let html = '<div class="kpis">' +
+      kpi(total, "执行用例总数", "#409eff") + kpi(f.length, "失败用例", "#f56c6c") +
+      kpi(f.filter(c => !c.override && c.auto.status === "confirmed").length, "规则已确认", "#67c23a") +
+      kpi(sus, "待复核", "#e6a23c", "triage", { tab: "sus" }) + kpi(pend, "待数据核查", "#e6a23c", "datacheck") +
+      kpi(f.filter(c => c.override).length, "人工已改", "#909399") + "</div>";
+    html += '<div class="card"><h3>失败原因分布 <span class="sub">按最终分类（人工修改优先）统计，全部批次</span></h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>分类</th><th>数量</th><th style="width:34%">占比</th><th>默认处理方</th><th>下一步</th></tr></thead><tbody>' +
+      Object.keys(E.CATS).map(k => {
+        const n = cnt(k); if (!n) return "";
+        const pct = Math.round(n * 100 / f.length);
+        return "<tr><td>" + A.catTag(k) + "</td><td>" + n + '</td><td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:8px;background:#f0f2f5;border-radius:4px"><div style="width:' + pct + '%;height:8px;background:#409eff;border-radius:4px"></div></div>' + pct + "%</div></td><td>" + E.CATS[k].owner + "</td><td>" + NEXT[k] + '</td></tr>';
+      }).join("") + "</tbody></table></div></div>";
+    html += '<div class="card"><h3>已导入批次<span class="acts"><button class="btn sm" data-go="import">导入新批次</button></span></h3>' + runTable() + "</div>";
+    root.innerHTML = html;
+    bindGo(root); bindRunTable(root);
+  };
+  const NEXT = {
+    RERUN_PASS: "记录不稳定次数；同一用例反复出现时修脚本稳定性", ENVIRONMENT: "一次运行汇总给环境负责人", POPUP_INTERFERENCE: "补充弹窗处理；同一弹窗反复出现时建任务",
+    SCRIPT_ISSUE: "测试修脚本", TEST_DATA: "测试补数据后重跑", PRODUCT_DEFECT: "确认后提缺陷", NEEDS_HUMAN: "看证据人工判断",
+  };
+  function kpi(n, label, color, goId, opts) {
+    return goId ? '<button class="kpi" style="--c:' + color + '" data-go="' + goId + '"' + (opts ? " data-opts='" + JSON.stringify(opts) + "'" : "") + "><b>" + n + "</b><span>" + label + " ›</span></button>"
+      : '<div class="kpi" style="--c:' + color + '"><b>' + n + "</b><span>" + label + "</span></div>";
+  }
+  function step(n, t, p, who, later) {
+    return '<div class="step' + (later ? " later" : "") + '"><h6><span class="n">' + n + "</span>" + t + "</h6><p>" + p + '</p><div class="who"><span class="tag ' + (who === "你" ? "orange" : who === "AI" ? "purple" : who === "后续" ? "gray" : "blue") + '">' + who + "</span></div></div>";
+  }
+  function bindGo(root) { $$("[data-go]", root).forEach(b => b.onclick = () => A.go(b.dataset.go, b.dataset.opts ? JSON.parse(b.dataset.opts) : null)); }
+  function runTable() {
+    return '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>序号</th><th>批次名称</th><th>测试计划</th><th>执行设备</th><th>测试环境</th><th>来源文件</th><th>导入时间</th><th>总数</th><th>失败</th><th>截图</th><th>操作</th></tr></thead><tbody>' +
+      S.runs.map((r, i) => {
+        const shots = S.cases.filter(c => c.run === r.id && S.shots[c.uid]).length;
+        return "<tr><td>" + (i + 1) + "</td><td>" + esc(r.name) + "</td><td>" + esc(r.plan || "-") + "</td><td>" + esc(r.device || "-") + "</td><td>" + esc(r.env || "-") + '</td><td class="clip" title="' + esc(r.file) + '">' + esc(r.file) + "</td><td>" + esc(r.at) + "</td><td>" + r.total + "</td><td>" + failedOf(r.id).length + "</td><td>" + (shots ? shots + " 条已匹配" : "-") +
+          '</td><td class="ops"><a data-run-view="' + r.id + '">查看分诊</a><a data-run-del="' + r.id + '" style="color:#f56c6c">删除</a></td></tr>';
+      }).join("") + "</tbody></table></div>";
+  }
+  function bindRunTable(root) {
+    $$("[data-run-view]", root).forEach(a => a.onclick = () => A.go("triage", { run: a.dataset.runView, page: 1 }));
+    $$("[data-run-del]", root).forEach(a => a.onclick = () => {
+      const r = S.runs.find(x => x.id === a.dataset.runDel);
+      A.dialog("删除批次", "确定删除批次“" + esc(r.name) + "”？该批次的分类、人工结论、核查记录和未提交的 Jira 草稿都会删除，无法恢复。建议先在“失败分诊”导出 CSV。", [
+        { t: "取消" }, { t: "删除", pri: true, fn: () => { S.runs = S.runs.filter(x => x !== r); S.cases = S.cases.filter(c => c.run !== r.id); S.drafts = S.drafts.filter(d => d.run !== r.id || d.status === "submitted"); A.save(); A.render(); A.toast("已删除"); } }]);
+    });
+  }
+  A.runTable = runTable; A.bindRunTable = bindRunTable; A.bindGo = bindGo;
+
+  /* ============================== 流程讲解 ============================== */
+  const FLOW_TABS = [["flow", "处理流程"], ["cats", "分类标准"], ["evidence", "判定依据与证据"], ["format", "导入格式说明"], ["compare", "回归对比说明"], ["jira", "Jira 提报与接口"]];
+  A.PAGES.flow = function (root, v) {
+    v.tab = v.tab || "flow";
+    root.innerHTML = '<div class="card"><div class="subtabs">' + FLOW_TABS.map(([k, n]) => '<button data-t="' + k + '" class="' + (v.tab === k ? "on" : "") + '">' + n + "</button>").join("") + '</div><div id="flowBody"></div></div>';
+    $$("[data-t]", root).forEach(b => b.onclick = () => { v.tab = b.dataset.t; A.render(); });
+    $("#flowBody", root).innerHTML = FLOW[v.tab]();
+    bindGo(root);
+  };
+  const FLOW = {
+    flow: () => '<p class="hint" style="margin-top:0">一次回归跑完之后，从拿到结果到交给团队的完整过程。蓝色是页面自动完成，橙色需要你操作，灰色是后续再做的部分。</p><div class="flow">' +
+      step(1, "导入执行结果", "在“数据导入”选择文件或粘贴表格。支持平台导出的 JSON、CSV、Excel 复制的表格、JUnit XML、Allure 结果文件。第一次导入时把“用例标识、名称、结果、报错信息”等字段对上，之后会记住。", "你") +
+      step(2, "匹配截图（可选）", "选择截图文件或整个截图文件夹，文件名里含有用例标识的会自动挂到对应用例上，作为证据。截图只在本次打开页面期间有效。", "你") +
+      step(3, "自动初步分类", "每条失败用例按固定顺序判断：环境 → 重跑 → 原生弹窗 → 业务报错 → 网页弹框 → 脚本 → 断言 → 需人工。先命中的规则生效，结论分“规则确认”和“待复核”。", "脚本") +
+      step(4, "按原因分组", "报错去掉数字、时间、网址等会变化的部分后比较，相同的归为一组。40 条失败往往只有几个真正的原因，按组处理更快。", "脚本") +
+      step(5, "重跑", "“重跑清单”列出建议重跑的用例，复制用例标识到平台重跑。重跑结果导入后，通过的用例自动改为“重跑可过”。", "你") +
+      step(6, "数据核查", "页面出现业务报错（例如 record not found）时，只看报错分不清是数据问题还是系统问题。在“数据核查”填写查库结果后自动重新分类。", "你") +
+      step(7, "人工复核", "“待复核”的用例打开证据，看截图和报错后确认或改分类，写明原因。也可以复制脱敏后的复核材料给公司的 AI 工具辅助判断。", "你") +
+      step(8, "导出结果", "导出 CSV（Excel 可直接打开），包含自动分类、依据、人工结论和最终分类，用于周报或交给开发。", "你") +
+      step(9, "起草 Jira", "按原因分组起草（一组 = 一张单）。页面填写标题、环境、受影响用例、实际结果、已做排查；AI 可补写现象、预期、推测；你补充重现步骤和测试数据，然后审核。", "你") + step(10, "导出或提交", "现在可以导出 Jira CSV 批量导入，或复制到 Jira 网页建单，再回填单号。后端接口做好后，可以直接从页面提交。", "你") + "</div>" +
+      '<div class="card" style="margin:14px 0 0;background:#f5f7fa;box-shadow:none"><b>为什么环境排在重跑前面：</b><span class="hint">环境故障往往是暂时的，重跑会通过。如果先判“重跑可过”，环境问题就被掩盖了。所以环境问题即使重跑通过，仍然归为环境问题，并标注“重跑通过”。</span></div>',
+    cats: () => '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>分类</th><th>什么情况下归入</th><th>默认处理方</th><th>常见误判</th></tr></thead><tbody>' +
+      [["ENVIRONMENT", "浏览器/驱动/设备无法启动；报错含连接拒绝、502/503/504、域名解析失败、读取超时；或同一报错在短时间内大面积出现（待复核）", "单个用例超时不算环境问题"],
+       ["RERUN_PASS", "重跑后通过", "重跑通过不等于没问题：并发、异步、时序类缺陷也会偶发。原失败有业务报错时会特别标出"],
+       ["POPUP_INTERFERENCE", "原生对话框或网页弹框挡住操作，且弹窗文字在“干扰弹窗清单”中（确认）；点击被其他元素挡住（待复核，看截图确认）", "弹窗文字是业务报错（如 Agent record not found）时不是干扰，进入业务报错判断"],
+       ["TEST_DATA", "页面出现业务报错，数据核查结果为不存在、已被使用、状态不符合前提", "没有核查结果时不能下结论"],
+       ["PRODUCT_DEFECT", "页面出现业务报错且数据核查正常（确认）；断言失败且有期望值和实际值（待复核）", "断言的期望值可能已经过时（需求变了），要对照当前需求"],
+       ["SCRIPT_ISSUE", "定位表达式写错、测试代码运行错误（确认）；找不到元素或等待超时（待复核）", "找不到元素也可能是页面没加载出来，这是产品问题，要看截图区分"],
+       ["NEEDS_HUMAN", "未知弹窗、待数据核查、证据不足、没有规则命中", "-"]].map(([k, w, x]) => "<tr><td>" + A.catTag(k) + "</td><td>" + w + "</td><td>" + E.CATS[k].owner + "</td><td>" + x + "</td></tr>").join("") + "</tbody></table></div>",
+    evidence: () => '<div class="prose"><p><b>每条结论包含四部分：</b>分类、判定状态、命中规则、依据。依据里的 <code>E1</code>、<code>E2</code> 是证据编号，对应详情里的证据。只有真实存在的材料才编号（报错信息、异常类型、页面/弹窗文字、堆栈、截图、重跑记录、数据核查），没有截图就不会出现截图编号。</p>' +
+      "<p><b>两种判定状态：</b></p><ul><li><span class=\"dot\" style=\"--c:#67c23a\">规则确认</span>：证据直接说明原因，例如异常类型就是会话无法创建、弹窗文字在干扰清单里、数据核查结果明确。</li><li><span class=\"dot\" style=\"--c:#e6a23c\">待复核</span>：只有线索。例如“找不到元素”既可能是脚本定位过时，也可能是页面没出来；需要看截图后确认。详情里的“还需确认”会写清楚看什么。</li></ul>" +
+      "<p><b>报错是现象，不一定是原因。</b>同一个“找不到元素”，背后可能是弹窗、页面加载失败、脚本过时。所以规则只给初步分类；看截图时请写下实际看到的页面状态（例如“截图里保单录入页完整，Submit 按钮可见”），而不是推测数据库状态。</p>" +
+      "<p><b>人工修改：</b>改分类必须写原因。导出的 CSV 同时保留自动分类和人工分类，方便定期回看哪些规则需要调整。</p>" +
+      "<p><b>业务报错只看页面和弹窗文字、断言信息，以及没有技术异常类型的报错信息，</b>不看技术异常文本，避免把 <code>invalid selector</code>、<code>failed to start</code> 这类技术报错当成业务报错。</p></div>",
+    format: () => '<div class="prose"><p><b>支持的格式</b></p><ul>' +
+      "<li><b>JSON</b>（平台导出或 SDK 接口返回）：自动找出里面的“对象数组”作为用例列表；有多个数组时可以选择。嵌套字段会展开成 <code>a.b.c</code> 的形式供字段对应。</li>" +
+      "<li><b>CSV / 制表符表格</b>：可以直接从 Excel 或平台“测试报告”页面复制表格，粘贴到导入页的文本框。第一行必须是表头。</li>" +
+      "<li><b>JUnit XML</b>：pytest、TestNG、JUnit 等常见输出，读取 testcase 的 failure / error。</li>" +
+      "<li><b>Allure 结果</b>：allure-results 目录中的 <code>*-result.json</code>，可以多选一起导入。</li></ul>" +
+      "<p><b>需要的字段</b>（名称不必一致，导入时对应即可）</p><ul><li>必需：用例标识（如 Case000020）、用例名称、执行结果（Passed / Failed 等）</li><li>强烈建议：报错信息、堆栈/日志、截图路径</li><li>可选：异常类型（没有时从报错里自动识别）、页面/弹窗文字、开始时间（用于判断大面积失败是否集中在同一时段）、模块、执行设备</li></ul>" +
+      "<p><b>如果平台 SDK 接口能返回失败步骤的报错和截图地址，</b>分类会准很多。目前平台测试报告页显示的“标识、名称、结果、总数、通过数、通过率”只能统计，不足以判断原因，需要至少再拿到报错信息。</p>" +
+      "<p><b>Windows 桌面端日志（LAS，BeautifulReport + pywinauto）：</b>把报告里每个用例“展开”后的整段日志对应到“报错信息”字段即可。页面会自动拆出：步骤日志、系统提示原文（<code>pop-up error:</code> 后的文字、<code>Validation Error:</code>）、最先发生的异常、项目代码里的失败位置、当时打开的窗口；并忽略 <code>SystemExit: 0</code> 和截图函数里的 <code>screen grab failed</code>。导入时请保持报告里的用例顺序，页面会据此判断“从哪个用例开始环境中断”。</p>" +
+      "<p><b>重跑结果：</b>导入时选择“重跑结果”，并选要更新的原批次。按用例标识匹配，通过的用例会记为“重跑通过”。</p></div>",
+    compare: () => '<div class="prose"><p>回归对比页面用来一次看完同事 A 生成的全部对比报告，不用逐个打开 HTML。</p><ul>' +
+      "<li><b>导入：</b>分别选择 Total 报告和 Ignore 报告（可以选整个文件夹）。文件名去掉 total / ignore 字样后相同的，视为同一个 Case 的两份报告。</li>" +
+      "<li><b>Ignore / Total 切换：</b>默认看 Ignore（已过滤姓名、时间等噪声后的差异），需要时切换到 Total 看完整差异。</li>" +
+      "<li><b>差异聚类：</b>相同的“基线 → 本次”变化出现在多个 Case 时合并显示，一眼看出“同一个问题影响了多少个 Case”。</li>" +
+      "<li><b>只看差异：</b>相同内容折叠，只显示差异行和上下各 2 行，可以展开。</li>" +
+      "<li><b>导出：</b>把 Ignore 后仍有的差异导出为 CSV。</li></ul>" +
+      "<p>目前按 Python difflib 生成的 HTML 格式解析（报告里有“Legends / Colors / Links”说明的那种）。其他格式会提示无法识别，可以点“查看原报告”。</p></div>",
+    jira: () => '<div class="prose"><p><b>一组 = 一张 Jira 单。</b>最终分类相同、报错特征相同的失败用例合成一组，起草成一张单，和团队现在“同一原因的用例合并提一张单”的做法一致（例如 ROTQA-5339 “HK - BM cases failed due to agent record not found”）。分组不对时可以在起草页合并、移出或移动用例。</p>' +
+      '<p><b>字段由谁填写</b></p></div><div class="tbl-wrap" style="max-width:980px;margin-bottom:14px"><table class="tbl"><thead><tr><th>字段</th><th>谁填</th><th>说明</th></tr></thead><tbody>' +
+      [["Summary 标题", "脚本 → 你确认", "按模板生成：[NBS Regression] HK - {模块} cases failed due to {原因}。有业务报错时原因直接取报错原文；其他情况由异常类型推出，会提示你确认"],
+       ["Issue Type / Priority", "脚本建议 → 你确认", "环境问题默认 Task，其他 Bug；优先级按影响用例数、是否涉及出单/核保/支付/金额等规则建议"],
+       ["System / Components / Labels", "脚本", "来自 Jira 配置的默认值；提交时自动加上 triage-草稿编号，用于防止重复建单"],
+       ["Environment", "脚本", "来自批次信息：环境、设备、批次名、测试计划、执行时间"],
+       ["2. 受影响的用例 / 5. 实际结果 / 6. 已做的排查", "脚本", "用例列表、报错原文、重跑记录、数据核查记录、人工复核原因，都来自分诊页面的真实记录"],
+       ["1. 现象 / 4. 预期结果 / 8. 推测与待确认", "AI 起草 → 你确认", "复制起草材料给公司批准的 AI 工具，再把结果粘贴回来；AI 只能用给出的证据，推测必须标明“推测”"],
+       ["3. 重现步骤 / 7. 测试数据", "你", "从平台复制用例步骤；测试数据只写业务编码，不写姓名、证件号、手机号"],
+       ["Assignee", "你", "不自动填写，避免指派错人"]].map(r => "<tr><td>" + r[0] + "</td><td>" + r[1] + "</td><td>" + r[2] + "</td></tr>").join("") + "</tbody></table></div>" +
+      '<div class="prose"><p><b>审核规则：</b>标题有未替换的占位符、原因还是“待确认原因”、内容有疑似个人信息、组里有“待复核”用例且你没有勾选确认时，不能审核通过。审核通过后再修改，会自动退回“待审核”。</p>' +
+      "<p><b>三种提交方式</b></p><ul><li><b>导出 Jira CSV（现在可用）：</b>Jira 自带“外部系统导入 → CSV”，可以批量建单。CSV 不能带附件，截图建单后手动上传。</li><li><b>复制到 Jira 网页：</b>Description 用的是 Jira 文本格式（h3.、||表格||、{noformat}），粘贴到 Jira 的文本模式即可。</li><li><b>后端接口（后续）：</b>在“Jira 配置”填写后端地址后可用。</li></ul>" +
+      "<p>用前两种方式建好单后，请在“提交与导出”页回填单号。之后出现相同报错时，起草页会提示可能重复，建议改为“追加评论到已有单”。</p>" +
+      "<p><b>后端接口约定（给开发后端的同事）</b></p><p>页面向 <code>POST {后端地址}/jira/submit</code> 发送：</p>" +
+      '<pre style="background:#f5f7fa;padding:10px;font-size:12px;white-space:pre-wrap;border-radius:4px">{\n  "dryRun": true,              // true = 只预检，不写入 Jira\n  "deploy": "cloud" | "dc",\n  "baseUrl": "https://…", "project": "ROTQA",\n  "items": [{\n    "draftId": "D…", "mode": "create" | "comment", "target": "ROTQA-5339" | null,\n    "idempotencyLabel": "triage-D…",\n    "fields": { project, issuetype, summary, priority, labels, components, environment, description, customfield_… },\n    "comment": "…",            // mode = comment 时\n    "attachments": [{ "fileName": "…png", "sourcePath": "平台上的截图路径" }],\n    "cases": [{ "id", "name", "category", "rule" }],\n    "reviewer": "…", "reviewedAt": "…"\n  }]\n}</pre>' +
+      '<p>后端返回：</p><pre style="background:#f5f7fa;padding:10px;font-size:12px;white-space:pre-wrap;border-radius:4px">{ "results": [{ "draftId": "D…", "key": "ROTQA-6001", "url": "…", "error": null,\n               "duplicateOf": "ROTQA-5339", "duplicateSummary": "…", "attachmentsFailed": 0, "message": "…" }] }</pre>' +
+      "<p><b>后端需要做的事</b></p><ol>" +
+      "<li><b>账号与权限：</b>Jira 账号和 Token 只放在后端（环境变量或公司密钥管理），使用专门的集成账号，只授予 ROTQA 项目建单、评论、上传附件的权限。Cloud 用 邮箱 + API Token，Data Center 用 Personal Access Token（Bearer）。</li>" +
+      "<li><b>预检（dryRun）：</b>校验必填字段、Issue Type、Priority、Components 是否存在；用 JQL 查重：<code>project = ROTQA AND labels = triage-D… </code>（是否已建过）以及 <code>project = ROTQA AND statusCategory != Done AND summary ~ \"原因关键词\"</code>（疑似重复）。Cloud 用 <code>/rest/api/3/search/jql</code>，Data Center 用 <code>/rest/api/2/search</code>。</li>" +
+      "<li><b>建单：</b><code>POST /rest/api/2/issue</code>（Description 是 Jira 文本格式，v2 接口在 Cloud 和 Data Center 都支持）。追加评论用 <code>POST /rest/api/2/issue/{key}/comment</code>。</li>" +
+      "<li><b>防止重复建单：</b>建单请求超时或返回 5xx 时，<b>不要直接重试</b>，先按 idempotencyLabel 查一次，查到就当作成功，查不到才重试。</li>" +
+      "<li><b>附件：</b>按 sourcePath 从平台取截图，<code>POST /rest/api/2/issue/{key}/attachments</code>，请求头要带 <code>X-Atlassian-Token: no-check</code>。附件失败不影响建单，返回 attachmentsFailed。</li>" +
+      "<li><b>回读确认：</b>建单后 <code>GET /rest/api/2/issue/{key}</code>，确认标题、字段确实写入，再返回单号。</li>" +
+      "<li><b>审计：</b>记录每次提交的草稿编号、审核人、请求内容和返回结果。</li>" +
+      "<li><b>跨域：</b>页面是本地文件打开的，后端需要允许跨域访问（CORS），或者把这个页面放到后端同一个地址下打开。</li></ol></div>",
+  };
+
+  /* ============================== 数据导入 ============================== */
+  A.PAGES.import = function (root, v) {
+    v.info = v.info || { name: "", plan: "", device: "", env: "", mode: "new", rerunOf: "" };
+    let html = '<div class="card"><h3>导入执行结果 <span class="sub">数据只在本机浏览器处理，不会上传</span></h3>' +
+      '<div class="form" style="margin-bottom:14px">' +
+      '<label class="fi"><span>导入类型</span><select class="sel" id="iMode"><option value="new">新的执行结果</option><option value="rerun"' + (v.info.mode === "rerun" ? " selected" : "") + (S.runs.length ? "" : " disabled") + '>重跑结果（更新已有批次）</option></select></label>' +
+      (v.info.mode === "rerun" ? '<label class="fi"><span>原批次</span><select class="sel" id="iRerunOf">' + S.runs.map(r => '<option value="' + r.id + '"' + (v.info.rerunOf === r.id ? " selected" : "") + ">" + esc(r.name) + "</option>").join("") + "</select></label>" : "") +
+      inp("iName", "批次名称", v.info.name, "默认用文件名") + inp("iPlan", "测试计划", v.info.plan, "如 TestPlan000015") + inp("iDevice", "执行设备", v.info.device, "如 XZ01（荣耀 200）") + inp("iEnv", "测试环境", v.info.env, "如 SIT / UAT") +
+      "</div>" +
+      '<div class="drop" id="drop"><b>把文件拖到这里，或 <a id="pick">选择文件</a></b>JSON、CSV、TSV、JUnit XML、Allure *-result.json；可以多选<input type="file" id="file" multiple accept=".json,.csv,.tsv,.txt,.xml" style="display:none"></div>' +
+      '<div style="margin-top:12px"><textarea class="ta" id="paste" rows="5" placeholder="也可以从 Excel 或平台页面复制表格（含表头）粘贴到这里，或粘贴 SDK 接口返回的 JSON"></textarea><div style="margin-top:8px;display:flex;gap:8px"><button class="btn pri" id="pasteGo">解析粘贴内容</button><button class="btn" id="pasteClr">清空</button></div></div></div>';
+    if (v.parsed) html += mapCard(v);
+    html += '<div class="card"><h3>匹配截图 <span class="sub">文件名中包含用例标识的截图会挂到对应用例，作为证据；刷新页面后需要重新选择</span></h3>' +
+      (S.runs.length ? '<div class="form"><label class="fi"><span>批次</span><select class="sel" id="sRun">' + S.runs.map(r => '<option value="' + r.id + '">' + esc(r.name) + "</option>").join("") + '</select></label><button class="btn" id="sFiles">选择截图文件</button><button class="btn" id="sDir">选择截图文件夹</button><input type="file" id="sFileIn" multiple accept="image/*" style="display:none"><input type="file" id="sDirIn" webkitdirectory multiple style="display:none"></div><div class="hint" id="sMsg" style="margin-top:8px"></div>'
+        : '<p class="hint" style="margin:0">先导入执行结果，再匹配截图。</p>') + "</div>";
+    if (S.runs.length) html += '<div class="card"><h3>已导入批次</h3>' + A.runTable() + "</div>";
+    root.innerHTML = html;
+
+    const keep = () => { v.info.name = $("#iName").value; v.info.plan = $("#iPlan").value; v.info.device = $("#iDevice").value; v.info.env = $("#iEnv").value; if ($("#iRerunOf")) v.info.rerunOf = $("#iRerunOf").value; };
+    $("#iMode").onchange = e => { keep(); v.info.mode = e.target.value; A.render(); };
+    ["iName", "iPlan", "iDevice", "iEnv"].forEach(id => $("#" + id).oninput = keep);
+    if ($("#iRerunOf")) $("#iRerunOf").onchange = keep;
+    const drop = $("#drop");
+    $("#pick").onclick = () => $("#file").click();
+    $("#file").onchange = e => handleFiles(Array.from(e.target.files), v);
+    drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+    drop.ondragleave = () => drop.classList.remove("over");
+    drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); handleFiles(Array.from(e.dataTransfer.files), v); };
+    $("#pasteGo").onclick = () => { const t = $("#paste").value.trim(); if (!t) { A.toast("请先粘贴内容", true); return; } handleTexts([{ name: "粘贴内容", text: t }], v); };
+    $("#pasteClr").onclick = () => { $("#paste").value = ""; };
+    if (v.parsed) bindMap(root, v);
+    if (S.runs.length) {
+      $("#sFiles").onclick = () => $("#sFileIn").click();
+      $("#sDir").onclick = () => $("#sDirIn").click();
+      $("#sFileIn").onchange = e => matchShots($("#sRun").value, Array.from(e.target.files));
+      $("#sDirIn").onchange = e => matchShots($("#sRun").value, Array.from(e.target.files));
+      A.bindRunTable(root);
+    }
+  };
+  const inp = (id, label, val, ph) => '<label class="fi"><span>' + label + '</span><input class="inp" id="' + id + '" value="' + esc(val) + '" placeholder="' + esc(ph) + '"></label>';
+
+  async function handleFiles(files, v) {
+    if (!files.length) return;
+    const list = [];
+    for (const f of files) { try { list.push({ name: f.name, text: await A.readFile(f) }); } catch (e) { A.toast("读取失败：" + f.name, true); } }
+    handleTexts(list, v);
+  }
+  function handleTexts(list, v) {
+    const tables = [], kinds = new Set(), errs = [];
+    list.forEach(({ name, text }) => {
+      try { const p = E.parseFile(name, text); kinds.add(p.kind); p.tables.forEach(t => tables.push(Object.assign({ file: name }, t))); }
+      catch (e) { errs.push(name + "：" + e.message); }
+    });
+    if (errs.length) A.toast("有 " + errs.length + " 个文件无法解析：" + errs[0], true);
+    if (!tables.length) return;
+    // 多个文件、每个只有一张表时合并成一张
+    let merged = tables;
+    if (list.length > 1 && tables.length === list.length) merged = [{ file: list.length + " 个文件", path: "合并", rows: [].concat(...tables.map(t => t.rows)) }];
+    merged = merged.filter(t => t.rows.length);
+    if (!merged.length) { A.toast("没有读到任何数据行", true); return; }
+    merged.sort((a, b) => b.rows.length - a.rows.length);
+    v.parsed = { kind: Array.from(kinds).join("、"), files: list.map(x => x.name), tables: merged };
+    v.tableIdx = 0;
+    v.map = E.guessMapping(colsOf(merged[0]), S.mapping);
+    if (!v.info.name) v.info.name = list[0].name.replace(/\.[^.]+$/, "");
+    A.render();
+    setTimeout(() => { const el = $("#mapCard"); if (el) el.scrollIntoView({ behavior: "smooth" }); }, 50);
+  }
+  function colsOf(t) { const s = new Set(); t.rows.slice(0, 200).forEach(r => Object.keys(r).forEach(k => s.add(k))); return Array.from(s); }
+
+  function mapCard(v) {
+    const t = v.parsed.tables[v.tableIdx], cols = colsOf(t);
+    const cases = E.toCases(t.rows, v.map, S.rules, "preview", 0);
+    const resVals = {};
+    cases.forEach(c => { const k = c.result || "(空)"; resVals[k] = (resVals[k] || 0) + 1; });
+    const nFail = cases.filter(c => c.failed).length;
+    const miss = E.FIELDS.filter(f => f.req && !v.map[f.key]);
+    let html = '<div class="card" id="mapCard"><h3>字段对应 <span class="sub">' + esc(v.parsed.kind) + " · " + esc(v.parsed.files.join("、")).slice(0, 120) + "</span></h3>";
+    if (v.parsed.tables.length > 1) html += '<div class="form" style="margin-bottom:12px"><label class="fi"><span>用例列表</span><select class="sel" id="mTable">' + v.parsed.tables.map((x, i) => '<option value="' + i + '"' + (i === v.tableIdx ? " selected" : "") + ">" + esc(x.path) + "（" + x.rows.length + " 行）</option>").join("") + '</select></label><span class="hint">文件里有多个列表，请选择哪个是用例结果</span></div>';
+    html += '<div class="map">' + E.FIELDS.map(f => '<label><span>' + f.name + (f.req ? "<i>*</i>" : "") + '</span><select class="sel" data-f="' + f.key + '"><option value="">（不使用）</option>' + cols.map(c => '<option value="' + esc(c) + '"' + (v.map[f.key] === c ? " selected" : "") + ">" + esc(c) + "</option>").join("") + "</select></label>").join("") + "</div>";
+    html += '<div style="margin:14px 0 8px;display:flex;gap:16px;flex-wrap:wrap" class="hint"><span>共 <b style="color:#303133">' + cases.length + '</b> 行</span><span>判定为失败 <b style="color:#f56c6c">' + nFail + "</b> 行</span><span>执行结果取值：" +
+      Object.keys(resVals).slice(0, 12).map(k => esc(k) + " × " + resVals[k]).join("，") + '</span><a id="mFailWords">失败判断不对？</a></div>';
+    html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>用例标识</th><th>用例名称</th><th>执行结果</th><th>判定</th><th>识别的异常类型</th><th>报错信息</th></tr></thead><tbody>' +
+      (cases.filter(c => c.failed).slice(0, 4).concat(cases.filter(c => !c.failed).slice(0, 2))).map(c => '<tr><td class="mono">' + esc(c.id) + "</td><td>" + esc(c.name) + "</td><td>" + esc(c.result) + "</td><td>" + (c.failed ? '<span class="tag red">失败</span>' : '<span class="tag gray">不分析</span>') + '</td><td class="mono">' + esc(c.exception || "-") + '</td><td class="clip">' + esc((c.error || c.stack || "-").split("\n")[0]) + "</td></tr>").join("") + "</tbody></table></div>";
+    html += '<div style="margin-top:14px;display:flex;gap:8px;align-items:center">' + (miss.length ? '<span class="hint" style="color:#f56c6c">请先对应：' + miss.map(f => f.name).join("、") + "</span>" : "") +
+      '<span style="flex:1"></span><button class="btn" id="mCancel">取消</button><button class="btn pri" id="mOk"' + (miss.length ? " disabled" : "") + ">" + (v.info.mode === "rerun" ? "导入重跑结果" : "确认导入") + "</button></div></div>";
+    return html;
+  }
+  function bindMap(root, v) {
+    if ($("#mTable")) $("#mTable").onchange = e => { v.tableIdx = +e.target.value; v.map = E.guessMapping(colsOf(v.parsed.tables[v.tableIdx]), S.mapping); A.render(); };
+    $$("[data-f]", root).forEach(s => s.onchange = () => { v.map[s.dataset.f] = s.value; if (!s.value) delete v.map[s.dataset.f]; A.render(); $("#mapCard").scrollIntoView(); });
+    $("#mCancel").onclick = () => { v.parsed = null; A.render(); };
+    $("#mFailWords").onclick = () => A.go("rules", { focus: "fail_words" });
+    $("#mOk").onclick = () => doImport(v);
+  }
+  function doImport(v) {
+    const t = v.parsed.tables[v.tableIdx];
+    S.mapping = Object.assign({}, v.map);
+    const now = new Date(), at = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0") + " " + now.toTimeString().slice(0, 8);
+    if (v.info.mode === "rerun") {
+      const target = v.info.rerunOf || (S.runs[0] && S.runs[0].id);
+      const rc = E.toCases(t.rows, v.map, S.rules, "rerun", 0);
+      const byId = {}; rc.forEach(c => { byId[c.id] = c; });
+      let hit = 0, pass = 0;
+      S.cases.filter(c => c.run === target && c.failed).forEach(c => {
+        const r = byId[c.id]; if (!r) return;
+        hit++; c.rerun = r.failed ? "fail" : "pass"; if (!r.failed) pass++;
+        c.rerunNote = (v.info.name || "重跑") + " " + at + (r.failed && r.error ? "，报错：" + r.error.split("\n")[0].slice(0, 200) : "");
+      });
+      A.reclassify(); A.save(); v.parsed = null;
+      A.toast("已匹配 " + hit + " 条重跑结果，其中通过 " + pass + " 条");
+      A.go("rerun");
+      return;
+    }
+    const id = "R" + now.getTime();
+    const cases = E.toCases(t.rows, v.map, S.rules, id, 0);
+    S.runs.push({ id, name: v.info.name || "批次" + (S.runs.length + 1), plan: v.info.plan, device: v.info.device, env: v.info.env, file: v.parsed.files.join("、").slice(0, 200), at, total: cases.length });
+    S.cases = S.cases.concat(cases);
+    A.reclassify(); A.save();
+    v.parsed = null; v.info = { name: "", plan: "", device: "", env: "", mode: "new", rerunOf: "" };
+    A.toast("已导入 " + cases.length + " 条，其中失败 " + cases.filter(c => c.failed).length + " 条");
+    A.go("triage", { run: id, page: 1, tab: "all" });
+  }
+  function matchShots(runId, files) {
+    const imgs = files.filter(f => /\.(png|jpe?g|gif|bmp|webp)$/i.test(f.name));
+    const cs = S.cases.filter(c => c.run === runId && c.failed).sort((a, b) => b.id.length - a.id.length);
+    let matched = 0; const un = [];
+    imgs.forEach(f => {
+      const n = (f.webkitRelativePath || f.name).toLowerCase();
+      const base = f.name.toLowerCase();
+      const c = cs.find(c => c.screenshot && c.screenshot.toLowerCase().split(/[\\/;]/).map(s => s.trim()).includes(base)) || cs.find(c => c.id && n.includes(c.id.toLowerCase()));
+      if (!c) { un.push(f.name); return; }
+      (S.shots[c.uid] = S.shots[c.uid] || []).push({ name: f.webkitRelativePath || f.name, src: URL.createObjectURL(f) });
+      matched++;
+    });
+    A.reclassify();
+    $("#sMsg").innerHTML = "共 " + imgs.length + " 张图片，已匹配 " + matched + " 张。" + (un.length ? "未匹配 " + un.length + " 张（文件名中没有找到失败用例的标识），例如：" + un.slice(0, 5).map(esc).join("、") : "");
+    A.refreshMenu();
+  }
+
+  /* ============================== 规则配置 ============================== */
+  const RULE_SECTIONS = [
+    ["环境问题", [["env_exceptions", "异常类型（命中即环境问题）"], ["env_patterns", "报错关键字"]], "ENV1 / ENV2：命中即“环境问题·规则确认”。以 re: 开头的按正则表达式匹配，其他不区分大小写的包含匹配。"],
+    ["大面积相同报错", [["mass_min_cases", "至少几个用例", "num"], ["mass_ratio", "占失败数比例（%）", "num"], ["mass_window_min", "时间窗口（分钟）", "num"]], "ENV3：同一报错特征同时满足这三个条件时，判为“环境问题·待复核”。没有开始时间时不检查时间窗口。"],
+    ["弹窗清单", [["noise_popups", "干扰弹窗文字（与被测功能无关）"], ["business_errors", "业务报错文字（系统返回的真实错误）"], ["overlay_keywords", "遮挡元素特征（class / id 关键字）"]], "弹窗文字在“干扰”清单中 → 弹窗干扰；在“业务报错”清单中 → 进入数据核查；都不在 → 需人工判断（未知弹窗）。新出现的弹窗请补充到这里。"],
+    ["异常类型", [["alert_exceptions", "原生对话框"], ["intercept_exceptions", "点击被遮挡"], ["locator_exceptions", "找不到元素 / 超时"], ["invalid_selector", "定位表达式错误"], ["code_errors", "测试代码运行错误"], ["assertion_exceptions", "断言失败"]], "Selenium、Appium、pytest、Java 常见异常类型。异常类型从“异常类型”字段读取，没有时从报错信息中识别。"],
+    ["其他", [["test_code_paths", "测试代码路径特征（判断代码错误是否发生在测试代码）"], ["expected_actual", "断言中“期望值/实际值”的格式"], ["fail_words", "执行结果中表示失败的文字"]], ""],
+    ["日志解析（Python / BeautifulReport）", [["framework_paths", "框架和第三方库的路径（这些堆栈帧不算业务步骤）"], ["handler_funcs", "失败后才执行的处理函数（截图、清理）"], ["success_marks", "步骤日志中表示业务操作已成功的文字"]], "日志按 “During handling of the above exception” 拆成多段：第一段是最先发生的异常，后面是处理过程中又发生的异常。SystemExit 和截图函数里的异常不作为失败原因。"],
+    ["系统提示的含义", [["lock_messages", "数据被其他会话占用 → 测试数据问题"], ["config_messages", "缺少配置 → 需确认（环境或缺陷）"], ["crash_messages", "程序未处理异常对话框 → 疑似产品缺陷"]], "系统提示来自弹窗处理函数读到的文字（pop-up error: …）和步骤日志里的 Validation Error。弹窗按文字含义分类，不按“是不是弹窗”分类。"],
+    ["桌面端控件异常（pywinauto）", [["masked_patterns", "掩盖型报错（前一步返回了 False/None）"], ["desk_ambiguous", "定位条件匹配到多个控件"], ["desk_not_found", "找不到窗口 / 控件"], ["desk_not_visible", "控件不可见"], ["desk_not_enabled", "控件不可用（灰色）"], ["desk_option_missing", "下拉框没有该选项"], ["desk_datetime", "日期控件设置失败"]], ""],
+  ];
+  A.PAGES.rules = function (root, v) {
+    let html = '<div class="card"><h3>规则配置 <span class="sub">每行一项；保存后所有用例立即重新分类，人工修改过的结论不受影响</span><span class="acts"><button class="btn" id="rReset">恢复默认</button><button class="btn" id="rExport">导出规则</button><button class="btn pri" id="rSave">保存并重新分类</button></span></h3>' +
+      '<p class="hint" style="margin:0">判断顺序：先看整批（大面积相同报错、环境中断的起点）→ 环境 → 重跑 → 系统提示（数据占用、缺少配置、程序崩溃、读不到文字的弹窗）→ 原生弹窗 → 业务报错 → 掩盖型报错 → 桌面端控件异常 → 网页弹框 → 脚本 → 断言 → 需人工。先命中的规则生效。</p></div>';
+    RULE_SECTIONS.forEach(([t, items, note]) => {
+      html += '<div class="card"><h3>' + t + "</h3>" + (note ? '<p class="hint" style="margin:-4px 0 12px">' + note + "</p>" : "") + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">' +
+        items.map(([k, label, type]) => '<label><div style="margin-bottom:6px;color:#606266">' + label + "</div>" + (type === "num" ? '<input class="inp" type="number" data-r="' + k + '" value="' + S.rules[k] + '">' : '<textarea class="ta" rows="7" data-r="' + k + '" id="r_' + k + '">' + esc((S.rules[k] || []).join("\n")) + "</textarea>") + "</label>").join("") + "</div></div>";
+    });
+    root.innerHTML = html;
+    if (v.focus) { const el = $("#r_" + v.focus); if (el) { el.scrollIntoView(); el.focus(); } v.focus = null; }
+    $("#rSave").onclick = () => {
+      const before = {}; S.cases.forEach(c => { if (c.failed) before[c.uid] = c.final; });
+      $$("[data-r]", root).forEach(el => { const k = el.dataset.r; S.rules[k] = el.type === "number" ? +el.value : el.value.split("\n").map(s => s.trim()).filter(Boolean); });
+      A.reclassify(); A.save();
+      const changed = S.cases.filter(c => c.failed && before[c.uid] !== c.final).length;
+      A.toast("已保存，" + changed + " 条用例的分类发生变化"); A.refreshMenu();
+    };
+    $("#rReset").onclick = () => A.dialog("恢复默认规则", "确定把所有规则恢复为默认值？你补充的弹窗文字和关键字会丢失。", [{ t: "取消" }, { t: "恢复", pri: true, fn: () => { S.rules = Object.assign({}, E.DEFAULT_RULES); A.reclassify(); A.save(); A.render(); A.toast("已恢复默认"); } }]);
+    $("#rExport").onclick = () => A.showText("规则（JSON，可以发给同事或留档）", JSON.stringify(S.rules, null, 2));
+  };
+})();
+
+</script>
+<script>
+/* 页面：失败分诊（含证据详情）、原因分组、重跑清单、数据核查 */
+(function () {
+  const A = APP, E = ENG, S = A.S, esc = A.esc, $ = A.$, $$ = A.$$;
+  const runName = id => (S.runs.find(r => r.id === id) || {}).name || "-";
+  const runSelect = (id, val, all) => '<select class="sel" id="' + id + '">' + (all ? '<option value="">全部批次</option>' : "") + S.runs.map(r => '<option value="' + r.id + '"' + (val === r.id ? " selected" : "") + ">" + esc(r.name) + "</option>").join("") + "</select>";
+  const catOptions = (val, blank) => (blank ? '<option value="">' + blank + "</option>" : "") + Object.keys(E.CATS).map(k => '<option value="' + k + '"' + (val === k ? " selected" : "") + ">" + E.CATS[k].name + "</option>").join("");
+  const firstLine = c => (c.error || c.stack || "").split("\n").find(s => s.trim()) || "";
+  const noData = root => { root.innerHTML = '<div class="card">' + A.emptyBlock("还没有导入数据", "先在“数据导入”导入一次执行结果。", '<button class="btn pri" data-go="import">去导入</button>') + "</div>"; A.bindGo(root); };
+
+  /* ============================== 失败分诊 ============================== */
+  const TABS = [["all", "全部失败"], ["sus", "待复核"], ["conf", "规则确认"], ["manual", "人工已改"]];
+  function filterCases(v) {
+    const q = (v.q || "").toLowerCase();
+    return S.cases.filter(c => c.failed &&
+      (!v.run || c.run === v.run) &&
+      (!v.cat || c.final === v.cat) &&
+      (!v.owner || E.CATS[c.final].owner === v.owner) &&
+      (!v.sig || c.sig === v.sig) &&
+      (!q || (c.id + " " + c.name + " " + c.error + " " + c.module).toLowerCase().includes(q)) &&
+      (v.tab === "sus" ? !c.override && c.auto.status === "suspected" : v.tab === "conf" ? !c.override && c.auto.status === "confirmed" : v.tab === "manual" ? !!c.override : true));
+  }
+  A.PAGES.triage = function (root, v) {
+    if (!S.runs.length) return noData(root);
+    v.tab = v.tab || "all"; v.page = v.page || 1; v.sel = v.sel || [];
+    const list = filterCases(v);
+    const size = 30, pages = Math.max(1, Math.ceil(list.length / size));
+    if (v.page > pages) v.page = pages;
+    const rows = list.slice((v.page - 1) * size, v.page * size);
+    const owners = Array.from(new Set(Object.values(E.CATS).map(c => c.owner)));
+    let html = '<div class="card"><div class="form">' +
+      '<label class="fi"><span>批次</span>' + runSelect("fRun", v.run, true) + "</label>" +
+      '<label class="fi"><span>用例</span><input class="inp" id="fQ" placeholder="标识 / 名称 / 报错关键字" value="' + esc(v.q || "") + '"></label>' +
+      '<label class="fi"><span>分类</span><select class="sel" id="fCat">' + catOptions(v.cat, "请选择分类") + "</select></label>" +
+      '<label class="fi"><span>处理方</span><select class="sel" id="fOwner"><option value="">请选择处理方</option>' + owners.map(o => '<option' + (v.owner === o ? " selected" : "") + ">" + o + "</option>").join("") + "</select></label>" +
+      '<button class="btn pri" id="fGo">查询</button><button class="btn okb" id="fReset">重置</button></div>' +
+      (v.sig ? '<div class="hint" style="margin-top:10px">当前只看同一原因分组：<code>' + esc(v.sig.slice(0, 100)) + '</code> <a id="fSigX">取消</a></div>' : "") + "</div>";
+    html += '<div class="card"><div class="bar"><div class="subtabs" style="margin:0;border:none">' + TABS.map(([k, n]) => {
+      const cnt = filterCases(Object.assign({}, v, { tab: k })).length;
+      return '<button data-tab="' + k + '" class="' + (v.tab === k ? "on" : "") + '">' + n + "（" + cnt + "）</button>";
+    }).join("") + '</div><span class="sp"></span>' +
+      '<button class="btn" id="bBatch"' + (v.sel.length ? "" : " disabled") + ">批量改分类" + (v.sel.length ? "（" + v.sel.length + "）" : "") + "</button>" +
+      '<button class="btn" id="bAI">复制复核材料</button><button class="btn" id="bCsv">导出 CSV</button></div>';
+    if (!list.length) html += A.emptyBlock("没有符合条件的用例", v.tab === "sus" ? "所有失败用例都已由规则确认或人工处理。" : "调整筛选条件试试。");
+    else {
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th><input type="checkbox" id="selAll"' + (rows.every(c => v.sel.includes(c.uid)) ? " checked" : "") + '></th><th>序号</th><th>用例标识</th><th>用例名称</th><th>异常类型</th><th>报错摘要</th><th>分类</th><th>判定状态</th><th>规则</th><th>处理方</th><th>操作</th></tr></thead><tbody>' +
+        rows.map(c => '<tr class="' + (v.sel.includes(c.uid) ? "sel" : "") + '"><td><input type="checkbox" data-sel="' + c.uid + '"' + (v.sel.includes(c.uid) ? " checked" : "") + "></td><td>" + c.seq + '</td><td class="mono">' + esc(c.id) + '</td><td style="min-width:120px">' + esc(c.name) + (v.run ? "" : '<div class="hint">' + esc(runName(c.run)) + "</div>") + '</td><td class="mono">' + esc(c.exception || "-") +
+          '</td><td class="clip" title="' + esc(firstLine(c)) + '">' + esc(firstLine(c) || "-") + "</td><td>" + A.catTag(c.final) + (c.auto.flags.length ? '<div style="margin-top:4px">' + c.auto.flags.map(f => '<span class="tag orange">' + esc(f) + "</span>").join(" ") + "</div>" : "") +
+          "</td><td>" + A.statusTag(c) + '</td><td class="mono">' + esc(c.override ? "人工" : c.auto.rule) + "</td><td>" + E.CATS[c.final].owner + '</td><td class="ops"><a data-open="' + c.uid + '">查看证据</a><a data-quick="' + c.uid + '">改分类</a></td></tr>').join("") +
+        "</tbody></table></div>";
+      const pg = A.pager(list.length, v.page, size, p => { v.page = p; A.render(); });
+      html += pg.html; html += "</div>";
+      root.innerHTML = html; pg.bind(root);
+    }
+    if (!list.length) { html += "</div>"; root.innerHTML = html; }
+
+    const apply = () => { v.run = $("#fRun").value; v.q = $("#fQ").value.trim(); v.cat = $("#fCat").value; v.owner = $("#fOwner").value; v.page = 1; A.render(); };
+    $("#fGo").onclick = apply;
+    $("#fQ").onkeydown = e => { if (e.key === "Enter") apply(); };
+    $("#fReset").onclick = () => { Object.assign(v, { run: "", q: "", cat: "", owner: "", sig: "", page: 1, sel: [] }); A.render(); };
+    if ($("#fSigX")) $("#fSigX").onclick = () => { v.sig = ""; A.render(); };
+    $$("[data-tab]", root).forEach(b => b.onclick = () => { v.tab = b.dataset.tab; v.page = 1; A.render(); });
+    $$("[data-sel]", root).forEach(cb => cb.onchange = () => { const u = cb.dataset.sel; v.sel = cb.checked ? v.sel.concat(u) : v.sel.filter(x => x !== u); A.render(); });
+    if ($("#selAll")) $("#selAll").onchange = e => { const ids = rows.map(c => c.uid); v.sel = e.target.checked ? Array.from(new Set(v.sel.concat(ids))) : v.sel.filter(x => !ids.includes(x)); A.render(); };
+    $$("[data-open]", root).forEach(a => a.onclick = () => openCase(a.dataset.open));
+    $$("[data-quick]", root).forEach(a => a.onclick = () => batchDialog([a.dataset.quick]));
+    $("#bBatch").onclick = () => batchDialog(v.sel, () => { v.sel = []; });
+    $("#bAI").onclick = () => {
+      const pick = v.sel.length ? S.cases.filter(c => v.sel.includes(c.uid)) : list.filter(c => !c.override && c.auto.status === "suspected");
+      if (!pick.length) { A.toast("当前没有待复核的用例；也可以先勾选要复核的用例", true); return; }
+      A.showText("复核材料（已脱敏，共 " + pick.length + " 条" + (pick.length > 15 ? "，建议分批发送" : "") + "）", aiMaterial(pick));
+    };
+    $("#bCsv").onclick = () => exportDialog(list);
+  };
+
+  function batchDialog(uids, after) {
+    const cs = S.cases.filter(c => uids.includes(c.uid));
+    if (!cs.length) return;
+    const one = cs.length === 1 ? cs[0] : null;
+    A.dialog(one ? "修改分类：" + one.id : "批量修改分类（" + cs.length + " 条）",
+      (one ? '<p class="hint" style="margin-top:0">自动分类：' + E.CATS[one.auto.cat].name + "（" + one.auto.rule + "）</p>" : "") +
+      '<div style="display:grid;gap:10px"><label><div style="margin-bottom:4px">人工分类</div><select class="sel" id="bdCat" style="width:100%">' + catOptions(one && one.override ? one.override.cat : "", "请选择") + '</select></label>' +
+      '<label><div style="margin-bottom:4px">修改原因 <span style="color:#f56c6c">*</span></div><textarea class="ta" id="bdReason" rows="3" placeholder="写下看到的证据，例如：截图 E4 中有“系統公告”弹窗挡住了提交按钮">' + esc(one && one.override ? one.override.reason : "") + "</textarea></label></div>",
+      [{ t: "取消" }].concat(one && one.override ? [{ t: "恢复自动分类", fn: () => { delete one.override; done(); } }] : []).concat([{ t: "保存", pri: true, fn: () => {
+        const cat = $("#bdCat").value, reason = $("#bdReason").value.trim();
+        if (!cat || !reason) { A.toast("请选择分类并填写原因", true); return false; }
+        const at = new Date().toLocaleString();
+        cs.forEach(c => { c.override = { cat, reason, at }; });
+        done();
+      } }]));
+    function done() { A.reclassify(); A.save(); if (after) after(); A.render(); if ($("#drawer").classList.contains("open") && one) openCase(one.uid); A.toast("已保存"); }
+  }
+
+  /* ---------- 用例详情（证据） ---------- */
+  function openCase(uid) {
+    const c = S.cases.find(x => x.uid === uid); if (!c) return;
+    const a = c.auto, sus = a.status === "suspected";
+    const hits = a.hits.concat(c.exception ? [c.exception] : []);
+    let b = '<div class="sec"><h5>基本信息</h5><dl class="kv"><dt>批次</dt><dd>' + esc(runName(c.run)) + "</dd><dt>用例名称</dt><dd>" + esc(c.name || "-") + "</dd><dt>执行结果</dt><dd>" + esc(c.result) + "</dd>" +
+      (c.module ? "<dt>模块/套件</dt><dd>" + esc(c.module) + "</dd>" : "") + (c.device ? "<dt>执行设备</dt><dd>" + esc(c.device) + "</dd>" : "") + (c.start ? "<dt>开始时间</dt><dd>" + esc(c.start) + "</dd>" : "") + (c.duration ? "<dt>耗时</dt><dd>" + esc(c.duration) + "</dd>" : "") +
+      '<dt>原因分组</dt><dd><a id="dSig">同一报错特征共 ' + S.cases.filter(x => x.failed && x.sig === c.sig).length + " 条</a></dd></dl></div>";
+    b += '<div class="sec"><h5>规则判定 ' + A.catTag(a.cat) + (sus ? '<span class="dot" style="--c:#e6a23c">待复核</span>' : '<span class="dot" style="--c:#67c23a">规则确认</span>') + '<span class="tag gray">' + esc(a.rule) + "</span>" + (a.reason ? '<span class="tag gray">' + esc(E.REASONS[a.reason]) + "</span>" : "") + "</h5>" +
+      '<div class="verdict' + (sus ? " sus" : "") + '"><b>依据</b><ul>' + a.why.map(w => "<li>" + esc(w) + "</li>").join("") + "</ul>" + (a.need.length ? '<b style="display:block;margin-top:6px">还需确认</b><ul>' + a.need.map(w => "<li>" + esc(w) + "</li>").join("") + "</ul>" : "") + "</div></div>";
+    if (c.override) b += '<div class="sec"><h5>人工结论 ' + A.catTag(c.override.cat) + '</h5><div class="verdict">' + esc(c.override.reason) + '<div class="hint">' + esc(c.override.at) + "</div></div></div>";
+    b += '<div class="sec"><h5>证据 <span class="hint" style="font-weight:400">黄色标记是规则命中的文字</span></h5>' + (a.ev.length ? a.ev.map(e => '<div class="ev"><div class="eh"><b>' + e.id + "</b>" + esc(e.label) + (e.derived ? '<span class="tag gray">从报错中识别</span>' : "") + "</div>" +
+      (e.kind === "shot" && e.src ? '<img src="' + e.src + '" alt=""><pre>' + esc(e.text) + "</pre>" : "<pre>" + A.highlight(e.text, hits) + "</pre>") + "</div>").join("") : '<p class="hint">没有任何证据材料。</p>') +
+      (!c.shots && !c.screenshot ? '<p class="hint">没有截图。可以在“数据导入 → 匹配截图”中选择截图文件夹。</p>' : "") + "</div>";
+    b += '<div class="sec"><h5>补充记录</h5><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+      '<label><div class="hint">重跑结果</div><select class="sel" id="dRerun" style="width:100%"><option value="">未重跑</option><option value="pass"' + (c.rerun === "pass" ? " selected" : "") + '>重跑通过</option><option value="fail"' + (c.rerun === "fail" ? " selected" : "") + ">重跑仍失败</option></select></label>" +
+      '<label><div class="hint">数据核查</div><select class="sel" id="dData" style="width:100%"><option value="">未核查</option>' + Object.keys(E.DATA_CHECK).map(k => '<option value="' + k + '"' + (c.dataCheck === k ? " selected" : "") + ">" + E.DATA_CHECK[k] + "</option>").join("") + "</select></label>" +
+      '<label style="grid-column:1/-1"><div class="hint">备注（重跑/核查说明，例如查询了哪张表、核查人）</div><textarea class="ta" id="dNote" rows="2">' + esc(c.dataNote || c.rerunNote || "") + "</textarea></label></div></div>";
+    A.drawer(esc(c.id) + ' <span class="hint" style="font-weight:400">' + esc(c.name || "") + "</span>", b,
+      '<button class="btn" id="dAI">复制本条复核材料</button><button class="btn" id="dSave">保存补充记录</button><button class="btn pri" id="dOver">' + (c.override ? "修改人工结论" : "确认 / 改分类") + "</button>");
+    $("#dSig").onclick = () => { A.closeDrawer(); A.go("triage", { sig: c.sig, tab: "all", page: 1, run: "" }); };
+    $("#dAI").onclick = () => A.copy(aiMaterial([c]));
+    $("#dOver").onclick = () => batchDialog([c.uid]);
+    $("#dSave").onclick = () => {
+      c.rerun = $("#dRerun").value || null; c.dataCheck = $("#dData").value || null;
+      const note = $("#dNote").value.trim();
+      if (c.dataCheck) c.dataNote = note; else if (c.rerun) c.rerunNote = note;
+      A.reclassify(); A.save(); A.render(); openCase(c.uid); A.toast("已保存，分类已重新计算");
+    };
+  }
+  A.openCase = openCase;
+
+  /* ---------- 复核材料（给 AI） ---------- */
+  function aiMaterial(list) {
+    const head = "你是测试失败分析助手。请根据下面每条用例的证据，给出初步分类。要求：\n" +
+      "1. 只能使用给出的证据，结论必须引用证据编号（E1、E2…）；\n" +
+      "2. 看截图时只描述能看到的页面状态（例如“保单录入页完整显示，Submit 按钮可见”），不要推测数据库或后台状态；\n" +
+      "3. 证据不足时回答“需人工判断”，并写明还缺什么证据；\n" +
+      "4. 如果你的结论与“规则初步结论”不同，说明理由；\n" +
+      "5. 按表格输出：用例标识 | 分类 | 依据（含证据编号）| 还需确认。\n" +
+      "可选分类：环境问题、重跑可过、弹窗干扰、脚本问题、测试数据问题、疑似产品缺陷、需人工判断。\n" +
+      "判断要点：找不到元素可能是脚本定位过时，也可能是页面没加载出来（产品问题）或被弹窗挡住；弹窗文字是业务报错（如 record not found）时不是干扰；断言的期望值可能已过时。\n";
+    const shots = [];
+    const body = list.map(c => {
+      const a = c.auto;
+      let s = "\n==========\n用例 " + c.id + (c.name ? " " + c.name : "") + "\n规则初步结论：" + E.CATS[a.cat].name + "（" + (a.status === "confirmed" ? "规则确认" : "待复核") + "，" + a.rule + "）\n规则依据：" + a.why.join("；") + "\n";
+      a.ev.forEach(e => {
+        if (e.kind === "shot") { s += e.id + " 截图：" + e.text + "（请随本材料上传这张截图）\n"; shots.push(e.text); return; }
+        let t = e.text; if (e.kind === "stack" && t.length > 1500) t = t.slice(0, 1500) + "\n…（已截断）";
+        s += e.id + " " + e.label + "：\n" + t + "\n";
+      });
+      return s;
+    }).join("");
+    return E.mask(head + body + (shots.length ? "\n需要一并上传的截图：\n" + shots.join("\n") + "\n截图中如有客户姓名、证件号等个人信息，请先打码。\n" : ""));
+  }
+
+  /* ---------- 导出 ---------- */
+  function exportDialog(list) {
+    A.dialog("导出 CSV", '<p style="margin-top:0">导出当前筛选结果，共 ' + list.length + " 条。Excel 可直接打开。</p>" +
+      '<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="exMask" checked>导出时脱敏个人信息（证件号、手机号、邮箱、卡号）</label>',
+      [{ t: "取消" }, { t: "复制内容", fn: () => { A.copy(csvOf(list, $("#exMask").checked)); } }, { t: "下载文件", pri: true, fn: () => { A.download("失败分诊_" + new Date().toISOString().slice(0, 10) + ".csv", csvOf(list, $("#exMask").checked), "text/csv;charset=utf-8"); } }]);
+  }
+  function csvOf(list, doMask) {
+    const m = s => doMask ? E.mask(s) : s;
+    const rows = [["批次", "序号", "用例标识", "用例名称", "执行结果", "异常类型", "报错首行", "自动分类", "判定状态", "命中规则", "依据", "还需确认", "人工分类", "修改原因", "最终分类", "处理方", "重跑", "数据核查", "备注", "原因特征"]];
+    list.forEach(c => rows.push([runName(c.run), c.seq, c.id, c.name, c.result, c.exception, m(firstLine(c)), E.CATS[c.auto.cat].name, c.auto.status === "confirmed" ? "规则确认" : "待复核", c.auto.rule,
+      m(c.auto.why.join("；")), c.auto.need.join("；"), c.override ? E.CATS[c.override.cat].name : "", c.override ? m(c.override.reason) : "", E.CATS[c.final].name, E.CATS[c.final].owner,
+      c.rerun === "pass" ? "重跑通过" : c.rerun === "fail" ? "重跑仍失败" : "", c.dataCheck ? E.DATA_CHECK[c.dataCheck] : "", m(c.dataNote || c.rerunNote || ""), c.sig]));
+    return A.toCSV(rows);
+  }
+
+  /* ============================== 原因分组 ============================== */
+  A.PAGES.groups = function (root, v) {
+    if (!S.runs.length) return noData(root);
+    const fs = S.cases.filter(c => c.failed && (!v.run || c.run === v.run));
+    const g = {};
+    fs.forEach(c => { const k = c.final + "|" + (c.sig || "(无报错)"); (g[k] = g[k] || []).push(c); });
+    const groups = Object.entries(g).map(([k, cs]) => ({ k, cat: cs[0].final, sig: cs[0].sig, cs })).sort((a, b) => b.cs.length - a.cs.length);
+    let html = '<div class="card"><div class="form"><label class="fi"><span>批次</span>' + runSelect("gRun", v.run, true) + '</label><span class="hint">报错去掉数字、时间、网址等会变化的部分后相同的，归为一组。' + fs.length + " 条失败用例，共 " + groups.length + " 组。</span></div></div>";
+    html += '<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>序号</th><th>分类</th><th>用例数</th><th>异常类型</th><th>代表性报错</th><th>涉及用例</th><th>操作</th></tr></thead><tbody>' +
+      groups.map((x, i) => { const c0 = x.cs[0]; return "<tr><td>" + (i + 1) + "</td><td>" + A.catTag(x.cat) + "</td><td><b>" + x.cs.length + '</b></td><td class="mono">' + esc(c0.exception || "-") + '</td><td class="clip" style="max-width:420px" title="' + esc(firstLine(c0)) + '">' + esc(firstLine(c0) || "(无报错信息)") + '</td><td class="clip mono" style="max-width:240px" title="' + esc(x.cs.map(c => c.id).join(", ")) + '">' + esc(x.cs.map(c => c.id).join(", ")) + '</td><td class="ops"><a data-gv="' + i + '">查看用例</a><a data-ge="' + i + '">整组改分类</a><a data-gc="' + i + '">复制标识</a></td></tr>'; }).join("") +
+      "</tbody></table></div>" + (groups.length ? "" : A.emptyBlock("没有失败用例")) + "</div>";
+    root.innerHTML = html;
+    $("#gRun").onchange = e => { v.run = e.target.value; A.render(); };
+    $$("[data-gv]", root).forEach(a => a.onclick = () => A.go("triage", { sig: groups[+a.dataset.gv].sig, tab: "all", page: 1, run: v.run || "", cat: "" }));
+    $$("[data-ge]", root).forEach(a => a.onclick = () => batchDialog(groups[+a.dataset.ge].cs.map(c => c.uid)));
+    $$("[data-gc]", root).forEach(a => a.onclick = () => A.copy(groups[+a.dataset.gc].cs.map(c => c.id).join("\n")));
+  };
+  A.batchDialog = batchDialog;
+
+  /* ============================== 重跑清单 ============================== */
+  function rerunAdvice(c) {
+    const a = c.auto, f = c.final;
+    if (c.rerun) return { go: false, why: "已有重跑结果" };
+    if (a.reason === "pending_data_check") return { go: false, why: "先做数据核查；数据有问题时重跑仍会失败" };
+    if (f === "TEST_DATA") return { go: false, why: "先补测试数据再重跑" };
+    if (f === "PRODUCT_DEFECT" && a.status === "confirmed") return { go: false, why: "已确认是产品问题" };
+    if (a.rule === "SCR2" || (a.rule === "SCR3" && a.status === "confirmed")) return { go: false, why: "测试代码错误，重跑结果不会变，先修脚本" };
+    if (f === "ENVIRONMENT") return { go: true, why: "等环境恢复后重跑，确认是否只受环境影响" };
+    if (f === "POPUP_INTERFERENCE") return { go: true, why: "弹窗可能是偶发，重跑可确认" };
+    if (f === "SCRIPT_ISSUE") return { go: true, why: "区分是偶发等待问题还是定位真的失效" };
+    if (f === "PRODUCT_DEFECT") return { go: true, why: "断言失败重跑一次，排除偶发" };
+    return { go: true, why: "证据不足，重跑可以补充信息" };
+  }
+  A.PAGES.rerun = function (root, v) {
+    if (!S.runs.length) return noData(root);
+    v.run = v.run || S.runs[S.runs.length - 1].id; v.sel = v.sel || null;
+    const fs = S.cases.filter(c => c.failed && c.run === v.run).map(c => Object.assign(c, { _adv: rerunAdvice(c) }));
+    if (!v.sel) v.sel = fs.filter(c => c._adv.go).map(c => c.uid);
+    const done = fs.filter(c => c.rerun), pass = done.filter(c => c.rerun === "pass").length;
+    let html = '<div class="card"><div class="form"><label class="fi"><span>批次</span>' + runSelect("rRun", v.run) + '</label><span class="hint">建议重跑 ' + fs.filter(c => c._adv.go).length + " 条；已有重跑结果 " + done.length + " 条，其中通过 " + pass + " 条</span></div>" +
+      '<p class="hint" style="margin:10px 0 0">做法：勾选要重跑的用例 → 复制用例标识到平台重跑 → 重跑完成后在“数据导入”选择“重跑结果”导入，通过的用例会自动改为“重跑可过”。也可以在下表直接填写重跑结果。</p></div>';
+    html += '<div class="card"><div class="bar"><span>已选 ' + v.sel.length + ' 条</span><span class="sp"></span><button class="btn" id="rCopy">复制用例标识（每行一个）</button><button class="btn" id="rCopy2">复制为逗号分隔</button><button class="btn pri" id="rImp">导入重跑结果</button></div>' +
+      '<div class="tbl-wrap"><table class="tbl"><thead><tr><th><input type="checkbox" id="rAll"></th><th>用例标识</th><th>用例名称</th><th>当前分类</th><th>建议</th><th>原因</th><th>重跑结果</th></tr></thead><tbody>' +
+      fs.map(c => '<tr><td><input type="checkbox" data-rs="' + c.uid + '"' + (v.sel.includes(c.uid) ? " checked" : "") + '></td><td class="mono"><a data-open="' + c.uid + '">' + esc(c.id) + "</a></td><td>" + esc(c.name) + "</td><td>" + A.catTag(c.final) + "</td><td>" + (c.rerun ? '<span class="tag gray">已重跑</span>' : c._adv.go ? '<span class="tag blue">建议重跑</span>' : '<span class="tag gray">暂不重跑</span>') + '</td><td class="hint">' + esc(c._adv.why) +
+        '</td><td><select class="sel" style="min-width:110px" data-rr="' + c.uid + '"><option value="">未重跑</option><option value="pass"' + (c.rerun === "pass" ? " selected" : "") + '>通过</option><option value="fail"' + (c.rerun === "fail" ? " selected" : "") + ">仍失败</option></select></td></tr>").join("") +
+      "</tbody></table></div>" + (fs.length ? "" : A.emptyBlock("该批次没有失败用例")) + "</div>";
+    root.innerHTML = html;
+    $("#rRun").onchange = e => { v.run = e.target.value; v.sel = null; A.render(); };
+    $$("[data-rs]", root).forEach(cb => cb.onchange = () => { const u = cb.dataset.rs; v.sel = cb.checked ? v.sel.concat(u) : v.sel.filter(x => x !== u); A.render(); });
+    $("#rAll").onchange = e => { v.sel = e.target.checked ? fs.map(c => c.uid) : []; A.render(); };
+    $$("[data-rr]", root).forEach(s => s.onchange = () => { const c = S.cases.find(x => x.uid === s.dataset.rr); c.rerun = s.value || null; c.rerunNote = s.value ? "手工填写 " + new Date().toLocaleString() : ""; A.reclassify(); A.save(); A.render(); A.toast("已保存，分类已重新计算"); });
+    $$("[data-open]", root).forEach(a => a.onclick = () => openCase(a.dataset.open));
+    const ids = () => S.cases.filter(c => v.sel.includes(c.uid)).map(c => c.id);
+    $("#rCopy").onclick = () => { if (!v.sel.length) return A.toast("请先勾选用例", true); A.copy(ids().join("\n")); };
+    $("#rCopy2").onclick = () => { if (!v.sel.length) return A.toast("请先勾选用例", true); A.copy(ids().join(",")); };
+    $("#rImp").onclick = () => A.go("import", { info: { name: "", plan: "", device: "", env: "", mode: "rerun", rerunOf: v.run } });
+  };
+
+  /* ============================== 数据核查 ============================== */
+  A.PAGES.datacheck = function (root, v) {
+    if (!S.runs.length) return noData(root);
+    const fs = S.cases.filter(c => c.failed && (!v.run || c.run === v.run) && /^BIZ/.test(c.auto.rule));
+    const pend = fs.filter(c => !c.dataCheck).length;
+    let html = '<div class="card"><div class="form"><label class="fi"><span>批次</span>' + runSelect("dcRun", v.run, true) + '</label><span class="hint">页面出现业务报错的用例 ' + fs.length + " 条，待核查 " + pend + " 条</span></div>" +
+      '<p class="hint" style="margin:10px 0 0">只凭“record not found”这类报错，分不清是测试数据有问题还是系统有问题。请查库（或用公司批准的只读查询）后填写结果：数据正常但系统仍报错 → 疑似产品缺陷（规则确认）；数据不存在、已被使用、状态不对 → 测试数据问题。数据库状态必须由人核查，不能根据截图推断。</p></div>';
+    html += '<div class="card">' + (fs.length ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>用例标识</th><th>用例名称</th><th>业务报错</th><th>页面/报错原文</th><th>核查结果</th><th>核查说明（查了什么、谁查的）</th><th>当前分类</th><th>操作</th></tr></thead><tbody>' +
+      fs.map(c => {
+        const same = fs.filter(x => x !== c && x.auto.hits[0] === c.auto.hits[0] && x.sig === c.sig).length;
+        return '<tr><td class="mono"><a data-open="' + c.uid + '">' + esc(c.id) + "</a></td><td>" + esc(c.name) + '</td><td><span class="tag red">' + esc(c.auto.hits[0] || "") + '</span></td><td class="clip" style="max-width:280px" title="' + esc(c.pageText || c.alertText || firstLine(c)) + '">' + esc(c.pageText || c.alertText || firstLine(c)) +
+          '</td><td><select class="sel" style="min-width:150px" data-dc="' + c.uid + '"><option value="">未核查</option>' + Object.keys(E.DATA_CHECK).map(k => '<option value="' + k + '"' + (c.dataCheck === k ? " selected" : "") + ">" + E.DATA_CHECK[k] + "</option>").join("") + '</select></td><td><input class="inp" style="min-width:200px" data-dn="' + c.uid + '" value="' + esc(c.dataNote || "") + '" placeholder="如：查 agent 表，40100 存在且有效"></td><td>' + A.catTag(c.final) +
+          '</td><td class="ops">' + (same ? '<a data-same="' + c.uid + '">应用到相同报错的 ' + same + " 条</a>" : "") + "</td></tr>";
+      }).join("") + "</tbody></table></div>" : A.emptyBlock("没有需要数据核查的用例", "只有页面或弹窗中出现业务报错的用例才会出现在这里。")) + "</div>";
+    root.innerHTML = html;
+    $("#dcRun").onchange = e => { v.run = e.target.value; A.render(); };
+    $$("[data-open]", root).forEach(a => a.onclick = () => openCase(a.dataset.open));
+    const upd = () => { A.reclassify(); A.save(); A.render(); };
+    $$("[data-dc]", root).forEach(s => s.onchange = () => { const c = S.cases.find(x => x.uid === s.dataset.dc); c.dataCheck = s.value || null; upd(); A.toast("已保存，分类已重新计算"); });
+    $$("[data-dn]", root).forEach(i => i.onchange = () => { const c = S.cases.find(x => x.uid === i.dataset.dn); c.dataNote = i.value.trim(); A.save(); });
+    $$("[data-same]", root).forEach(a => a.onclick = () => {
+      const c = S.cases.find(x => x.uid === a.dataset.same);
+      if (!c.dataCheck) { A.toast("请先填写这一条的核查结果", true); return; }
+      const others = fs.filter(x => x !== c && x.auto.hits[0] === c.auto.hits[0] && x.sig === c.sig);
+      A.dialog("应用到相同报错", "把核查结果“" + E.DATA_CHECK[c.dataCheck] + "”应用到以下 " + others.length + " 条用例？只有它们用的是同一组数据时才适用。<p class=\"hint\">" + others.map(x => esc(x.id)).join("、") + "</p>",
+        [{ t: "取消" }, { t: "应用", pri: true, fn: () => { others.forEach(x => { x.dataCheck = c.dataCheck; x.dataNote = (c.dataNote || "") + "（沿用 " + c.id + " 的核查）"; }); upd(); A.toast("已应用"); } }]);
+    });
+  };
+})();
+
+</script>
+<script>
+/* 页面：回归对比（读取 difflib 生成的 Total / Ignore HTML 报告，合并在一页查看） */
+(function () {
+  const A = APP, S = A.S, esc = A.esc, $ = A.$, $$ = A.$$;
+
+  /* ---------- 解析 difflib.HtmlDiff 报告 ---------- */
+  // 把单元格内容转成安全的 HTML：只保留文字和 diff_add / diff_chg / diff_sub 标记
+  function cellHTML(td) {
+    let out = "", changed = false;
+    const walk = n => {
+      n.childNodes.forEach(ch => {
+        if (ch.nodeType === 3) out += esc(ch.nodeValue.replace(/ /g, " "));
+        else if (ch.nodeType === 1) {
+          const cls = (ch.className || "").match(/diff_(add|chg|sub)/);
+          if (cls) { changed = true; out += '<span class="d_' + cls[1] + '">'; walk(ch); out += "</span>"; }
+          else if (ch.tagName === "BR") out += "";
+          else walk(ch);
+        }
+      });
+    };
+    walk(td);
+    return { html: out, text: td.textContent.replace(/ /g, " "), changed };
+  }
+  function parseDiff(html) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const tables = Array.from(doc.querySelectorAll("table.diff")).filter(t => (t.getAttribute("summary") || "").toLowerCase() !== "legends" && t.querySelector("td.diff_header"));
+    if (!tables.length) return { ok: false };
+    const heads = Array.from(doc.querySelectorAll("table.diff thead th.diff_header, table.diff thead th[colspan]")).map(th => th.textContent.trim()).filter(Boolean);
+    const rows = [];
+    tables.forEach(t => {
+      Array.from(t.tBodies).forEach((tb, bi) => {
+        if (bi > 0 || rows.length) rows.push({ gap: true });
+        Array.from(tb.rows).forEach(tr => {
+          const tds = Array.from(tr.cells);
+          const sides = [];
+          tds.forEach((td, i) => { if (td.classList.contains("diff_header")) { const tx = tds[i + 1]; sides.push({ no: td.textContent.trim(), cell: tx ? cellHTML(tx) : { html: "", text: "", changed: false } }); } });
+          if (sides.length < 2) {
+            const txt = tr.textContent.trim();
+            if (txt) rows.push({ note: txt });
+            return;
+          }
+          const [L, R] = sides;
+          rows.push({ ln: L.no, lh: L.cell.html, lt: L.cell.text, rn: R.no, rh: R.cell.html, rt: R.cell.text, chg: L.cell.changed || R.cell.changed || (!L.no !== !R.no) });
+        });
+      });
+    });
+    while (rows.length && rows[0].gap) rows.shift();
+    const nd = rows.filter(r => r.chg).length;
+    const noDiff = /No Differences Found/i.test(doc.body ? doc.body.textContent : "");
+    return { ok: true, rows, nd: noDiff ? 0 : nd, from: heads[0] || "基线", to: heads[1] || "本次" };
+  }
+
+  const KIND_RE = /(^|[_\-\s.()\[\]])(total|ignore|ignored|full|filtered)(?=$|[_\-\s.()\[\]])/gi;
+  function caseKey(name) { return name.replace(/\.[^.]+$/, "").replace(KIND_RE, "$1").replace(/[_\-\s.]+$/g, "").replace(/^[_\-\s.]+/g, "").replace(/[_\-\s.]{2,}/g, "_").toLowerCase(); }
+  function kindOf(path, fallback) {
+    const p = path.toLowerCase();
+    if (/(^|[^a-z])ignored?([^a-z]|$)|filtered/.test(p.split("/").pop())) return "ignore";
+    if (/(^|[^a-z])(total|full)([^a-z]|$)/.test(p.split("/").pop())) return "total";
+    if (/(^|\/)(ignored?|filtered)[^/]*\//.test(p)) return "ignore";
+    if (/(^|\/)(total|full)[^/]*\//.test(p)) return "total";
+    return fallback;
+  }
+
+  async function loadFiles(files, fallback) {
+    const C = S.cmp || (S.cmp = { items: {}, order: [] });
+    const html = files.filter(f => /\.html?$/i.test(f.name));
+    let n = 0, bad = 0;
+    for (const f of html) {
+      const text = await A.readFile(f);
+      const kind = kindOf(f.webkitRelativePath || f.name, fallback);
+      const key = caseKey(f.name);
+      const p = parseDiff(text);
+      const it = C.items[key] || (C.items[key] = { key, name: f.name.replace(/\.[^.]+$/, "").replace(KIND_RE, "$1").replace(/[_\-\s.]+$/, ""), total: null, ignore: null });
+      it[kind] = Object.assign(p, { file: f.webkitRelativePath || f.name, raw: text });
+      if (!p.ok) bad++;
+      n++;
+    }
+    C.order = Object.keys(C.items).sort((a, b) => a.localeCompare(b, "zh", { numeric: true }));
+    A.toast("已读取 " + n + " 个报告" + (bad ? "，其中 " + bad + " 个不是 difflib 格式" : "") + (files.length - html.length ? "，跳过 " + (files.length - html.length) + " 个非 HTML 文件" : ""), bad > 0);
+    A.render();
+  }
+
+  const statusOf = it => {
+    const ig = it.ignore, to = it.total;
+    if ((ig && !ig.ok) || (to && !to.ok)) return "bad";
+    if (!ig || !to) return "single";
+    if (ig.nd > 0) return "real";
+    if (to.nd > 0) return "noise";
+    return "same";
+  };
+  const ST = { real: ["过滤后仍有差异", "red"], noise: ["只有噪声差异", "gray"], same: ["完全一致", "green"], single: ["缺少配对报告", "orange"], bad: ["无法识别", "orange"] };
+
+  function clusters(C) {
+    const m = {};
+    C.order.forEach(k => {
+      const it = C.items[k], d = it.ignore && it.ignore.ok ? it.ignore : (!it.total || !it.total.ok ? null : (it.ignore ? null : it.total));
+      if (!d) return;
+      const seen = new Set();
+      d.rows.forEach(r => {
+        if (!r.chg) return;
+        const key = (r.lt || "").replace(/\s+/g, " ").trim() + " → " + (r.rt || "").replace(/\s+/g, " ").trim();
+        if (seen.has(key)) return; seen.add(key);
+        (m[key] = m[key] || { key, l: r.lt, r: r.rt, cases: [] }).cases.push(k);
+      });
+    });
+    return Object.values(m).sort((a, b) => b.cases.length - a.cases.length);
+  }
+
+  A.PAGES.compare = function (root, v) {
+    const C = S.cmp;
+    v.view = v.view || "ignore"; v.mode = v.mode || "diff"; v.open = v.open || {};
+    let html = '<div class="card"><h3>回归对比汇总 <span class="sub">读取已有的 Total / Ignore 对比报告（Python difflib 生成的 HTML），在一页里查看</span><span class="acts">' +
+      '<button class="btn" id="cTot">导入 Total 报告</button><button class="btn" id="cIgn">导入 Ignore 报告</button><button class="btn" id="cDir">导入整个文件夹</button>' + (C ? '<button class="btn dang" id="cClr">清空</button>' : "") + "</span></h3>" +
+      '<input type="file" id="cTotIn" multiple accept=".html,.htm" style="display:none"><input type="file" id="cIgnIn" multiple accept=".html,.htm" style="display:none"><input type="file" id="cDirIn" webkitdirectory multiple style="display:none">' +
+      '<p class="hint" style="margin:0">Total、Ignore 可以分别选择文件（可多选），也可以选包含两者的文件夹：文件名或上级文件夹名含 total / ignore 的会自动区分。文件名去掉 total / ignore 字样后相同的，视为同一个 Case。报告只在本次打开页面期间有效，不会保存。</p></div>';
+    if (!C || !C.order.length) {
+      root.innerHTML = html + '<div class="card">' + A.emptyBlock("还没有导入对比报告", "选择同事 A 生成的 total 和 ignore HTML 报告后，这里会显示所有 Case 的差异汇总。") + "</div>";
+      bindTop(root); return;
+    }
+    const items = C.order.map(k => C.items[k]);
+    const cnt = s => items.filter(it => statusOf(it) === s).length;
+    html += '<div class="kpis">' + [["", "报告 Case 数", items.length, "#409eff"], ["real", "过滤后仍有差异", cnt("real"), "#f56c6c"], ["noise", "只有噪声差异", cnt("noise"), "#909399"], ["same", "完全一致", cnt("same"), "#67c23a"], ["single", "缺少配对报告", cnt("single") + cnt("bad"), "#e6a23c"]]
+      .map(([k, l, n, c]) => '<button class="kpi" style="--c:' + c + (v.st === k ? ";box-shadow:0 0 0 2px " + c : "") + '" data-st="' + k + '"><b>' + n + "</b><span>" + l + "</span></button>").join("") + "</div>";
+
+    const cl = clusters(C);
+    html += '<div class="card"><h3>差异聚类 <span class="sub">Ignore 报告中相同的“基线 → 本次”变化合并显示，点击只看相关 Case</span>' + (v.cl != null ? '<span class="acts"><button class="btn sm" id="clX">取消聚类筛选</button></span>' : "") + "</h3>" +
+      (cl.length ? '<div class="tbl-wrap" style="max-height:260px;overflow-y:auto"><table class="tbl"><thead><tr><th>Case 数</th><th>基线</th><th>本次</th><th></th></tr></thead><tbody>' +
+        cl.slice(0, 100).map((x, i) => '<tr class="' + (v.cl === i ? "sel" : "") + '"><td><b>' + x.cases.length + '</b></td><td class="mono clip" style="max-width:420px" title="' + esc(x.l) + '">' + esc(x.l || "（无此行）") + '</td><td class="mono clip" style="max-width:420px" title="' + esc(x.r) + '">' + esc(x.r || "（无此行）") + '</td><td class="ops"><a data-cl="' + i + '">只看这些 Case</a></td></tr>').join("") + "</tbody></table></div>"
+        : '<p class="hint" style="margin:0">Ignore 报告中没有差异。</p>') + "</div>";
+
+    let list = items;
+    if (v.st) list = list.filter(it => v.st === "single" ? ["single", "bad"].includes(statusOf(it)) : statusOf(it) === v.st);
+    if (v.cl != null && cl[v.cl]) list = list.filter(it => cl[v.cl].cases.includes(it.key));
+    if (v.q) list = list.filter(it => (it.name + " " + (it.total ? it.total.file : "") + " " + (it.ignore ? it.ignore.file : "")).toLowerCase().includes(v.q.toLowerCase()));
+    if (!v.cur || !list.find(it => it.key === v.cur)) v.cur = list[0] ? list[0].key : null;
+    const it = v.cur ? C.items[v.cur] : null;
+
+    html += '<div class="cmp"><div class="card" style="padding:12px;margin:0"><input class="inp" id="cQ" style="width:100%;min-width:0;margin-bottom:10px" placeholder="搜索 Case / 文件名" value="' + esc(v.q || "") + '"><div class="clist">' +
+      list.map(x => { const s = statusOf(x), st = ST[s]; return '<button class="ci' + (x.key === v.cur ? " on" : "") + '" data-ci="' + esc(x.key) + '"><div><div class="nm" title="' + esc(x.name) + '">' + esc(x.name) + '</div><div class="meta">Ignore ' + (x.ignore ? (x.ignore.ok ? x.ignore.nd : "?") : "-") + " 处 · Total " + (x.total ? (x.total.ok ? x.total.nd : "?") : "-") + ' 处</div></div><span class="tag ' + st[1] + '">' + st[0] + "</span></button>"; }).join("") +
+      (list.length ? "" : '<div class="empty">没有符合条件的 Case</div>') + '</div><div class="hint" style="margin-top:8px">快捷键 j / k 切换 Case</div></div>';
+    html += '<div class="card" style="margin:0;min-width:0" id="cView">' + (it ? viewer(it, v) : A.emptyBlock("请选择 Case")) + "</div></div>";
+    root.innerHTML = html;
+    bindTop(root);
+    $$("[data-st]", root).forEach(b => b.onclick = () => { v.st = v.st === b.dataset.st || !b.dataset.st ? "" : b.dataset.st; A.render(); });
+    $$("[data-cl]", root).forEach(a => a.onclick = () => { v.cl = +a.dataset.cl; A.render(); });
+    if ($("#clX")) $("#clX").onclick = () => { v.cl = null; A.render(); };
+    $$("[data-ci]", root).forEach(b => b.onclick = () => { v.cur = b.dataset.ci; v.open = {}; A.render(); });
+    $("#cQ").onchange = e => { v.q = e.target.value.trim(); A.render(); };
+    if (it) bindViewer(root, it, v, list);
+  };
+  function bindTop(root) {
+    $("#cTot").onclick = () => $("#cTotIn").click();
+    $("#cIgn").onclick = () => $("#cIgnIn").click();
+    $("#cDir").onclick = () => $("#cDirIn").click();
+    $("#cTotIn").onchange = e => loadFiles(Array.from(e.target.files), "total");
+    $("#cIgnIn").onchange = e => loadFiles(Array.from(e.target.files), "ignore");
+    $("#cDirIn").onchange = e => loadFiles(Array.from(e.target.files), "total");
+    if ($("#cClr")) $("#cClr").onclick = () => { S.cmp = null; A.S.view.compare = {}; A.render(); };
+  }
+
+  function viewer(it, v) {
+    const has = { ignore: !!it.ignore, total: !!it.total };
+    if (!has[v.view]) v.view = has.ignore ? "ignore" : "total";
+    const d = it[v.view];
+    let h = '<div class="bar" style="margin-bottom:12px"><b style="font-size:14px">' + esc(it.name) + '</b><span class="tag ' + ST[statusOf(it)][1] + '">' + ST[statusOf(it)][0] + '</span><span class="sp"></span>' +
+      '<span class="seg"><button data-view="ignore" class="' + (v.view === "ignore" ? "on" : "") + '"' + (has.ignore ? "" : " disabled") + ">过滤版 Ignore" + (it.ignore && it.ignore.ok ? "（" + it.ignore.nd + "）" : "") + '</button><button data-view="total" class="' + (v.view === "total" ? "on" : "") + '"' + (has.total ? "" : " disabled") + ">完整版 Total" + (it.total && it.total.ok ? "（" + it.total.nd + "）" : "") + "</button></span>" +
+      '<span class="seg"><button data-mode="diff" class="' + (v.mode === "diff" ? "on" : "") + '">只看差异</button><button data-mode="all" class="' + (v.mode === "all" ? "on" : "") + '">全文</button></span>' +
+      '<button class="btn sm" id="cRaw">查看原报告</button><button class="btn sm" id="cCsv">导出差异</button></div>' +
+      '<div class="hint" style="margin-bottom:8px;word-break:break-all">' + esc(d.file) + "</div>";
+    if (!d.ok) return h + '<div class="empty"><b>无法识别这个报告的格式</b>目前只支持 Python difflib.HtmlDiff 生成的报告。可以点“查看原报告”直接查看。</div>';
+    if (!d.nd) h += '<div class="verdict" style="margin-bottom:10px">' + (v.view === "ignore" ? "过滤后没有差异。" + (it.total && it.total.nd ? "完整版中有 " + it.total.nd + " 处差异，都已被过滤规则忽略，可切换到 Total 查看。" : "") : "完整版中没有差异。") + "</div>";
+    h += '<div class="dv"><div class="row hd"><div class="no"></div><div class="tx">' + esc(d.from) + '</div><div class="no"></div><div class="tx">' + esc(d.to) + "</div></div>";
+    const rows = d.rows, CTX = 2;
+    const show = rows.map((r, i) => v.mode === "all" || r.gap || r.note || rows.slice(Math.max(0, i - CTX), i + CTX + 1).some(x => x.chg));
+    let i = 0;
+    while (i < rows.length) {
+      if (!show[i] && !v.open[i]) {
+        let j = i; while (j < rows.length && !show[j]) j++;
+        h += '<button class="fold" data-fold="' + i + "-" + j + '">⋯ 折叠了 ' + (j - i) + " 行相同内容，点击展开</button>";
+        i = j; continue;
+      }
+      const r = rows[i];
+      if (r.gap) h += '<div class="row"><div class="tx" style="grid-column:1/-1;text-align:center;color:#c0c4cc;font-family:var(--sans)">⋯</div></div>';
+      else if (r.note) h += '<div class="row"><div class="tx" style="grid-column:1/-1;font-family:var(--sans);color:#909399">' + esc(r.note) + "</div></div>";
+      else h += '<div class="row' + (r.chg ? " chg" : "") + '"><div class="no">' + esc(r.ln) + '</div><div class="tx' + (r.ln ? "" : " blank") + '">' + r.lh + '</div><div class="no">' + esc(r.rn) + '</div><div class="tx' + (r.rn ? "" : " blank") + '">' + r.rh + "</div></div>";
+      i++;
+    }
+    h += '</div><div class="hint" style="margin-top:8px"><span class="d_add" style="padding:0 4px">新增</span> <span class="d_chg" style="padding:0 4px">修改</span> <span class="d_sub" style="padding:0 4px">删除</span>　颜色与原报告一致</div>';
+    return h;
+  }
+  function bindViewer(root, it, v, list) {
+    $$("[data-view]", root).forEach(b => b.onclick = () => { if (b.disabled) return; v.view = b.dataset.view; v.open = {}; A.render(); });
+    $$("[data-mode]", root).forEach(b => b.onclick = () => { v.mode = b.dataset.mode; A.render(); });
+    $$("[data-fold]", root).forEach(b => b.onclick = () => { const [a, z] = b.dataset.fold.split("-").map(Number); for (let k = a; k < z; k++) v.open[k] = true; const top = $("#content").scrollTop; A.render(); $("#content").scrollTop = top; });
+    $("#cRaw").onclick = () => {
+      const d = it[v.view];
+      A.dialog("原报告：" + d.file, '<iframe sandbox="" style="width:100%;height:62vh;border:1px solid #ebeef5" id="rawF"></iframe>', [{ t: "关闭" }]);
+      $("#dlg").style.width = "min(1100px, 96vw)";
+      $("#rawF").srcdoc = d.raw;
+    };
+    $("#cCsv").onclick = () => {
+      const rows = [["Case", "报告类型", "基线行号", "基线内容", "本次行号", "本次内容"]];
+      S.cmp.order.forEach(k => { const x = S.cmp.items[k], d = x[v.view]; if (!d || !d.ok) return; d.rows.filter(r => r.chg).forEach(r => rows.push([x.name, v.view, r.ln, r.lt, r.rn, r.rt])); });
+      const text = A.toCSV(rows);
+      A.dialog("导出差异（" + (v.view === "ignore" ? "过滤版" : "完整版") + "，全部 Case）", "共 " + (rows.length - 1) + " 行差异。", [{ t: "取消" }, { t: "复制内容", fn: () => A.copy(text) }, { t: "下载文件", pri: true, fn: () => A.download("回归差异_" + v.view + ".csv", text, "text/csv;charset=utf-8") }]);
+    };
+    document.onkeydown = e => {
+      if (A.S.view && document.querySelector(".tab.on") && document.querySelector(".tab.on").dataset.tab !== "compare") return;
+      if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+      if (e.key !== "j" && e.key !== "k") return;
+      const i = list.findIndex(x => x.key === v.cur), n = i + (e.key === "j" ? 1 : -1);
+      if (list[n]) { v.cur = list[n].key; v.open = {}; A.render(); }
+    };
+  }
+})();
+
+</script>
+<script>
+/* 页面：Jira 起草、提交与导出、Jira 配置。
+   一组失败用例（同一分类 + 同一报错特征）= 一张 Jira 单。
+   页面负责起草、审核、导出 CSV、生成接口请求；真正写入 Jira 由后端完成（见“流程讲解 → Jira 提报与接口”）。 */
+(function () {
+  const A = APP, E = ENG, S = A.S, esc = A.esc, $ = A.$, $$ = A.$$;
+
+  /* ============================== 配置 ============================== */
+  const DEFAULT_CFG = {
+    deploy: "cloud", baseUrl: "", project: "ROTQA", issueType: "Bug", issueTypeEnv: "Task",
+    system: "NBS", systemField: "", market: "HK", components: "SYSTEM-QA", labels: "regression, auto-triage",
+    envMode: "field", titleTpl: "[{system} Regression] {market} - {module} {cases} failed due to {cause}",
+    highKeywords: ["issue", "underwriting", "核保", "payment", "支付", "premium", "保费", "amount", "金额", "quotation", "报价"],
+    draftCats: ["PRODUCT_DEFECT", "TEST_DATA", "ENVIRONMENT", "SCRIPT_ISSUE", "POPUP_INTERFERENCE", "NEEDS_HUMAN"],
+    backendUrl: "", maskOnExport: true, reviewer: "",
+  };
+  const cfg = () => (S.jira = Object.assign({}, DEFAULT_CFG, S.jira || {}));
+  S.drafts = S.drafts || []; S.jiraLog = S.jiraLog || [];
+
+  const SECS = [["s1", "1. 现象"], ["s2", "2. 受影响的用例"], ["s3", "3. 重现步骤"], ["s4", "4. 预期结果"], ["s5", "5. 实际结果"], ["s6", "6. 已做的排查"], ["s7", "7. 测试数据"], ["s8", "8. 推测与待确认"]];
+  const FIELD_NAMES = { summary: "Summary 标题", issueType: "Issue Type", priority: "Priority", system: "System", components: "Components", labels: "Labels", assignee: "Assignee", environment: "Environment" };
+  const SRC = { 脚本: "blue", AI: "purple", 人工: "orange" };
+  const ST = { draft: ["待审核", "orange"], approved: ["已审核", "blue"], submitted: ["已提交", "green"], discarded: ["已放弃", "gray"] };
+  const runOf = id => S.runs.find(r => r.id === id) || {};
+  const casesOf = d => d.uids.map(u => S.cases.find(c => c.uid === u)).filter(Boolean);
+  const base = p => String(p || "").split(/[\\/]/).pop().trim();
+  const firstLine = c => (c.error || c.stack || "").split("\n").find(s => s.trim()) || "";
+  const most = arr => { const m = {}; arr.filter(Boolean).forEach(x => { m[x] = (m[x] || 0) + 1; }); return Object.keys(m).sort((a, b) => m[b] - m[a])[0] || ""; };
+  const now = () => new Date().toLocaleString();
+
+  /* ============================== 起草（脚本部分） ============================== */
+  const EXC_EN = {
+    NoSuchElementException: "element not found", TimeoutException: "page element wait timeout", StaleElementReferenceException: "stale element reference",
+    ElementNotInteractableException: "element not interactable", ElementClickInterceptedException: "click intercepted by another element",
+    InvalidSelectorException: "invalid element locator", SessionNotCreatedException: "browser session could not be created",
+  };
+  function causePhrase(cs) {
+    const c = cs[0], a = c.auto, cat = c.final, hit = a.hits[0] || "";
+    const words = s => s.replace(/\s+/g, " ").trim().split(" ").slice(0, 12).join(" ");
+    if (/^BIZ/.test(a.rule) && hit) {
+      const src = [c.pageText, c.alertText, c.error].filter(Boolean).join("\n");
+      const line = src.split(/\n/).find(l => l.toLowerCase().includes(hit.toLowerCase())) || hit;
+      return { text: words(line).toLowerCase(), sure: true };
+    }
+    if (cat === "ENVIRONMENT") return { text: "test environment error (" + words(hit || c.exception || "unknown") + ")", sure: !!hit };
+    if (cat === "POPUP_INTERFERENCE") return { text: "unexpected popup" + (hit ? ' "' + words(hit) + '"' : ""), sure: !!hit };
+    if (cat === "RERUN_PASS") return { text: "intermittent failure (passed on rerun)", sure: true };
+    if (EXC_EN[c.exception]) return { text: EXC_EN[c.exception] + (c.module ? " on " + c.module : ""), sure: false };
+    if (/^AST/.test(a.rule)) return { text: "assertion failed - " + words(firstLine(c).replace(/^[\w.]*(Error|Exception|Failure)\s*:?\s*/, "")), sure: false };
+    return { text: "待确认原因", sure: false };
+  }
+  function priorityOf(cs, d) {
+    const c = cs[0], cat = c.final, k = cfg().highKeywords;
+    const runFailed = S.cases.filter(x => x.failed && x.run === d.run).length;
+    if (cs.length >= 10) return { v: "High", why: "同一组影响用例 ≥ 10 个" };
+    if (cat === "ENVIRONMENT" && cs.length * 2 >= runFailed) return { v: "High", why: "环境问题影响本次一半以上失败用例" };
+    if (cat === "PRODUCT_DEFECT") {
+      const txt = cs.map(x => [x.name, x.module, x.error].join(" ")).join(" ").toLowerCase();
+      const kw = k.find(w => txt.includes(w.toLowerCase()));
+      return kw ? { v: "High", why: "产品缺陷，涉及“" + kw + "”（出单/核保/支付/金额类）" } : { v: "Medium", why: "其他产品缺陷" };
+    }
+    if (["TEST_DATA", "SCRIPT_ISSUE", "POPUP_INTERFERENCE", "RERUN_PASS"].includes(cat)) return { v: "Low", why: "测试数据 / 脚本 / 弹窗类问题" };
+    return { v: "Medium", why: "默认" };
+  }
+  function shotNames(cs) { return Array.from(new Set(cs.map(c => (c.shots && c.shots[0] && base(c.shots[0].name)) || base((c.screenshot || "").split(";")[0])).filter(Boolean))); }
+
+  function scriptFields(d) {
+    const C = cfg(), cs = casesOf(d), r = runOf(d.run), c0 = cs[0];
+    if (!c0) return {};
+    const mod = most(cs.map(c => c.module)) || "Regression";
+    const cause = causePhrase(cs);
+    const summary = C.titleTpl.replace("{system}", C.system).replace("{market}", C.market).replace("{module}", mod)
+      .replace("{cases}", cs.length > 1 ? "cases" : "case").replace("{n}", cs.length).replace("{cause}", cause.text);
+    const pr = priorityOf(cs, d);
+    const starts = cs.map(c => c.start).filter(Boolean).sort();
+    const environment = ["Environment: " + (r.env || "待补充"), "Device / Browser: " + (Array.from(new Set(cs.map(c => c.device).filter(Boolean))).join(", ") || r.device || "待补充"),
+      "Run: " + (r.name || "-"), "Test plan: " + (r.plan || "-"), "Executed at: " + (starts[0] || r.at || "-") + " (UTC+8)"].join("\n");
+    const shots = shotNames(cs);
+    const table = "|| 用例编号 || 用例名称 || 截图 ||\n" + cs.slice(0, 20).map(c => {
+      const s = (c.shots && c.shots[0] && base(c.shots[0].name)) || base((c.screenshot || "").split(";")[0]);
+      return "| " + c.id + " | " + (c.name || "-").replace(/\|/g, "/") + " | " + (s ? "!" + s + "|thumbnail!" : "-") + " |";
+    }).join("\n") + (cs.length > 20 ? "\n其余 " + (cs.length - 20) + " 个用例见附件 affected_cases.csv" : "");
+    const err = (c0.pageText || c0.alertText) ? (c0.pageText || c0.alertText) + "\n" + firstLine(c0) : (c0.error || c0.stack || "").slice(0, 800);
+    const checks = [];
+    const rr = cs.filter(c => c.rerun), rp = rr.filter(c => c.rerun === "pass").length;
+    if (rr.length) checks.push("* 已重跑 " + rr.length + " 个用例：" + rp + " 个通过，" + (rr.length - rp) + " 个仍失败");
+    Array.from(new Set(cs.filter(c => c.dataCheck).map(c => E.DATA_CHECK[c.dataCheck] + (c.dataNote ? "（" + c.dataNote + "）" : "")))).forEach(t => checks.push("* 数据核查：" + t));
+    Array.from(new Set(cs.filter(c => c.override).map(c => c.override.reason))).forEach(t => checks.push("* 人工复核：" + t));
+    const a = c0.auto;
+    return {
+      summary, issueType: c0.final === "ENVIRONMENT" ? C.issueTypeEnv : C.issueType, priority: pr.v, system: C.system, components: C.components,
+      labels: C.labels, assignee: "", environment,
+      s1: "执行 " + mod + " 用例时失败" + (c0.exception ? "（" + c0.exception + "）" : "") + "，报错：{{" + firstLine(c0).slice(0, 200).replace(/[{}]/g, "") + "}}",
+      s2: "共 " + cs.length + " 个\n" + table,
+      s3: "待补充：请从平台复制用例步骤",
+      s4: "待补充：根据用例描述或断言中的期望值",
+      s5: "{noformat}\n" + err.slice(0, 1200) + "\n{noformat}",
+      s6: checks.join("\n") || "待补充：尚未做额外排查（重跑、数据核查）",
+      s7: "待补充：只写业务编码（Agent code、Product code、Policy no.），不写姓名、证件号、手机号",
+      s8: "* 推测（规则初步分类：" + E.CATS[c0.final].name + "，" + (c0.override ? "人工确认" : a.rule) + "）：" + a.why.join("；") + (a.need.length ? "\n" + a.need.map(n => "* 待确认：" + n).join("\n") : ""),
+      _priorityWhy: pr.why, _causeSure: cause.sure, _attach: shots.concat(cs.length > 20 ? ["affected_cases.csv"] : []),
+    };
+  }
+  function newDraft(run, cat, sig, uids) {
+    const d = { id: "D" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), run, cat, sig, uids, status: "draft", mode: "create", target: "", f: {}, src: {}, created: now(), history: [] };
+    applyScript(d, true);
+    return d;
+  }
+  // 只覆盖仍是“脚本”来源的字段，人工/AI 改过的保留
+  function applyScript(d, all) {
+    const sf = scriptFields(d);
+    Object.keys(FIELD_NAMES).concat(SECS.map(s => s[0])).forEach(k => { if (all || !d.src[k] || d.src[k] === "脚本") { d.f[k] = sf[k] || ""; d.src[k] = "脚本"; } });
+    d.meta = { priorityWhy: sf._priorityWhy, causeSure: sf._causeSure, attach: sf._attach };
+  }
+  const wiki = d => {
+    const C = cfg();
+    return (C.envMode === "description" ? "h3. Environment\n{noformat}\n" + d.f.environment + "\n{noformat}\n\n" : "") +
+      SECS.map(([k, n]) => "h3. " + (k === "s2" ? n + "（共 " + casesOf(d).length + " 个）" : n) + "\n" + (k === "s2" ? d.f.s2.replace(/^共 \d+ 个\n/, "") : d.f[k])).join("\n\n");
+  };
+
+  /* ============================== 校验 ============================== */
+  function validate(d) {
+    const errs = [], warns = [], cs = casesOf(d);
+    if (!cs.length) errs.push("这张单没有用例");
+    if (!d.f.summary.trim()) errs.push("标题为空");
+    if (/\{(system|market|module|cases|cause|n)\}/.test(d.f.summary)) errs.push("标题里还有未替换的占位符");
+    if (d.f.summary.length > 255) errs.push("标题超过 255 个字符（" + d.f.summary.length + "）");
+    if (/待确认原因/.test(d.f.summary)) errs.push("标题中的原因还是“待确认原因”，请写明原因");
+    if (d.mode === "comment" && !/^[A-Z][A-Z0-9]+-\d+$/.test(d.target.trim())) errs.push("追加评论需要填写正确的单号，例如 ROTQA-5339");
+    const txt = [d.f.summary, d.f.environment].concat(SECS.map(s => d.f[s[0]])).join("\n");
+    if (E.mask(txt) !== txt) errs.push("内容中有疑似个人信息（证件号、手机号、邮箱、卡号）");
+    const sus = cs.filter(c => !c.override && c.auto.status === "suspected");
+    if (sus.length && !d.ack) warns.push({ k: "sus", t: sus.length + " 个用例的分类仍是“待复核”：" + sus.slice(0, 6).map(c => c.id).join("、") + (sus.length > 6 ? "…" : "") });
+    if (d.meta && !d.meta.causeSure && d.src.summary === "脚本") warns.push({ t: "标题中的原因由异常类型推出，不一定是真正原因，请对照证据修改" });
+    const todo = SECS.filter(s => /待补充/.test(d.f[s[0]])).map(s => s[1]);
+    if (todo.length) warns.push({ t: "以下小节还是“待补充”：" + todo.join("、") });
+    const dup = dupOf(d);
+    if (dup && d.mode === "create") warns.push({ t: "可能重复：" + dup.text + "。建议改为“追加评论到已有单”" });
+    if (!d.f.assignee) warns.push({ t: "没有填写 Assignee（经办人），提交后需在 Jira 里指派" });
+    return { errs, warns, ok: !errs.length && !warns.some(w => w.k === "sus") };
+  }
+  // 本地查重：之前提交过、报错特征相同的单
+  function dupOf(d) {
+    const hit = S.drafts.find(x => x !== d && x.status === "submitted" && x.issueKey && x.sig === d.sig && x.cat === d.cat);
+    if (hit) return { key: hit.issueKey, text: "之前提交的 " + hit.issueKey + " 报错特征相同" };
+    const same = S.drafts.find(x => x !== d && x.status !== "discarded" && x.status !== "submitted" && x.sig === d.sig && x.cat === d.cat);
+    if (same) return { key: "", text: "另一张草稿（" + runOf(same.run).name + "）报错特征相同，可以合并" };
+    return null;
+  }
+
+  /* ============================== Jira 起草 ============================== */
+  A.PAGES.jira = function (root, v) {
+    cfg();
+    if (!S.runs.length) { root.innerHTML = '<div class="card">' + A.emptyBlock("还没有导入数据", "先导入执行结果，完成失败分诊，再来起草 Jira。", '<button class="btn pri" data-go="import">去导入</button>') + "</div>"; A.bindGo(root); return; }
+    v.run = v.run || S.runs[S.runs.length - 1].id; v.st = v.st || "open";
+    const used = new Set(); S.drafts.filter(d => d.status !== "discarded").forEach(d => d.uids.forEach(u => used.add(u)));
+    const avail = S.cases.filter(c => c.failed && c.run === v.run && !used.has(c.uid) && cfg().draftCats.includes(c.final));
+    const availGroups = {}; avail.forEach(c => { const k = c.final + "|" + c.sig; (availGroups[k] = availGroups[k] || []).push(c); });
+    const nG = Object.keys(availGroups).length;
+    const drafts = S.drafts.filter(d => d.run === v.run && (v.st === "all" || (v.st === "open" ? ["draft", "approved"].includes(d.status) : d.status === v.st)));
+    if (!v.cur || !drafts.find(d => d.id === v.cur)) v.cur = drafts[0] ? drafts[0].id : null;
+    v.msel = v.msel || [];
+
+    let html = '<div class="card"><div class="form"><label class="fi"><span>批次</span><select class="sel" id="jRun">' + S.runs.map(r => '<option value="' + r.id + '"' + (r.id === v.run ? " selected" : "") + ">" + esc(r.name) + "</option>").join("") + "</select></label>" +
+      '<span class="hint">可起草的失败用例 <b style="color:#303133">' + avail.length + "</b> 条，可分为 <b style=\"color:#303133\">" + nG + '</b> 组（一组 = 一张 Jira 单）</span><span style="flex:1"></span>' +
+      '<button class="btn" id="jCats">起草范围</button><button class="btn pri" id="jGen"' + (nG ? "" : " disabled") + ">为 " + nG + " 组起草</button></div>" +
+      '<p class="hint" style="margin:10px 0 0">分组规则与“原因分组”页相同：最终分类相同、报错特征相同的用例合并成一张单。标题、环境、受影响用例、实际结果、已做排查由页面根据分诊结果填写；现象、预期结果、推测可以复制材料给 AI 补写；重现步骤和测试数据需要你补充。每张单都要审核后才能导出或提交。</p></div>';
+
+    html += '<div class="cmp" style="grid-template-columns:330px minmax(0,1fr)"><div class="card" style="padding:12px;margin:0">' +
+      '<div class="subtabs" style="margin-bottom:8px">' + [["open", "进行中"], ["submitted", "已提交"], ["discarded", "已放弃"], ["all", "全部"]].map(([k, n]) => '<button data-jst="' + k + '" class="' + (v.st === k ? "on" : "") + '">' + n + "</button>").join("") + "</div>" +
+      '<div class="bar" style="margin-bottom:8px"><span class="hint">勾选多张可合并</span><span class="sp"></span><button class="btn sm" id="jMerge"' + (v.msel.length > 1 ? "" : " disabled") + ">合并" + (v.msel.length > 1 ? "（" + v.msel.length + "）" : "") + "</button></div>" +
+      '<div class="clist">' + (drafts.length ? drafts.map(d => {
+        const cs = casesOf(d), val = validate(d);
+        return '<div class="ci' + (d.id === v.cur ? " on" : "") + '" style="cursor:pointer" data-jd="' + d.id + '"><div style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-jm="' + d.id + '"' + (v.msel.includes(d.id) ? " checked" : "") + ' style="margin-top:3px"><div style="min-width:0"><div class="nm" style="white-space:normal;line-height:1.45">' + esc(d.f.summary) + '</div><div class="meta" style="margin-top:4px">' + A.catTag(cs[0] ? cs[0].final : d.cat) + " " + cs.length + " 个用例 · " + esc(d.f.priority) + (d.mode === "comment" ? " · 追加到 " + esc(d.target) : "") + (d.issueKey ? " · " + esc(d.issueKey) : "") +
+          '</div></div></div><div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end"><span class="tag ' + ST[d.status][1] + '">' + ST[d.status][0] + "</span>" + (d.status === "draft" && val.errs.length ? '<span class="tag red">' + val.errs.length + " 个问题</span>" : "") + "</div></div>";
+      }).join("") : '<div class="empty">' + (nG ? "点击上方“为 " + nG + " 组起草”" : "没有草稿") + "</div>") + "</div></div>";
+    const d = v.cur ? S.drafts.find(x => x.id === v.cur) : null;
+    html += '<div class="card" style="margin:0;min-width:0" id="jForm">' + (d ? form(d, v) : A.emptyBlock("请选择左侧的草稿")) + "</div></div>";
+    root.innerHTML = html;
+
+    $("#jRun").onchange = e => { v.run = e.target.value; v.cur = null; v.msel = []; A.render(); };
+    $("#jCats").onclick = catsDialog;
+    $("#jGen").onclick = () => {
+      Object.values(availGroups).forEach(cs => S.drafts.push(newDraft(v.run, cs[0].final, cs[0].sig, cs.map(c => c.uid))));
+      A.save(); v.st = "open"; A.render(); A.toast("已起草 " + nG + " 张");
+    };
+    $$("[data-jst]", root).forEach(b => b.onclick = () => { v.st = b.dataset.jst; v.cur = null; A.render(); });
+    $$("[data-jd]", root).forEach(el => el.onclick = e => { if (e.target.dataset.jm) return; v.cur = el.dataset.jd; v.tab = "edit"; A.render(); });
+    $$("[data-jm]", root).forEach(cb => cb.onchange = () => { const id = cb.dataset.jm; v.msel = cb.checked ? v.msel.concat(id) : v.msel.filter(x => x !== id); A.render(); });
+    $("#jMerge").onclick = () => mergeDialog(v);
+    if (d) bindForm(root, d, v);
+  };
+
+  function catsDialog() {
+    const C = cfg();
+    A.dialog("起草范围", '<p style="margin-top:0">哪些分类的失败用例需要起草 Jira？（“重跑可过”一般不提单）</p>' + Object.keys(E.CATS).map(k => '<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" data-dcat="' + k + '"' + (C.draftCats.includes(k) ? " checked" : "") + ">" + A.catTag(k) + '<span class="hint">' + E.CATS[k].owner + "</span></label>").join(""),
+      [{ t: "取消" }, { t: "保存", pri: true, fn: () => { C.draftCats = $$("[data-dcat]").filter(x => x.checked).map(x => x.dataset.dcat); A.save(); A.render(); } }]);
+  }
+  function mergeDialog(v) {
+    const ds = S.drafts.filter(d => v.msel.includes(d.id));
+    if (ds.some(d => d.status === "submitted")) { A.toast("已提交的单不能合并", true); return; }
+    A.dialog("合并 " + ds.length + " 张草稿", "合并后只保留第一张的标题和人工填写的内容，用例合在一起，脚本字段按合并后的用例重新生成。<ul>" + ds.map(d => "<li>" + esc(d.f.summary) + "（" + d.uids.length + " 个用例）</li>").join("") + "</ul>",
+      [{ t: "取消" }, { t: "合并", pri: true, fn: () => {
+        const [k, ...rest] = ds;
+        rest.forEach(d => { k.uids = k.uids.concat(d.uids.filter(u => !k.uids.includes(u))); S.drafts = S.drafts.filter(x => x !== d); });
+        k.status = "draft"; k.history.push(now() + " 合并了 " + rest.length + " 张草稿");
+        applyScript(k); A.save(); v.msel = []; v.cur = k.id; A.render(); A.toast("已合并");
+      } }]);
+  }
+
+  /* ---------- 草稿表单 ---------- */
+  const srcTag = s => '<span class="tag ' + (SRC[s] || "gray") + '" style="font-size:11px;line-height:17px">' + (s || "脚本") + "</span>";
+  function form(d, v) {
+    v.tab = v.tab || "edit";
+    const cs = casesOf(d), C = cfg(), val = validate(d), lock = d.status === "submitted";
+    let h = '<div class="bar"><span class="tag ' + ST[d.status][1] + '">' + ST[d.status][0] + "</span>" + (d.issueKey ? '<span class="tag green">' + esc(d.issueKey) + "</span>" : "") + '<span class="hint">' + esc(runOf(d.run).name) + " · 起草于 " + esc(d.created) + (d.reviewer ? " · 审核：" + esc(d.reviewer) + " " + esc(d.reviewedAt || "") : "") + '</span><span class="sp"></span>' +
+      '<div class="seg"><button data-jt="edit" class="' + (v.tab === "edit" ? "on" : "") + '">编辑</button><button data-jt="preview" class="' + (v.tab === "preview" ? "on" : "") + '">预览</button><button data-jt="cases" class="' + (v.tab === "cases" ? "on" : "") + '">用例（' + cs.length + ")</button></div></div>";
+    h += '<div class="verdict" style="margin-bottom:12px;border-color:#d9ecff;background:#f4f9ff">本单包含 <b>' + cs.length + "</b> 个用例，分类 " + A.catTag(cs[0] ? cs[0].final : d.cat) + "，报错特征：<code style=\"font-size:11.5px\">" + esc((d.sig || "(无报错)").slice(0, 120)) + "</code></div>";
+    if (v.tab === "preview") return h + preview(d);
+    if (v.tab === "cases") return h + caseTab(d);
+    const dis = lock ? " disabled" : "";
+    const row = (k, input, extra) => '<label style="display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px;align-items:start;margin-bottom:10px"><span style="padding-top:6px;color:#606266">' + FIELD_NAMES[k] + " " + srcTag(d.src[k]) + "</span><div>" + input + (extra || "") + "</div></label>";
+    const txt = (k, ph) => '<input class="inp" style="width:100%" data-jf="' + k + '" value="' + esc(d.f[k]) + '" placeholder="' + esc(ph || "") + '"' + dis + ">";
+    const sel = (k, opts) => '<select class="sel" data-jf="' + k + '"' + dis + ">" + opts.map(o => "<option" + (d.f[k] === o ? " selected" : "") + ">" + o + "</option>").join("") + "</select>";
+    h += '<div class="form" style="margin-bottom:14px"><label class="fi"><span>提交方式</span><select class="sel" id="jMode"' + dis + '><option value="create"' + (d.mode === "create" ? " selected" : "") + '>新建 Jira 单</option><option value="comment"' + (d.mode === "comment" ? " selected" : "") + ">追加评论到已有单</option></select></label>" +
+      (d.mode === "comment" ? '<label class="fi"><span>已有单号</span><input class="inp" id="jTarget" value="' + esc(d.target) + '" placeholder="ROTQA-5339"' + dis + "></label>" : "") + '<span class="hint">项目 ' + esc(C.project) + "</span></div>";
+    h += row("summary", txt("summary"), '<div class="hint" style="margin-top:4px">' + d.f.summary.length + " / 255" + (d.meta && !d.meta.causeSure ? '　<span style="color:#e6a23c">原因由异常类型推出，请对照证据确认</span>' : "") + "</div>");
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0 18px">' +
+      row("issueType", sel("issueType", Array.from(new Set([C.issueType, C.issueTypeEnv, "Bug", "Task"])))) +
+      row("priority", sel("priority", ["Highest", "High", "Medium", "Low", "Lowest"]), d.meta ? '<div class="hint" style="margin-top:4px">建议依据：' + esc(d.meta.priorityWhy) + "</div>" : "") +
+      row("system", txt("system")) + row("components", txt("components", "多个用逗号分隔")) + row("labels", txt("labels", "多个用逗号分隔"), '<div class="hint" style="margin-top:4px">提交时会自动加上 triage-' + esc(d.id) + "，后端用它防止重复建单</div>") +
+      row("assignee", txt("assignee", "不自动填写，由你决定")) + "</div>";
+    h += row("environment", '<textarea class="ta" rows="5" data-jf="environment"' + dis + ">" + esc(d.f.environment) + "</textarea>", C.envMode === "description" ? '<div class="hint">当前配置：Environment 写在 Description 最前面</div>' : "");
+    h += '<div style="margin:6px 0 10px;display:flex;align-items:center;gap:10px"><b>Description</b><span class="hint">8 个小节，没有信息的写“待补充：缺什么”，不要删除小节，不要编造</span><span style="flex:1"></span>' + (lock ? "" : '<button class="btn sm" id="jAI">复制起草材料给 AI</button><button class="btn sm" id="jPaste">粘贴 AI 结果</button>') + "</div>";
+    SECS.forEach(([k, n]) => {
+      h += '<div style="margin-bottom:10px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:4px"><span style="color:#606266">' + n + "</span>" + srcTag(d.src[k]) + (/待补充/.test(d.f[k]) ? '<span class="tag orange" style="font-size:11px;line-height:17px">待补充</span>' : "") + '</div><textarea class="ta" rows="' + Math.min(10, Math.max(2, d.f[k].split("\n").length + 1)) + '" data-jf="' + k + '"' + dis + ">" + esc(d.f[k]) + "</textarea></div>";
+    });
+    const att = d.meta ? d.meta.attach : [];
+    h += '<div class="sec"><h5>附件 <span class="hint" style="font-weight:400">由后端上传；文件名必须与实际截图一致</span></h5>' + (att.length ? att.map(a => '<span class="tag gray" style="margin:0 6px 6px 0">' + esc(a) + "</span>").join("") : '<span class="hint">没有截图。可以在“数据导入 → 匹配截图”中补充，或提交后在 Jira 中手动上传。</span>') + "</div>";
+    h += '<div class="sec"><h5>提交前检查</h5>' + (val.errs.length || val.warns.length ? "" : '<div class="verdict">全部通过</div>') +
+      val.errs.map(e => '<div class="verdict" style="border-color:#fde2e2;background:#fef0f0;margin-bottom:6px;color:#f56c6c">必须修改：' + esc(e) + (/个人信息/.test(e) && !lock ? ' <a id="jMask">一键脱敏</a>' : "") + "</div>").join("") +
+      val.warns.map(w => '<div class="verdict sus" style="margin-bottom:6px">请确认：' + esc(w.t) + (w.k === "sus" && !lock ? '<label style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="jAck">我已看过这些用例的证据，确认归入这张单</label>' : "") + "</div>").join("") + "</div>";
+    if (d.history.length) h += '<div class="sec"><h5>记录</h5><div class="hint">' + d.history.slice(-8).map(esc).join("<br>") + "</div></div>";
+    h += '<div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #ebeef5;padding-top:12px;flex-wrap:wrap">';
+    if (lock) h += '<button class="btn" id="jCopy">复制 Description</button>';
+    else {
+      h += '<button class="btn dang" id="jDiscard">' + (d.status === "discarded" ? "恢复草稿" : "放弃这张单") + '</button><button class="btn" id="jRefresh">按最新分诊刷新脚本字段</button><button class="btn" id="jCopy">复制 Description</button>';
+      h += d.status === "approved" ? '<button class="btn" id="jUnapprove">撤回审核</button><button class="btn pri" data-go="jirasub">去提交与导出</button>' : d.status === "draft" ? '<button class="btn pri" id="jApprove"' + (val.ok ? "" : " disabled") + ">审核通过</button>" : "";
+    }
+    return h + "</div>";
+  }
+  function caseTab(d) {
+    const cs = casesOf(d), lock = d.status === "submitted";
+    const others = S.drafts.filter(x => x !== d && x.run === d.run && ["draft", "approved"].includes(x.status));
+    return '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>用例标识</th><th>用例名称</th><th>分类</th><th>判定状态</th><th>报错摘要</th><th>操作</th></tr></thead><tbody>' +
+      cs.map(c => '<tr><td class="mono"><a data-jopen="' + c.uid + '">' + esc(c.id) + "</a></td><td>" + esc(c.name) + "</td><td>" + A.catTag(c.final) + "</td><td>" + A.statusTag(c) + '</td><td class="clip" style="max-width:260px">' + esc(firstLine(c)) + '</td><td class="ops">' +
+        (lock ? "" : '<a data-jrm="' + c.uid + '">移出本单</a>' + (others.length ? '<select class="sel" style="min-width:0;height:26px;font-size:12px" data-jmv="' + c.uid + '"><option value="">移到其他单…</option>' + others.map(o => '<option value="' + o.id + '">' + esc(o.f.summary.slice(0, 40)) + "</option>").join("") + "</select>" : "")) + "</td></tr>").join("") +
+      '</tbody></table></div><p class="hint">移出的用例回到“可起草”列表，可以重新起草成单独的单。移入、移出后，脚本字段会按新的用例重新生成。</p>';
+  }
+  function bindForm(root, d, v) {
+    $$("[data-jt]", root).forEach(b => b.onclick = () => { v.tab = b.dataset.jt; A.render(); });
+    $$("[data-jopen]", root).forEach(a => a.onclick = () => A.openCase(a.dataset.jopen));
+    const touch = msg => { if (d.status === "approved") { d.status = "draft"; d.history.push(now() + " 审核后又修改，需重新审核"); } if (msg) d.history.push(now() + " " + msg); A.save(); };
+    $$("[data-jf]", root).forEach(el => el.onchange = () => { const k = el.dataset.jf; if (d.f[k] === el.value) return; d.f[k] = el.value; d.src[k] = "人工"; touch(); A.render(); });
+    $$("[data-jrm]", root).forEach(a => a.onclick = () => { d.uids = d.uids.filter(u => u !== a.dataset.jrm); applyScript(d); touch("移出用例"); A.render(); });
+    $$("[data-jmv]", root).forEach(s => s.onchange = () => {
+      const o = S.drafts.find(x => x.id === s.value); if (!o) return;
+      d.uids = d.uids.filter(u => u !== s.dataset.jmv); o.uids.push(s.dataset.jmv); applyScript(d); applyScript(o);
+      if (o.status === "approved") o.status = "draft"; o.history.push(now() + " 移入用例"); touch("移出用例到另一张单"); A.render();
+    });
+    if (v.tab !== "edit") return;
+    if ($("#jMode")) $("#jMode").onchange = e => { d.mode = e.target.value; touch(); A.render(); };
+    if ($("#jTarget")) $("#jTarget").onchange = e => { d.target = e.target.value.trim().toUpperCase(); touch(); A.render(); };
+    if ($("#jAck")) $("#jAck").onchange = e => { d.ack = e.target.checked; A.save(); A.render(); };
+    if ($("#jMask")) $("#jMask").onclick = () => { Object.keys(d.f).forEach(k => { const m = E.mask(d.f[k]); if (m !== d.f[k]) { d.f[k] = m; d.src[k] = "人工"; } }); touch("一键脱敏"); A.render(); };
+    if ($("#jAI")) $("#jAI").onclick = () => A.showText("起草材料（已脱敏，复制给公司批准的 AI 工具）", aiPrompt(d));
+    if ($("#jPaste")) $("#jPaste").onclick = () => pasteDialog(d, v);
+    $("#jCopy").onclick = () => A.copy(wiki(d));
+    if ($("#jRefresh")) $("#jRefresh").onclick = () => { applyScript(d); touch("按最新分诊刷新脚本字段"); A.render(); A.toast("已刷新；你和 AI 改过的字段没有变"); };
+    if ($("#jDiscard")) $("#jDiscard").onclick = () => { d.status = d.status === "discarded" ? "draft" : "discarded"; d.history.push(now() + (d.status === "discarded" ? " 放弃" : " 恢复")); A.save(); A.render(); };
+    if ($("#jUnapprove")) $("#jUnapprove").onclick = () => { d.status = "draft"; d.history.push(now() + " 撤回审核"); A.save(); A.render(); };
+    if ($("#jApprove")) $("#jApprove").onclick = () => {
+      const C = cfg();
+      A.dialog("审核通过", '<p style="margin-top:0">确认这张单的内容已核对：标题原因有证据、没有编造内容、没有个人信息。审核通过后才能导出或提交。</p><label class="fi"><span>审核人</span><input class="inp" id="jRev" value="' + esc(C.reviewer) + '"></label>',
+        [{ t: "取消" }, { t: "确认通过", pri: true, fn: () => { const r = $("#jRev").value.trim(); if (!r) { A.toast("请填写审核人", true); return false; } C.reviewer = r; d.status = "approved"; d.reviewer = r; d.reviewedAt = now(); d.history.push(now() + " " + r + " 审核通过"); A.save(); A.render(); A.toast("已审核通过"); } }]);
+    };
+  }
+
+  /* ---------- 预览（简单渲染 Jira wiki 格式） ---------- */
+  function renderWiki(t) {
+    const out = []; let list = null, table = false, inNo = false, pre = [];
+    const thumbs = [];
+    const inline = s => esc(s).replace(/\{\{(.+?)\}\}/g, "<code>$1</code>").replace(/\u0001(\d+)\u0001/g, (_, i) => '<span class="tag gray">截图 ' + esc(thumbs[+i]) + "</span>").replace(/\*([^*\n]+)\*/g, "<b>$1</b>");
+    const close = () => { if (list) { out.push("</" + list + ">"); list = null; } if (table) { out.push("</table>"); table = false; } };
+    t.split("\n").forEach(l => {
+      if (l.trim() === "{noformat}") { if (inNo) { out.push('<pre style="background:#f5f7fa;padding:8px;font-size:11.5px;white-space:pre-wrap">' + esc(pre.join("\n")) + "</pre>"); pre = []; } else close(); inNo = !inNo; return; }
+      if (inNo) { pre.push(l); return; }
+      l = l.replace(/!([^!|]+)\|thumbnail!/g, (_, n) => { thumbs.push(n); return "\u0001" + (thumbs.length - 1) + "\u0001"; });
+      let m;
+      if ((m = /^h(\d)\.\s*(.*)/.exec(l))) { close(); out.push('<h4 style="margin:14px 0 6px;font-size:14px">' + inline(m[2]) + "</h4>"); }
+      else if (/^\|/.test(l)) {
+        if (list) { out.push("</" + list + ">"); list = null; }
+        if (!table) { out.push('<table class="tbl" style="margin:4px 0">'); table = true; }
+        const th = /^\|\|/.test(l), cells = l.split(th ? "||" : "|").slice(1, -1);
+        out.push("<tr>" + cells.map(c => (th ? "<th>" : "<td>") + inline(c.trim()) + (th ? "</th>" : "</td>")).join("") + "</tr>");
+      }
+      else if ((m = /^([#*])\s+(.*)/.exec(l))) { const tg = m[1] === "#" ? "ol" : "ul"; if (table) { out.push("</table>"); table = false; } if (list !== tg) { if (list) out.push("</" + list + ">"); out.push("<" + tg + ' style="margin:4px 0;padding-left:20px">'); list = tg; } out.push("<li>" + inline(m[2]) + "</li>"); }
+      else { close(); if (l.trim()) out.push('<p style="margin:4px 0">' + inline(l) + "</p>"); }
+    });
+    if (inNo && pre.length) out.push("<pre>" + esc(pre.join("\n")) + "</pre>");
+    close();
+    return out.join("");
+  }
+  function preview(d) {
+    const C = cfg();
+    return '<div style="border:1px solid #ebeef5;border-radius:4px;padding:16px"><div class="hint">' + esc(C.project) + " / " + esc(d.f.issueType) + (d.mode === "comment" ? " · 追加评论到 " + esc(d.target) : "") + '</div><h3 style="margin:4px 0 12px;font-size:17px">' + esc(d.f.summary) + "</h3>" +
+      '<dl class="kv" style="margin-bottom:12px"><dt>Priority</dt><dd>' + esc(d.f.priority) + "</dd><dt>System</dt><dd>" + esc(d.f.system) + "</dd><dt>Components</dt><dd>" + esc(d.f.components) + "</dd><dt>Labels</dt><dd>" + esc(labelsOf(d).join(", ")) + "</dd><dt>Assignee</dt><dd>" + esc(d.f.assignee || "未指派") + "</dd>" +
+      (C.envMode === "field" ? '<dt>Environment</dt><dd style="white-space:pre-wrap">' + esc(d.f.environment) + "</dd>" : "") + "</dl>" + renderWiki(wiki(d)) + "</div>";
+  }
+
+  /* ---------- AI 起草材料 ---------- */
+  function aiPrompt(d) {
+    const cs = casesOf(d);
+    const s = "你是测试缺陷单起草助手。请根据下面的证据，为这张 Jira 单补写内容。要求：\n" +
+      "1. 只能使用给出的证据，不能编造步骤、数据或原因；证据不足的地方写“待补充：缺什么”；\n" +
+      "2. 现象、实际结果引用报错原文，不要改写；\n" +
+      "3. 所有推测写在“推测与待确认”里，并标明“推测”；\n" +
+      "4. 标题原因用英文短语，不超过 12 个单词，必须来自证据；\n" +
+      "5. 严格按下面的格式输出，每个【】标记单独一行，不要输出其他内容：\n" +
+      "【标题原因】\n【1. 现象】\n【4. 预期结果】\n【8. 推测与待确认】\n\n" +
+      "========== 当前草稿 ==========\n标题：" + d.f.summary + "\n分类：" + E.CATS[cs[0].final].name + "\n" + SECS.map(([k, n]) => n + "：\n" + d.f[k]).join("\n\n") +
+      "\n\n========== 用例证据（最多 5 个） ==========\n" + cs.slice(0, 5).map(c => "用例 " + c.id + " " + (c.name || "") + "\n" + c.auto.ev.filter(e => e.kind !== "shot").map(e => e.id + " " + e.label + "：" + (e.text.length > 1200 ? e.text.slice(0, 1200) + "…（已截断）" : e.text)).join("\n")).join("\n\n");
+    return E.mask(s);
+  }
+  function pasteDialog(d, v) {
+    A.dialog("粘贴 AI 结果", '<p class="hint" style="margin-top:0">把 AI 按格式返回的内容整段粘贴进来，页面会按【】标记填到对应字段，来源标为“AI”。填好后请逐项核对。</p><textarea class="ta" id="jAiIn" rows="14"></textarea>',
+      [{ t: "取消" }, { t: "填入", pri: true, fn: () => {
+        const t = $("#jAiIn").value; const parts = {}; let cur = null;
+        t.split("\n").forEach(l => { const m = /^\s*【(.+?)】\s*(.*)$/.exec(l); if (m) { cur = m[1].trim(); parts[cur] = m[2] ? [m[2]] : []; } else if (cur) parts[cur].push(l); });
+        const get = k => (parts[k] || []).join("\n").trim();
+        let n = 0;
+        const put = (key, val) => { if (!val) return; d.f[key] = E.mask(val); d.src[key] = "AI"; n++; };
+        const cause = get("标题原因");
+        if (cause) {
+          // 只替换标题中的原因部分，前缀（系统、市场、模块）保持不变
+          const at = d.f.summary.lastIndexOf(" due to ");
+          put("summary", at > 0 ? d.f.summary.slice(0, at + 8) + cause : cfg().titleTpl.replace("{system}", d.f.system).replace("{market}", cfg().market).replace("{module}", most(casesOf(d).map(c => c.module)) || "Regression").replace("{cases}", d.uids.length > 1 ? "cases" : "case").replace("{n}", d.uids.length).replace("{cause}", cause));
+        }
+        put("s1", get("1. 现象")); put("s4", get("4. 预期结果")); put("s8", get("8. 推测与待确认"));
+        if (!n) { A.toast("没有识别到【】标记，请确认 AI 按格式输出", true); return false; }
+        if (d.status === "approved") d.status = "draft";
+        d.history.push(now() + " 填入 AI 结果（" + n + " 项）"); A.save(); A.render(); A.toast("已填入 " + n + " 项，请核对");
+      } }]);
+  }
+
+  /* ============================== 提交与导出 ============================== */
+  const labelsOf = d => Array.from(new Set(d.f.labels.split(/[,，\s]+/).filter(Boolean).concat(["triage-" + d.id]))).map(s => s.replace(/\s+/g, "-"));
+  const comps = d => d.f.components.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+  const mk = s => cfg().maskOnExport ? E.mask(s) : s;
+  function payload(d) {
+    const C = cfg(), cs = casesOf(d);
+    const fields = { project: { key: C.project }, issuetype: { name: d.f.issueType }, summary: mk(d.f.summary), priority: { name: d.f.priority }, labels: labelsOf(d), components: comps(d).map(n => ({ name: n })), description: mk(wiki(d)) };
+    if (C.envMode === "field") fields.environment = mk(d.f.environment);
+    if (C.systemField) fields[C.systemField] = { value: d.f.system };
+    if (d.f.assignee) fields.assignee = C.deploy === "cloud" ? { accountId: d.f.assignee } : { name: d.f.assignee };
+    return {
+      draftId: d.id, mode: d.mode, target: d.mode === "comment" ? d.target : null, idempotencyLabel: "triage-" + d.id,
+      fields: d.mode === "create" ? fields : undefined,
+      comment: d.mode === "comment" ? mk("h4. 自动回归 " + runOf(d.run).name + " 再次出现（" + cs.length + " 个用例）\n* 环境：" + (runOf(d.run).env || "-") + "\n* 受影响用例：" + cs.map(c => c.id).join(", ") + "\n* 报错原文：{{" + firstLine(cs[0] || {}).slice(0, 200).replace(/[{}]/g, "") + "}}\n\n" + wiki(d)) : undefined,
+      attachments: (d.meta ? d.meta.attach : []).map(n => ({ fileName: n, sourcePath: n === "affected_cases.csv" ? null : ((cs.find(c => (c.screenshot || "").includes(n)) || {}).screenshot || "").split(";")[0].trim() || null })),
+      cases: cs.map(c => ({ id: c.id, name: c.name, category: c.final, rule: c.override ? "人工" : c.auto.rule })),
+      reviewer: d.reviewer, reviewedAt: d.reviewedAt,
+    };
+  }
+  function jiraCSV(list) {
+    const C = cfg(), maxL = Math.max(1, ...list.map(d => labelsOf(d).length)), maxC = Math.max(1, ...list.map(d => comps(d).length));
+    const head = ["Summary", "Issue Type", "Priority"].concat(Array(maxC).fill("Component/s"), Array(maxL).fill("Labels"), C.envMode === "field" ? ["Environment"] : [], ["System", "Assignee", "Description", "Draft ID"]);
+    const rows = [head].concat(list.map(d => {
+      const L = labelsOf(d), Cm = comps(d);
+      return [mk(d.f.summary), d.f.issueType, d.f.priority].concat(Array.from({ length: maxC }, (_, i) => Cm[i] || ""), Array.from({ length: maxL }, (_, i) => L[i] || ""), C.envMode === "field" ? [mk(d.f.environment)] : [], [d.f.system, d.f.assignee, mk(wiki(d)), d.id]);
+    }));
+    return A.toCSV(rows);
+  }
+  A.PAGES.jirasub = function (root, v) {
+    const C = cfg();
+    const ready = S.drafts.filter(d => d.status === "approved");
+    const createList = ready.filter(d => d.mode === "create"), commentList = ready.filter(d => d.mode === "comment");
+    v.sel = (v.sel || ready.map(d => d.id)).filter(id => ready.find(d => d.id === id));
+    const pick = ready.filter(d => v.sel.includes(d.id));
+    const sub = S.drafts.filter(d => d.status === "submitted");
+    let html = '<div class="kpis">' + [["待审核", S.drafts.filter(d => d.status === "draft").length, "#e6a23c"], ["已审核待提交", ready.length, "#409eff"], ["已提交", sub.length, "#67c23a"], ["已放弃", S.drafts.filter(d => d.status === "discarded").length, "#909399"]]
+      .map(([l, n, c]) => '<div class="kpi" style="--c:' + c + '"><b>' + n + "</b><span>" + l + "</span></div>").join("") + "</div>";
+    html += '<div class="card"><h3>已审核待提交 <span class="sub">新建 ' + createList.length + " 张 · 追加评论 " + commentList.length + ' 张</span><span class="acts"><button class="btn" data-go="jira">回到起草</button></span></h3>' +
+      (ready.length ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th><input type="checkbox" id="sAll"' + (pick.length === ready.length ? " checked" : "") + "></th><th>标题</th><th>方式</th><th>Priority</th><th>用例数</th><th>附件</th><th>审核人</th><th>操作</th></tr></thead><tbody>" +
+        ready.map(d => '<tr><td><input type="checkbox" data-ss="' + d.id + '"' + (v.sel.includes(d.id) ? " checked" : "") + '></td><td style="min-width:260px">' + esc(d.f.summary) + '<div class="hint">' + esc(runOf(d.run).name) + "</div></td><td>" + (d.mode === "create" ? '<span class="tag blue">新建</span>' : '<span class="tag purple">追加到 ' + esc(d.target) + "</span>") + "</td><td>" + esc(d.f.priority) + "</td><td>" + d.uids.length + "</td><td>" + (d.meta ? d.meta.attach.length : 0) + "</td><td>" + esc(d.reviewer || "") + '<div class="hint">' + esc(d.reviewedAt || "") + '</div></td><td class="ops"><a data-sopen="' + d.id + '">查看</a><a data-skey="' + d.id + '">回填单号</a></td></tr>').join("") + "</tbody></table></div>"
+        : A.emptyBlock("没有已审核的单", "在“Jira 起草”里审核通过后会出现在这里。", '<button class="btn pri" data-go="jira">去起草</button>')) + "</div>";
+    html += '<div class="card"><h3>提交方式 <span class="sub">已选 ' + pick.length + " 张</span></h3>" +
+      '<div class="flow">' +
+      '<div class="step"><h6><span class="n">A</span>导出 Jira CSV（现在就能用）</h6><p>用 Jira 自带的 CSV 导入（系统 → 外部系统导入 → CSV）批量建单。CSV 不能带附件，截图要在建单后手动上传。只包含“新建”的单。</p><div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm pri" id="sCsv"' + (pick.some(d => d.mode === "create") ? "" : " disabled") + '>导出 CSV</button><button class="btn sm" id="sCsvCopy"' + (pick.some(d => d.mode === "create") ? "" : " disabled") + ">复制内容</button></div></div>" +
+      '<div class="step"><h6><span class="n">B</span>复制到 Jira 网页手动建单</h6><p>逐张打开“查看”，复制标题和 Description（Jira 文本格式），粘贴到 Jira 建单页面。适合单数少、或者没有导入权限时。</p><div style="margin-top:10px"><button class="btn sm" id="sCopyAll"' + (pick.length ? "" : " disabled") + ">复制全部标题和描述</button></div></div>" +
+      '<div class="step' + (C.backendUrl ? "" : " later") + '"><h6><span class="n">C</span>通过后端接口提交' + (C.backendUrl ? "" : ' <span class="tag gray" style="margin-left:6px">后续</span>') + "</h6><p>页面把审核过的单发给后端，后端查重、建单、上传附件、回读确认，返回单号后自动回填。Jira 账号和 Token 只放在后端。" + (C.backendUrl ? "当前后端：" + esc(C.backendUrl) : "需要先在“Jira 配置”填写后端地址。") + '</p><div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" id="sPayload"' + (pick.length ? "" : " disabled") + '>查看请求内容</button><button class="btn sm pri" id="sSubmit"' + (pick.length && C.backendUrl ? "" : " disabled") + ">先预检（不写入）</button></div></div>" +
+      "</div><p class=\"hint\" style=\"margin:12px 0 0\">用 A 或 B 方式建好单后，请点表格里的“回填单号”，把 Jira 单号填回来。这样之后出现相同报错时，起草页会提示“可能重复”，并建议改为追加评论。</p></div>";
+    html += '<div class="card"><h3>提交记录</h3>' + (S.jiraLog.length ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>时间</th><th>方式</th><th>单数</th><th>结果</th><th>操作人</th></tr></thead><tbody>' + S.jiraLog.slice().reverse().slice(0, 50).map(l => "<tr><td>" + esc(l.at) + "</td><td>" + esc(l.how) + "</td><td>" + l.n + "</td><td>" + esc(l.result) + "</td><td>" + esc(l.by || "") + "</td></tr>").join("") + "</tbody></table></div>" : '<p class="hint" style="margin:0">还没有记录。</p>') +
+      (sub.length ? '<h3 style="margin-top:16px">已提交的单</h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>单号</th><th>标题</th><th>用例数</th><th>提交时间</th></tr></thead><tbody>' + sub.map(d => '<tr><td class="mono">' + (C.baseUrl && d.issueKey ? '<a href="' + esc(C.baseUrl.replace(/\/$/, "") + "/browse/" + d.issueKey) + '" target="_blank" rel="noopener">' + esc(d.issueKey) + "</a>" : esc(d.issueKey || "-")) + "</td><td>" + esc(d.f.summary) + "</td><td>" + d.uids.length + "</td><td>" + esc(d.submittedAt || "") + "</td></tr>").join("") + "</tbody></table></div>" : "") + "</div>";
+    root.innerHTML = html;
+    A.bindGo(root);
+    $$("[data-ss]", root).forEach(cb => cb.onchange = () => { const id = cb.dataset.ss; v.sel = cb.checked ? v.sel.concat(id) : v.sel.filter(x => x !== id); A.render(); });
+    if ($("#sAll")) $("#sAll").onchange = e => { v.sel = e.target.checked ? ready.map(d => d.id) : []; A.render(); };
+    $$("[data-sopen]", root).forEach(a => a.onclick = () => { const d = S.drafts.find(x => x.id === a.dataset.sopen); A.go("jira", { run: d.run, cur: d.id, st: "open", tab: "preview" }); });
+    $$("[data-skey]", root).forEach(a => a.onclick = () => keyDialog(S.drafts.find(x => x.id === a.dataset.skey)));
+    const log = (how, n, result) => { S.jiraLog.push({ at: now(), how, n, result, by: C.reviewer }); A.save(); };
+    const csvList = () => pick.filter(d => d.mode === "create");
+    $("#sCsv").onclick = () => { A.download("jira_import_" + new Date().toISOString().slice(0, 10) + ".csv", jiraCSV(csvList()), "text/csv;charset=utf-8"); log("导出 CSV", csvList().length, "已导出，待在 Jira 导入"); A.render(); };
+    $("#sCsvCopy").onclick = () => { A.copy(jiraCSV(csvList())); log("复制 CSV", csvList().length, "已复制"); };
+    $("#sCopyAll").onclick = () => A.showText("标题和描述（Jira 文本格式）", pick.map((d, i) => "#" + (i + 1) + (d.mode === "comment" ? " 追加评论到 " + d.target : "") + "\nSummary: " + mk(d.f.summary) + "\nPriority: " + d.f.priority + "\nLabels: " + labelsOf(d).join(", ") + (C.envMode === "field" ? "\nEnvironment:\n" + mk(d.f.environment) : "") + "\n\nDescription:\n" + mk(wiki(d))).join("\n\n====================\n\n"));
+    $("#sPayload").onclick = () => A.showText("发给后端的请求内容（POST " + (C.backendUrl || "<后端地址>") + "/jira/submit）", JSON.stringify({ dryRun: true, deploy: C.deploy, baseUrl: C.baseUrl, project: C.project, items: pick.map(payload) }, null, 2));
+    $("#sSubmit").onclick = () => submitBackend(pick, true, log);
+  }
+
+  function keyDialog(d) {
+    A.dialog("回填 Jira 单号", '<p style="margin-top:0">' + esc(d.f.summary) + '</p><label class="fi"><span>单号</span><input class="inp" id="kIn" value="' + esc(d.mode === "comment" ? d.target : d.issueKey || "") + '" placeholder="ROTQA-5339"></label>',
+      [{ t: "取消" }, { t: "保存", pri: true, fn: () => {
+        const k = $("#kIn").value.trim().toUpperCase();
+        if (!/^[A-Z][A-Z0-9]+-\d+$/.test(k)) { A.toast("单号格式不对，例如 ROTQA-5339", true); return false; }
+        d.issueKey = k; d.status = "submitted"; d.submittedAt = now(); d.history.push(now() + " 回填单号 " + k);
+        S.jiraLog.push({ at: now(), how: "手动回填", n: 1, result: k, by: cfg().reviewer }); A.save(); A.render(); A.toast("已回填");
+      } }]);
+  }
+
+  // 后端接口：先预检（dryRun，只查重和校验字段），确认后再正式写入
+  async function submitBackend(list, dryRun, log) {
+    const C = cfg(), url = C.backendUrl.replace(/\/$/, "") + "/jira/submit";
+    A.toast(dryRun ? "正在预检…" : "正在提交…");
+    let res;
+    try {
+      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dryRun, deploy: C.deploy, baseUrl: C.baseUrl, project: C.project, items: list.map(payload) }) });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      res = await r.json();
+    } catch (e) {
+      A.dialog("无法连接后端", "请求 " + esc(url) + " 失败：" + esc(e.message) + "<p class=\"hint\">请确认后端已启动、地址正确，并允许这个页面跨域访问（CORS）。也可以先用 CSV 导出方式。</p>", [{ t: "关闭" }]);
+      return;
+    }
+    const results = (res && res.results) || [];
+    const rows = list.map(d => { const r = results.find(x => x.draftId === d.id) || {}; return { d, r }; });
+    const body = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>标题</th><th>结果</th><th>说明</th></tr></thead><tbody>' + rows.map(({ d, r }) => "<tr><td>" + esc(d.f.summary) + "</td><td>" + (r.error ? '<span class="tag red">失败</span>' : r.duplicateOf ? '<span class="tag orange">疑似重复</span>' : r.key ? '<span class="tag green">' + esc(r.key) + "</span>" : dryRun ? '<span class="tag blue">可以提交</span>' : '<span class="tag gray">无返回</span>') + "</td><td>" + esc(r.error || (r.duplicateOf ? "已有 " + r.duplicateOf + "（" + (r.duplicateSummary || "") + "）" : r.message || "")) + "</td></tr>").join("") + "</tbody></table></div>";
+    if (dryRun) {
+      log("后端预检", list.length, results.filter(r => r.error).length + " 个问题");
+      A.dialog("预检结果（尚未写入 Jira）", body + '<p class="hint">疑似重复的单建议先回到起草页改为“追加评论”。确认无误后再正式提交。</p>', [{ t: "取消" }, { t: "正式提交到 Jira", pri: true, fn: () => { setTimeout(() => submitBackend(list.filter(d => !(results.find(x => x.draftId === d.id) || {}).error), false, log), 50); } }]);
+      return;
+    }
+    rows.forEach(({ d, r }) => { if (r.key) { d.issueKey = r.key; d.status = "submitted"; d.submittedAt = now(); d.history.push(now() + " 后端提交成功 " + r.key + (r.attachmentsFailed ? "，附件失败 " + r.attachmentsFailed + " 个" : "")); } });
+    log("后端提交", list.length, rows.filter(x => x.r.key).length + " 张成功");
+    A.save(); A.render();
+    A.dialog("提交结果", body, [{ t: "关闭" }]);
+  }
+
+  /* ============================== Jira 配置 ============================== */
+  A.PAGES.jiracfg = function (root) {
+    const C = cfg();
+    const f = (k, label, ph, note) => '<label style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:start;margin-bottom:12px"><span style="padding-top:6px;color:#606266">' + label + '</span><div><input class="inp" style="width:100%" data-c="' + k + '" value="' + esc(Array.isArray(C[k]) ? C[k].join(", ") : C[k]) + '" placeholder="' + esc(ph || "") + '">' + (note ? '<div class="hint" style="margin-top:4px">' + note + "</div>" : "") + "</div></label>";
+    root.innerHTML = '<div class="card"><h3>Jira 配置 <span class="sub">保存在本机浏览器；这里不填写也不保存 Jira 账号和 Token</span><span class="acts"><button class="btn" id="cfgReset">恢复默认</button><button class="btn pri" id="cfgSave">保存</button></span></h3>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:0 28px">' +
+      '<div><h4 style="margin:4px 0 12px">连接</h4>' +
+      '<label style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:center;margin-bottom:12px"><span style="color:#606266">Jira 类型</span><select class="sel" data-c="deploy"><option value="cloud"' + (C.deploy === "cloud" ? " selected" : "") + '>Jira Cloud（网址是 xxx.atlassian.net）</option><option value="dc"' + (C.deploy === "dc" ? " selected" : "") + ">Jira Data Center / Server（公司自建）</option></select></label>" +
+      f("baseUrl", "Jira 地址", "https://xxx.atlassian.net", "用于生成单号链接。不确定类型时，打开 <code>Jira地址/rest/api/2/serverInfo</code>，看 deploymentType 是 Cloud 还是 Server/DataCenter") +
+      f("backendUrl", "后端接口地址", "http://内网地址:端口/api", "后端做好后填写。留空时“通过后端接口提交”不可用，其他功能不受影响") +
+      '<h4 style="margin:18px 0 12px">字段</h4>' +
+      f("project", "Project Key", "ROTQA") + f("issueType", "Issue Type", "Bug") + f("issueTypeEnv", "环境问题用的类型", "Task") +
+      f("system", "System 默认值", "NBS") + f("systemField", "System 字段 ID", "customfield_10xxx", "自定义字段的 ID，后端或 Jira 管理员可以查到；留空则不提交这个字段") +
+      f("components", "默认 Components", "SYSTEM-QA") + f("labels", "默认 Labels", "regression, auto-triage") +
+      '<label style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:center;margin-bottom:12px"><span style="color:#606266">Environment 放在</span><select class="sel" data-c="envMode"><option value="field"' + (C.envMode === "field" ? " selected" : "") + '>单独的 Environment 字段</option><option value="description"' + (C.envMode === "description" ? " selected" : "") + ">Description 最前面（项目没有这个字段时）</option></select></label></div>" +
+      '<div><h4 style="margin:4px 0 12px">起草规则</h4>' +
+      f("market", "市场", "HK") +
+      f("titleTpl", "标题模板", "", "可用：{system} {market} {module} {cases}（case / cases）{n}（用例数）{cause}（原因）") +
+      f("highKeywords", "高优先级关键字", "", "产品缺陷的用例名称、模块、报错中出现这些词时建议 High，逗号分隔") +
+      '<label style="display:flex;gap:8px;align-items:center;margin:4px 0 12px"><input type="checkbox" data-c="maskOnExport"' + (C.maskOnExport ? " checked" : "") + ">导出和提交时再做一次个人信息脱敏</label>" +
+      '<div class="verdict sus" style="margin-top:8px">上线前请和熟悉 ROTQA 建单的同事核对：字段名称、必填项、Issue Type 名称、System 可选值、Components 名称。字段名对不上，CSV 导入和接口提交都会失败。</div></div></div></div>';
+    $("#cfgSave").onclick = () => {
+      $$("[data-c]", root).forEach(el => { const k = el.dataset.c; C[k] = el.type === "checkbox" ? el.checked : Array.isArray(DEFAULT_CFG[k]) ? el.value.split(/[,，]/).map(s => s.trim()).filter(Boolean) : el.value.trim(); });
+      A.save(); A.toast("已保存。已有草稿的脚本字段可以在起草页点“按最新分诊刷新脚本字段”更新");
+    };
+    $("#cfgReset").onclick = () => A.dialog("恢复默认", "确定把 Jira 配置恢复为默认值？", [{ t: "取消" }, { t: "恢复", pri: true, fn: () => { S.jira = Object.assign({}, DEFAULT_CFG); A.save(); A.render(); } }]);
+  };
+
+  A.jiraBadge = () => S.drafts.filter(d => d.status === "draft").length;
+})();
+
+</script>
+<script>APP.init();</script>
+</body>
+</html>

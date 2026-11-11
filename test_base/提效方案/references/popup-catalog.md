@@ -2,6 +2,8 @@
 
 自动化测试中的“弹窗”有三种，来源不同，Selenium 的反应不同，解决办法也不同。先判断是哪一种，再处理。
 
+> **Windows 桌面程序（LAS 等，pywinauto）请看第 4 节。** 桌面端的弹窗大多是被测系统给出的提示，要按文字含义分类，和网页端的“干扰弹窗”是两回事。
+
 ## 三种弹窗对照
 
 | | ① 浏览器原生对话框 | ② 网页内弹框 | ③ 浏览器 / 系统弹窗 |
@@ -117,3 +119,39 @@ def dismiss_known_noise(driver, noise_patterns, close_selectors):
 ## 弹窗统计
 
 `classify_rules.py` 会在 `classified.json` 的 `summary.popups` 中输出本次运行所有弹窗的文字、出现次数、所在页面。连续多次出现的同一弹窗，应该从源头解决，而不是每次在脚本里关闭。
+
+---
+
+## 4. Windows 桌面程序的弹窗（LAS，pywinauto）
+
+### 4.1 和网页端的区别
+
+- 桌面程序的弹窗是独立的窗口（标准对话框的窗口类名是 `#32770`；LAS 自己的窗体类名形如 `WindowsForms10.Window.8.app.0.xxxx`）。
+- 项目的 `handle_popups`（`base_view\win_base_view.py`）在提交后检查弹窗，把读到的文字放进异常：`Exception: Job submitted failed, pop-up error: <文字>`。
+- 截图是在失败处理时拍的，此时弹窗**可能已经被 `handle_popups` 关掉**。截图里没有弹窗，不代表当时没有弹窗；以 `pop-up error:` 后的文字为准。
+
+### 4.2 按文字含义分类（2026-10-30 LAS HK 回归中实际出现的）
+
+| 弹窗/提示原文 | 出现在 | 含义 | 分类 |
+|---|---|---|---|
+| `saveParSurrRecord 1:Transaction failed: A transport-level error has occurred when sending the request to the server. (provider: TCP Provider, error: 0 - An existing connection was forcibly closed by the remote host.)` | No.7 失败；No.15（通过）日志中也有同样报错 | 被测系统与数据库的连接中断 | 环境问题 |
+| `Cannot get MSP Config` | No.10（Billing Change 半年缴） | 缺少某项系统配置；同功能年缴（No.11）通过 | 需人工：配置缺失 → 环境；配置正确 → 缺陷 |
+| `Validation Error: Contract is currently used by other user` | No.23（步骤日志） | 保单被其他会话占用 | 测试数据问题（查占用来源） |
+| `pop-up error:` 后为空 | No.2（Add booster/PDF） | 弹窗出现了，但没有读到文字 | 需人工：看截图；改进读取方式 |
+| `If policy with reg cont, pls remember goes to coverage maintenance update the reg cont premium` / `Record Submitted. Letter will be print out during EOD` | No.13（通过） | 正常提示 | 不是问题 |
+| `Are you sure want to delete this client?` | No.22（通过） | 正常确认框 | 不是问题 |
+| `no Microsoft .NET Framework window` | 多个用例日志 | 脚本打印的“**没有**出现 .NET 崩溃窗口” | 排除性信息，不是报错 |
+
+本次回归**没有**出现与被测功能无关的“干扰弹窗”。
+
+### 4.3 判定依据
+
+1. 有 `pop-up error:` 且后面有文字 → 用文字匹配 `rules.yaml`：`environment.patterns` → 环境；`system_messages.lock` → 测试数据；`system_messages.config` → 需人工（配置）；`system_messages.crash` → 疑似缺陷；`business_errors` → 业务报错流程（数据核查）；`noise_popups` → 弹窗干扰；都不匹配 → 需人工（未知弹窗），并把原文补进清单。
+2. 有 `pop-up error:` 但后面为空 → 需人工（未知弹窗），只能看截图。
+3. 没有 `pop-up error:`，但异常是 `ElementNotEnabled`、`ElementNotVisible`、`MatchError`、找不到窗口 → **可能**是意外对话框挡住或抢了焦点，但仅凭报错无法确认；要看窗口清单（`MatchError` 会列出）或截图。窗口清单里出现了不该有的对话框 → 弹窗干扰（suspected）；出现的是前面用例的窗口 → 残留窗口（脚本清理问题）。
+
+### 4.4 建议改进 `handle_popups`
+
+- 读取对话框里**所有**文字控件（`Static` 等）的文字，而不是只读一个；读不到时记录对话框标题、类名和按钮文字。
+- 关闭弹窗**之前**先截图，并保存窗口清单（见 `evidence-and-screenshots.md` 第 5 节、`scripts/desktop_evidence.py`）。
+- 把弹窗按“预期提示 / 系统报错 / 未知”分别记录，预期提示（如 `Record Submitted`）不要当作失败。
