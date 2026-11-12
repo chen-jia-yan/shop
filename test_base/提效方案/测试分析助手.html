@@ -15,21 +15,21 @@
   --sans: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; font-family: var(--sans); color: var(--ink); background: var(--bg); font-size: 13px; }
+html, body { margin: 0; height: 100%; font-family: var(--sans); color: var(--ink); background: var(--bg); font-size: 12px; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 a { color: var(--pri); text-decoration: none; cursor: pointer; }
 
 /* ---------- 框架 ---------- */
-.app { display: grid; grid-template-columns: 210px minmax(0, 1fr); height: 100vh; }
+.app { display: grid; grid-template-columns: 184px minmax(0, 1fr); height: 100vh; }
 .side { background: var(--side); color: var(--side-ink); overflow-y: auto; }
-.logo { height: 56px; display: flex; align-items: center; gap: 8px; padding: 0 18px; color: #fff; font-weight: 600; font-size: 16px; border-bottom: 1px solid #2b3a4b; }
-.logo i { width: 26px; height: 26px; border-radius: 6px; background: var(--pri); display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 13px; }
-.proj { margin: 12px 14px; background: var(--side-2); border-radius: 4px; padding: 7px 10px; font-size: 12.5px; color: #fff; }
+.logo { height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 14px; color: #fff; font-weight: 600; font-size: 14px; border-bottom: 1px solid #2b3a4b; }
+.logo i { width: 22px; height: 22px; border-radius: 5px; background: var(--pri); display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 13px; }
+.proj { margin: 8px 10px; background: var(--side-2); border-radius: 4px; padding: 5px 8px; font-size: 12px; color: #fff; }
 .proj small { display: block; color: var(--side-ink); font-size: 11px; }
 .menu { list-style: none; margin: 0; padding: 0 0 20px; }
-.menu .grp { padding: 12px 20px 6px; font-size: 12px; color: #7d8b9a; display: flex; justify-content: space-between; }
-.menu .it { display: flex; align-items: center; gap: 10px; padding: 0 20px 0 34px; height: 42px; cursor: pointer; font-size: 13.5px; }
+.menu .grp { padding: 9px 16px 4px; font-size: 11.5px; color: #7d8b9a; display: flex; justify-content: space-between; }
+.menu .it { display: flex; align-items: center; gap: 10px; padding: 0 14px 0 26px; height: 34px; cursor: pointer; font-size: 12.5px; }
 .menu .it:hover { background: var(--side-2); color: #fff; }
 .menu .it.on { background: var(--side-on); color: #fff; }
 .menu .it.dis { color: #5f6e7d; cursor: not-allowed; }
@@ -38,62 +38,63 @@ a { color: var(--pri); text-decoration: none; cursor: pointer; }
 .menu .it .soon { margin-left: auto; font-size: 10.5px; border: 1px solid #5f6e7d; border-radius: 3px; padding: 0 4px; }
 
 .body { display: flex; flex-direction: column; min-width: 0; height: 100vh; }
-.head { height: 50px; background: #fff; display: flex; align-items: center; padding: 0 18px; border-bottom: 1px solid var(--line-2); gap: 14px; }
+.head { height: 40px; background: #fff; display: flex; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--line-2); gap: 14px; }
 .crumb { color: var(--muted); }
 .crumb b { color: var(--ink); font-weight: 400; }
 .head .right { margin-left: auto; display: flex; gap: 14px; align-items: center; color: var(--ink-2); font-size: 12.5px; }
-.tabs { height: 36px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 6px; padding: 0 12px; box-shadow: 0 1px 3px rgba(0,0,0,.04); overflow-x: auto; }
-.tab { border: 1px solid var(--line); background: #fff; height: 26px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.tabs { height: 32px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 6px; padding: 0 12px; box-shadow: 0 1px 3px rgba(0,0,0,.04); overflow-x: auto; }
+.tab { border: 1px solid var(--line); background: #fff; height: 22px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
 .tab.on { background: var(--ok); border-color: var(--ok); color: #fff; }
 .tab.on::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #fff; }
 .tab .x { border: none; background: none; padding: 0 0 0 2px; font-size: 13px; line-height: 1; color: inherit; opacity: .7; }
-.content { flex: 1; overflow-y: auto; padding: 14px; }
+.content { flex: 1; overflow-y: auto; padding: 10px; }
 
 /* ---------- 卡片、表单 ---------- */
-.card { background: var(--card); border-radius: 4px; padding: 16px 18px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
-.card h3 { margin: 0 0 12px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
-.card h3 .sub { font-weight: 400; color: var(--muted); font-size: 12.5px; }
+.card { background: var(--card); border-radius: 3px; padding: 10px 12px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+.card h3 { margin: 0 0 8px; font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.card h3 .sub { font-weight: 400; color: var(--muted); font-size: 12px; }
 .card h3 .acts { margin-left: auto; display: flex; gap: 8px; }
-.hint { color: var(--muted); font-size: 12.5px; line-height: 1.7; }
-.form { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center; }
+.hint { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.form { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
 .fi { display: flex; align-items: center; gap: 8px; }
 .fi > span { color: var(--ink-2); white-space: nowrap; }
-.inp, .sel { height: 32px; border: 1px solid var(--line); border-radius: 4px; padding: 0 10px; background: #fff; min-width: 170px; outline: none; }
+.inp, .sel { height: 26px; border: 1px solid var(--line); border-radius: 3px; padding: 0 8px; background: #fff; min-width: 140px; font-size: 12px; outline: none; }
 .inp:focus, .sel:focus, textarea:focus { border-color: var(--pri); }
-textarea.ta { width: 100%; border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; font-family: var(--mono); font-size: 12px; outline: none; resize: vertical; }
-.btn { height: 32px; padding: 0 15px; border: 1px solid var(--line); background: #fff; border-radius: 4px; font-size: 13px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+textarea.ta { width: 100%; border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; font-family: var(--mono); font-size: 11.5px; outline: none; resize: vertical; }
+.btn { height: 26px; padding: 0 11px; border: 1px solid var(--line); background: #fff; border-radius: 3px; font-size: 12px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .btn:hover { color: var(--pri); border-color: #c6e2ff; background: var(--pri-2); }
 .btn.pri { background: var(--pri); border-color: var(--pri); color: #fff; }
 .btn.pri:hover { background: #66b1ff; border-color: #66b1ff; }
 .btn.okb { border-color: var(--ok); color: var(--ok); }
 .btn.okb:hover { background: var(--ok-2); }
 .btn.dang { border-color: #fbc4c4; color: var(--err); }
-.btn.sm { height: 26px; padding: 0 10px; font-size: 12px; }
+.btn.sm { height: 22px; padding: 0 8px; font-size: 11.5px; }
 .btn[disabled] { opacity: .5; cursor: not-allowed; }
-.bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.bar { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
 .bar .sp { flex: 1; }
-.subtabs { display: flex; gap: 22px; border-bottom: 1px solid var(--line-2); margin-bottom: 12px; }
-.subtabs button { border: none; background: none; padding: 8px 0; color: var(--ink-2); border-bottom: 2px solid transparent; }
+.subtabs { display: flex; gap: 16px; border-bottom: 1px solid var(--line-2); margin-bottom: 8px; }
+.bar .subtabs { border: none; margin: 0; }
+.subtabs button { border: none; background: none; padding: 4px 0; font-size: 12px; color: var(--ink-2); border-bottom: 2px solid transparent; }
 .subtabs button.on { color: var(--pri); border-bottom-color: var(--pri); }
 
 /* ---------- 表格 ---------- */
 .tbl-wrap { overflow-x: auto; border: 1px solid var(--line-2); }
-table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.tbl th { background: var(--th); color: var(--muted); font-weight: 600; text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line-2); white-space: nowrap; }
-.tbl td { padding: 9px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.tbl th { background: var(--th); color: var(--muted); font-weight: 600; text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line-2); white-space: nowrap; }
+.tbl td { padding: 5px 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
 .tbl tr:hover td { background: #f5f7fa; }
-.tbl td.mono { font-family: var(--mono); font-size: 12px; }
-.tbl .ops a { margin-right: 10px; font-size: 12px; white-space: nowrap; }
+.tbl td.mono { font-family: var(--mono); font-size: 11.5px; }
+.tbl .ops a { margin-right: 8px; font-size: 12px; white-space: nowrap; }
 .tbl .clip { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tbl tr.sel td { background: var(--pri-2); }
-.pager { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 12px; color: var(--ink-2); font-size: 12.5px; }
-.pager button { min-width: 28px; height: 28px; border: none; background: var(--gray-2); border-radius: 2px; }
+.pager { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 8px; color: var(--ink-2); font-size: 12.5px; }
+.pager button { min-width: 24px; height: 22px; border: none; background: var(--gray-2); border-radius: 2px; }
 .pager button.on { background: var(--pri); color: #fff; }
-.empty { text-align: center; color: var(--muted); padding: 46px 10px; }
+.empty { text-align: center; color: var(--muted); padding: 28px 10px; }
 .empty b { display: block; color: var(--ink-2); font-size: 14px; margin-bottom: 6px; font-weight: 500; }
 
 /* ---------- 标签 ---------- */
-.tag { display: inline-block; font-size: 12px; line-height: 20px; padding: 0 7px; border-radius: 3px; border: 1px solid; white-space: nowrap; }
+.tag { display: inline-block; font-size: 11.5px; line-height: 18px; padding: 0 6px; border-radius: 3px; border: 1px solid; white-space: nowrap; }
 .tag.blue { color: var(--pri); background: var(--pri-2); border-color: #d9ecff; }
 .tag.green { color: var(--ok); background: var(--ok-2); border-color: #e1f3d8; }
 .tag.orange { color: var(--warn); background: var(--warn-2); border-color: #faecd8; }
@@ -104,11 +105,11 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--muted)); }
 
 /* ---------- 统计卡片 ---------- */
-.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 14px; }
-.kpi { background: #fff; border-radius: 4px; padding: 14px 16px; border-left: 3px solid var(--c, var(--pri)); cursor: default; text-align: left; border-top: none; border-right: none; border-bottom: none; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.kpi { background: #fff; border-radius: 3px; padding: 8px 12px; border-left: 3px solid var(--c, var(--pri)); cursor: default; text-align: left; border-top: none; border-right: none; border-bottom: none; }
 button.kpi { cursor: pointer; }
 button.kpi:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
-.kpi b { display: block; font-size: 24px; font-weight: 600; color: var(--ink); }
+.kpi b { display: block; font-size: 19px; font-weight: 600; color: var(--ink); }
 .kpi span { color: var(--muted); font-size: 12px; }
 
 /* ---------- 抽屉、对话框 ---------- */
@@ -116,18 +117,18 @@ button.kpi:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
 .mask.open { display: block; }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 96vw); background: #fff; z-index: 41; transform: translateX(100%); transition: transform .2s; display: flex; flex-direction: column; box-shadow: -4px 0 16px rgba(0,0,0,.1); }
 .drawer.open { transform: none; }
-.drawer header, .dlg header { padding: 14px 18px; border-bottom: 1px solid var(--line-2); display: flex; align-items: center; gap: 10px; }
-.drawer header h4, .dlg header h4 { margin: 0; font-size: 15px; font-weight: 600; }
+.drawer header, .dlg header { padding: 9px 14px; border-bottom: 1px solid var(--line-2); display: flex; align-items: center; gap: 10px; }
+.drawer header h4, .dlg header h4 { margin: 0; font-size: 13.5px; font-weight: 600; }
 .drawer header .x, .dlg header .x { margin-left: auto; border: none; background: none; font-size: 20px; color: var(--muted); }
-.drawer .db { flex: 1; overflow-y: auto; padding: 16px 18px; }
-.drawer footer, .dlg footer { padding: 12px 18px; border-top: 1px solid var(--line-2); display: flex; gap: 8px; justify-content: flex-end; }
+.drawer .db { flex: 1; overflow-y: auto; padding: 10px 14px; }
+.drawer footer, .dlg footer { padding: 8px 14px; border-top: 1px solid var(--line-2); display: flex; gap: 8px; justify-content: flex-end; }
 .dlg { position: fixed; left: 50%; top: 8vh; transform: translateX(-50%); width: min(640px, 94vw); max-height: 84vh; background: #fff; border-radius: 4px; z-index: 42; display: none; flex-direction: column; }
 .dlg.open { display: flex; }
-.dlg .db { padding: 16px 18px; overflow-y: auto; line-height: 1.7; }
+.dlg .db { padding: 10px 14px; overflow-y: auto; line-height: 1.6; }
 
-.sec { margin-bottom: 18px; }
-.sec > h5 { margin: 0 0 8px; font-size: 13px; color: var(--ink); font-weight: 600; display: flex; gap: 8px; align-items: center; }
-.kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 12px; font-size: 12.5px; }
+.sec { margin-bottom: 12px; }
+.sec > h5 { margin: 0 0 6px; font-size: 12.5px; color: var(--ink); font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.kv { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 4px 10px; font-size: 12px; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; word-break: break-all; }
 .ev { border: 1px solid var(--line-2); border-radius: 4px; margin-bottom: 8px; }
@@ -136,23 +137,23 @@ button.kpi:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
 .ev pre { margin: 0; padding: 8px 10px; font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; line-height: 1.5; }
 .ev img { display: block; max-width: 100%; border-top: 1px solid var(--line-2); }
 mark { background: #ffe58f; padding: 0 1px; border-radius: 2px; }
-.verdict { border: 1px solid #d9ecff; background: var(--pri-2); border-radius: 4px; padding: 10px 12px; line-height: 1.7; font-size: 12.5px; }
+.verdict { border: 1px solid #d9ecff; background: var(--pri-2); border-radius: 3px; padding: 6px 10px; line-height: 1.6; font-size: 12px; }
 .verdict.sus { border-color: #faecd8; background: var(--warn-2); }
 .verdict ul { margin: 4px 0 0; padding-left: 18px; }
 
 /* ---------- 流程讲解 ---------- */
 .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-.step { border: 1px solid var(--line-2); border-radius: 4px; padding: 12px 14px; position: relative; background: #fff; }
-.step .n { width: 24px; height: 24px; border-radius: 50%; background: var(--pri); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; margin-right: 6px; }
-.step h6 { margin: 0 0 6px; font-size: 13.5px; display: flex; align-items: center; }
-.step p { margin: 0; color: var(--ink-2); font-size: 12.5px; line-height: 1.7; }
+.step { border: 1px solid var(--line-2); border-radius: 3px; padding: 8px 10px; position: relative; background: #fff; }
+.step .n { width: 20px; height: 20px; border-radius: 50%; background: var(--pri); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; margin-right: 6px; }
+.step h6 { margin: 0 0 4px; font-size: 12.5px; display: flex; align-items: center; }
+.step p { margin: 0; color: var(--ink-2); font-size: 12px; line-height: 1.6; }
 .step .who { margin-top: 8px; }
 .step.later { background: #fafafa; border-style: dashed; }
-.prose { line-height: 1.8; color: var(--ink-2); font-size: 13px; max-width: 980px; }
+.prose { line-height: 1.7; color: var(--ink-2); font-size: 12px; max-width: 980px; }
 .prose code, .hint code { font-family: var(--mono); background: var(--gray-2); padding: 0 5px; border-radius: 3px; font-size: 12px; color: var(--ink); }
 
 /* ---------- 导入 ---------- */
-.drop { border: 1px dashed #c0c4cc; border-radius: 6px; padding: 22px; text-align: center; color: var(--ink-2); background: #fafcff; }
+.drop { border: 1px dashed #c0c4cc; border-radius: 4px; padding: 14px; text-align: center; color: var(--ink-2); background: #fafcff; }
 .drop.over { border-color: var(--pri); background: var(--pri-2); }
 .drop b { display: block; font-size: 14px; color: var(--ink); margin-bottom: 4px; }
 .map { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 22px; }
@@ -170,7 +171,7 @@ mark { background: #ffe58f; padding: 0 1px; border-radius: 2px; }
 .clist .ci .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 12.5px; }
 .clist .ci .meta { font-size: 11.5px; color: var(--muted); }
 .seg { display: inline-flex; border: 1px solid var(--pri); border-radius: 4px; overflow: hidden; }
-.seg button { border: none; background: #fff; color: var(--pri); height: 30px; padding: 0 14px; }
+.seg button { border: none; background: #fff; color: var(--pri); height: 24px; padding: 0 10px; font-size: 12px; }
 .seg button.on { background: var(--pri); color: #fff; }
 .seg button[disabled] { color: #c0c4cc; cursor: not-allowed; }
 .dv { border: 1px solid var(--line-2); font-family: var(--mono); font-size: 12px; }
@@ -193,6 +194,57 @@ mark { background: #ffe58f; padding: 0 1px; border-radius: 2px; }
   .cmp { grid-template-columns: minmax(0, 1fr); }
   .clist { max-height: 300px; }
 }
+
+/* ---------- 返回、分组、分派 ---------- */
+.crumb { display: flex; align-items: center; gap: 6px; }
+.crumb .btn.sm { margin-right: 4px; }
+.card-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.card-h b { font-size: 13px; }
+.dispatch { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.dp { border: 1px solid var(--line-2); border-radius: 3px; padding: 7px 10px; background: #fafbfc; }
+.dp.zero { opacity: .55; }
+.dp-h { display: flex; align-items: baseline; gap: 6px; }
+.dp-h .num { font-size: 17px; font-weight: 600; color: var(--ink); margin-left: auto; }
+.dp-c, .dp-t { line-height: 1.5; }
+.dp-a { display: flex; gap: 6px; margin-top: 5px; }
+.tbl th.ck, .tbl td.ck { width: 26px; padding-right: 0; }
+.tbl td.nw { white-space: nowrap; }
+.tbl td.nm { min-width: 110px; max-width: 220px; }
+.tbl td.basis { min-width: 260px; line-height: 1.5; }
+.flags { margin-top: 3px; display: flex; gap: 4px; flex-wrap: wrap; }
+.tbl.grp tr.g1 td { background: #eef3f9; font-size: 12px; padding: 5px 8px; border-top: 1px solid #dfe6ee; }
+.tbl.grp tr.g1 td > * { vertical-align: middle; margin-right: 6px; }
+.tbl.grp tr.g2 td { background: #f8fafc; color: var(--ink-2); padding: 4px 8px 4px 26px; }
+.tbl.grp tr.g1:hover td, .tbl.grp tr.g2:hover td { background: #e8eff7; }
+.tbl.grp .fold { display: inline-block; width: 14px; color: var(--ink-2); }
+.g-ops { float: right; }
+.g-ops a { margin-left: 10px; font-size: 12px; }
+.tbl.mini th, .tbl.mini td { padding: 4px 8px; font-size: 12px; }
+details.std { margin-top: 8px; }
+details > summary { cursor: pointer; color: var(--ink-2); font-size: 12px; }
+.steps3 { display: flex; gap: 8px; flex-wrap: wrap; }
+.steps3 > div { border: 1px solid var(--line-2); border-radius: 3px; padding: 4px 10px; background: #fafbfc; font-size: 12px; }
+.steps3 b { display: inline-flex; width: 16px; height: 16px; border-radius: 50%; background: var(--pri); color: #fff; font-size: 11px; align-items: center; justify-content: center; margin-right: 6px; }
+.verdict .brief { font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+/* 截图 */
+.shots { display: flex; gap: 8px; flex-wrap: wrap; }
+.shot { width: 150px; border: 1px solid var(--line-2); border-radius: 3px; padding: 4px; background: #fff; }
+.shot img { width: 100%; height: 90px; object-fit: cover; object-position: top left; cursor: zoom-in; display: block; }
+.shot .hint { word-break: break-all; line-height: 1.4; margin-top: 3px; }
+.shot.add { display: flex; align-items: center; justify-content: center; height: 118px; border-style: dashed; color: var(--ink-2); text-align: center; cursor: pointer; font-size: 12px; }
+.shot.add:hover { border-color: var(--pri); color: var(--pri); }
+/* Jira 预览表 */
+table.ptbl { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px; border: 1px solid var(--line-2); }
+.ptbl tr.ph td { background: #eef3f9; font-weight: 600; color: var(--ink); padding: 5px 10px; border-top: 1px solid #dfe6ee; }
+.ptbl th.pk { width: 150px; background: var(--th); color: var(--ink-2); font-weight: 500; text-align: left; vertical-align: top; padding: 5px 10px; border-bottom: 1px solid var(--line-2); }
+.ptbl td.pv { padding: 5px 10px; border-bottom: 1px solid var(--line-2); vertical-align: top; word-break: break-word; }
+.ptbl td.pv p { margin: 2px 0; }
+.ptbl td.pv ul { margin: 2px 0; padding-left: 18px; }
+.ptbl td.pv table.tbl { margin: 2px 0; }
+.ptbl td.pv pre { margin: 2px 0; max-height: 220px; overflow: auto; }
+.pshots { display: flex; gap: 8px; flex-wrap: wrap; }
+.pshot { display: flex; flex-direction: column; gap: 3px; max-width: 220px; }
+.pshot img { max-width: 220px; max-height: 130px; border: 1px solid var(--line-2); cursor: zoom-in; object-fit: contain; }
 </style>
 </head>
 <body>
@@ -454,11 +506,25 @@ window.ENG = (function () {
     }
     if (c.shots && c.shots.length) c.shots.forEach(s => add("shot", "截图", s.name, { src: s.src }));
     else add("shot", "截图（路径）", c.screenshot);
-    if (c.rerun) add("rerun", "重跑记录", (c.rerun === "pass" ? "重跑通过" : "重跑仍失败") + (c.rerunNote ? "：" + c.rerunNote : ""));
-    if (c.dataCheck) add("data", "数据核查", DATA_CHECK[c.dataCheck] + (c.dataNote ? "：" + c.dataNote : ""));
+    if (c.rerun) add("rerun", "重跑记录", (c.rerun === "pass" ? "重跑通过" : c.r2 && c.r2.same === false ? "重跑仍失败，但报错与第一次不同（第二次已作为单独一条记录）" : "重跑仍失败，报错与第一次相同") + (c.rerunNote ? "：" + c.rerunNote : ""));
+    if (c.parent) add("rerun", "第一次执行", "这是重跑（第 2 次）的结果；第 1 次执行失败的报错与这次不同");
+    if (c.dataCheck) add("data", "人工核查结果", (DATA_CHECK[c.dataCheck] || c.dataCheck) + (c.dataNote ? "：" + c.dataNote : ""));
     return ev;
   }
-  const DATA_CHECK = { ok: "数据存在且状态正确", missing: "数据不存在", used: "数据已被使用", invalid: "数据状态不符合用例前提" };
+  // 人工核查的种类：什么情况下需要核查、核查什么、每种结果会把分类改成什么
+  const CHECK_KINDS = {
+    biz: { name: "业务报错 → 核查测试数据", what: "到数据库或系统里查这条用例用到的数据（保单号、代理人编号、产品代码等）是否存在、状态是否符合用例前提",
+      options: { ok: ["数据存在且状态正确", "PRODUCT_DEFECT"], missing: ["数据不存在", "TEST_DATA"], used: ["数据已被使用", "TEST_DATA"], invalid: ["数据状态不符合用例前提", "TEST_DATA"] } },
+    lock: { name: "数据被占用 → 查占用来源", what: "查这张保单/合同是被谁占用的：本批次前面失败的用例没关窗口，还是其他人、其他批次正在使用",
+      options: { lock_prev: ["被本批次前面的用例占用（失败后没有释放）", "SCRIPT_ISSUE"], lock_other: ["被其他人或其他批次占用", "TEST_DATA"], lock_unknown: ["查不到占用来源", "TEST_DATA"] } },
+    cfg: { name: "缺少配置 → 核查系统配置", what: "请开发或配置负责人确认：报错提到的配置在测试环境里是否应该存在",
+      options: { cfg_missing: ["应该存在，但测试环境缺失", "ENVIRONMENT"], cfg_ok: ["配置正确，系统仍然报错", "PRODUCT_DEFECT"], cfg_unsupported: ["本来就不支持（用例前提不成立）", "SCRIPT_ISSUE"] } },
+    dtp: { name: "日期设置失败 → 核查日期值", what: "查脚本要设置的日期（看测试数据或脚本），以及控件允许的日期范围（例如不能早于保单生效日、不能晚于系统日期）",
+      options: { dtp_out: ["日期超出允许范围", "TEST_DATA"], dtp_in: ["日期在范围内，仍然设置失败", "SCRIPT_ISSUE"] } },
+  };
+  const DATA_CHECK = {};
+  Object.values(CHECK_KINDS).forEach(k => Object.entries(k.options).forEach(([v, [label]]) => { DATA_CHECK[v] = label; }));
+  const checkOf = (c, kind) => (c.dataCheck && CHECK_KINDS[kind].options[c.dataCheck]) ? c.dataCheck : null;
   const evId = (ev, kind) => (ev.find(e => e.kind === kind) || {}).id;
 
   // 返回 {cat, status: confirmed|suspected, rule, reason, why[], need[], hits[], flags[]}
@@ -506,9 +572,21 @@ window.ENG = (function () {
       const sys = L.sysMsgs.filter(Boolean).join("\n");
       if (L.popupText === "" && !sys) return out("NEEDS_HUMAN", "suspected", "SYS-EMPTY", ["提交后出现了弹窗，脚本报“pop-up error”，但没有读到弹窗文字（" + E("sys") + "）"], ["弹窗内容只能从截图确认" + (E("shot") ? "（" + E("shot") + "）" : "，当前没有截图") + "；建议修改弹窗处理函数，读取对话框内全部文字控件后再关闭"], [], { reason: "unknown_popup" });
       const lock = findAny(sys, rules.lock_messages);
-      if (lock) return out("TEST_DATA", "confirmed", "DATA-LOCK", ["系统提示“" + lock.hit + "”（" + E("sys") + "）：用例要用的保单/合同正被其他会话占用"], ["查是谁占用：同一批次里前面失败的用例有没有留下未关闭的窗口；有没有其他批次或同事同时使用这张保单"], [lock.hit], { groupKey: "data:lock" });
+      if (lock) {
+        const k = checkOf(c, "lock"), why = ["系统提示“" + lock.hit + "”（" + E("sys") + "）：用例要用的保单/合同正被其他会话占用"];
+        if (k) why.push("核查结果：" + DATA_CHECK[k] + "（" + E("data") + "）");
+        if (k === "lock_prev") return out("SCRIPT_ISSUE", "confirmed", "CHK-LOCK1", why, ["修改前面那个用例的清理步骤：失败后也要关闭窗口、释放保单"], [lock.hit], { checkKind: "lock" });
+        return out("TEST_DATA", "confirmed", "DATA-LOCK", why, k ? [] : ["到“人工核查”页查占用来源：本批次前面失败的用例有没有留下未关闭的窗口；有没有其他批次或同事同时使用这张保单"], [lock.hit], { groupKey: "data:lock", checkKind: "lock" });
+      }
       const cfg = findAny(sys, rules.config_messages);
-      if (cfg) return out("NEEDS_HUMAN", "suspected", "SYS-CFG", ["系统提示“" + cfg.hit + "”（" + E("sys") + "）：被测系统缺少某项配置"], ["向开发或配置负责人确认这项配置在测试环境中是否应该存在：应该存在但缺失 → 环境问题；配置正确但仍报错 → 产品缺陷"], [cfg.hit], { reason: "system_config" });
+      if (cfg) {
+        const k = checkOf(c, "cfg"), why = ["系统提示“" + cfg.hit + "”（" + E("sys") + "）：被测系统缺少某项配置"];
+        if (k) {
+          why.push("核查结果：" + DATA_CHECK[k] + "（" + E("data") + "）");
+          return out(CHECK_KINDS.cfg.options[k][1], "confirmed", "CHK-CFG", why, [], [cfg.hit], { checkKind: "cfg" });
+        }
+        return out("NEEDS_HUMAN", "suspected", "SYS-CFG", why, ["到“人工核查”页记录：这项配置在测试环境中是否应该存在。应该存在但缺失 → 环境问题；配置正确仍报错 → 产品缺陷"], [cfg.hit], { reason: "system_config", checkKind: "cfg" });
+      }
       const crash = findAny(sys, rules.crash_messages);
       if (crash) return out("PRODUCT_DEFECT", "suspected", "SYS-CRASH", ["被测程序弹出未处理异常对话框“" + crash.hit + "”（" + E("sys") + "）"], ["保存对话框中的异常详情，确认同样操作能否重现"], [crash.hit]);
     }
@@ -527,10 +605,11 @@ window.ENG = (function () {
     // 报错信息里没有任何技术异常类型时，它多半就是系统返回的提示文字，也按业务报错处理
     const biz = bizInPage || ((isAssert || !exc) ? findAny(c.error, rules.business_errors) : null);
     if (biz) {
-      const src = bizInPage ? E("page") : E("msg");
-      if (c.dataCheck === "ok") return out("PRODUCT_DEFECT", "confirmed", "BIZ2", ["出现业务报错“" + biz.hit + "”（" + src + "）", "数据已核查且正常（" + E("data") + "），系统仍报错"], [], [biz.hit]);
-      if (c.dataCheck) return out("TEST_DATA", "confirmed", "BIZ1", ["出现业务报错“" + biz.hit + "”（" + src + "）", "数据核查结果：" + DATA_CHECK[c.dataCheck] + "（" + E("data") + "）"], [], [biz.hit]);
-      return out("NEEDS_HUMAN", "suspected", "BIZ3", ["出现业务报错“" + biz.hit + "”（" + src + "）", "只凭报错文字分不清是测试数据问题还是系统问题"], ["到“数据核查”页查这条用例用到的数据，填写核查结果后会自动重新分类"], [biz.hit], { reason: "pending_data_check" });
+      const src = bizInPage ? E("page") || E("sys") : E("msg") || E("root");
+      const k = checkOf(c, "biz");
+      if (k === "ok") return out("PRODUCT_DEFECT", "confirmed", "BIZ2", ["出现业务报错“" + biz.hit + "”（" + src + "）", "数据已核查且正常（" + E("data") + "），系统仍报错"], [], [biz.hit], { checkKind: "biz" });
+      if (k) return out("TEST_DATA", "confirmed", "BIZ1", ["出现业务报错“" + biz.hit + "”（" + src + "）", "数据核查结果：" + DATA_CHECK[k] + "（" + E("data") + "）"], [], [biz.hit], { checkKind: "biz" });
+      return out("NEEDS_HUMAN", "suspected", "BIZ3", ["出现业务报错“" + biz.hit + "”（" + src + "）", "只凭报错文字分不清是测试数据问题还是系统问题"], ["到“人工核查”页查这条用例用到的数据，填写核查结果后会自动重新分类"], [biz.hit], { reason: "pending_data_check", checkKind: "biz" });
     }
 
     // ---------- 网页弹框 ----------
@@ -560,8 +639,12 @@ window.ENG = (function () {
       if (opt) return out("SCRIPT_ISSUE", "suspected", "DSK-OPT", ["下拉框里没有脚本要选的选项：" + opt.hit + "（" + E("root") + "）" + where].concat(done ? [done] : []),
         ["看截图或手工打开这个下拉框，确认实际选项名称：名称改了 → 改脚本；选项本应存在却没有 → 疑似产品缺陷", "建议脚本报错时把下拉框里的全部选项一起打印出来"], [opt.hit], extra);
       const dtp = findAny(rootTxt, rules.desk_datetime);
-      if (dtp) return out("SCRIPT_ISSUE", "suspected", "DSK-DTP", ["日期控件设置失败：“" + dtp.hit + "”（" + E("root") + "）" + where],
-        ["确认脚本要设置的日期值（日志里没有打印）：常见原因是日期超出控件允许的范围（例如早于保单生效日、晚于系统日期），属于测试数据问题；控件类型变化则是脚本问题", "建议脚本报错时打印要设置的日期"], [dtp.hit], extra);
+      if (dtp) {
+        const k = checkOf(c, "dtp"), why = ["日期控件设置失败：“" + dtp.hit + "”（" + E("root") + "）" + where];
+        if (k) { why.push("核查结果：" + DATA_CHECK[k] + "（" + E("data") + "）"); return out(CHECK_KINDS.dtp.options[k][1], "confirmed", "CHK-DTP", why, [], [dtp.hit], Object.assign({ checkKind: "dtp" }, extra)); }
+        return out("SCRIPT_ISSUE", "suspected", "DSK-DTP", why,
+          ["到“人工核查”页记录脚本要设置的日期值和控件允许的范围：超出范围 → 测试数据问题；在范围内仍失败 → 脚本问题", "建议脚本报错时打印要设置的日期"], [dtp.hit], Object.assign({ checkKind: "dtp" }, extra));
+      }
       if (anyExc(rules.desk_not_enabled)) return out("NEEDS_HUMAN", "suspected", "DSK-DIS", ["要点击/输入的控件处于不可用（灰色）状态：ElementNotEnabled（" + E("root") + "）" + where],
         ["看截图" + shot + "确认是哪个按钮不可用、界面上有没有提示", "按钮不可用通常是业务规则限制（前面必填项没填、保单状态不允许这项操作）：数据不满足 → 测试数据问题；步骤漏了 → 脚本问题；条件都满足仍不可用 → 疑似产品缺陷"], [], Object.assign({ reason: "control_state" }, extra));
       if (anyExc(rules.desk_not_visible)) return out("SCRIPT_ISSUE", "suspected", "DSK-VIS", ["控件存在但不可见：ElementNotVisible（" + E("root") + "）" + where],
@@ -610,7 +693,9 @@ window.ENG = (function () {
   }
   function classifyAll(cases, rules) {
     cases.forEach(c => prepare(c, rules));
-    const failed = cases.filter(c => c.failed);
+    // 重跑产生的第 2 次记录（c.parent）单独分类，但不参与整批规律分析（断崖、大面积相同报错）
+    const base = cases.filter(c => !c.parent);
+    const failed = base.filter(c => c.failed);
     const mass = {};
     // 大面积相同报错：同一特征 ≥ N 个且占比 ≥ X%，并且要么在执行顺序上连续，要么集中在同一时间窗口
     const bySig = {};
@@ -619,7 +704,7 @@ window.ENG = (function () {
       const runFailed = failed.filter(x => x.run === list[0].run).length;
       const pct = Math.round(list.length * 100 / Math.max(runFailed, 1));
       if (list.length < rules.mass_min_cases || pct < rules.mass_ratio) return;
-      const runCases = cases.filter(x => x.run === list[0].run).sort((a, b) => a.seq - b.seq);
+      const runCases = base.filter(x => x.run === list[0].run).sort((a, b) => a.seq - b.seq);
       const idx = list.map(c => runCases.indexOf(c)).sort((a, b) => a - b);
       const contiguous = idx[idx.length - 1] - idx[0] + 1 === idx.length;
       const ts = list.map(c => Date.parse(c.start)).filter(t => !isNaN(t)).sort((a, b) => a - b);
@@ -628,12 +713,133 @@ window.ENG = (function () {
       const span = contiguous ? "在执行顺序上连续（第 " + list[0].seq + "–" + list[list.length - 1].seq + " 个）" : "集中在 " + mins + " 分钟内";
       list.forEach(c => { mass[c.uid] = { n: list.length, pct, span }; });
     });
-    failed.forEach(c => {
-      c.auto = classify(c, { mass }, rules);
+    cases.filter(c => c.failed).forEach(c => {
+      c.auto = classify(c, { mass: c.parent ? {} : mass }, rules);
       c.sig = c.auto.groupKey || c.sig0;
       c.final = c.override ? c.override.cat : c.auto.cat;
+      if (c.rerun === "fail") {
+        const diff = c.r2 && c.r2.same === false;
+        c.auto.flags.push(diff ? "重跑报错不同" : "重跑仍失败");
+        c.auto.why.push(diff ? "重跑仍失败，但报错与第一次不同：第二次的失败已作为单独一条记录分析" : "重跑仍失败，报错与第一次相同：问题必现");
+      }
+      if (c.parent) c.auto.flags.push("重跑第2次");
     });
-    crossCase(cases, rules);
+    crossCase(base, rules);
+    cases.filter(c => c.failed).forEach(c => { c.auto.brief = brief(c); });
+  }
+
+  /* ======================= 规则名称、判断依据摘要（中文）、英文说明（写 Jira 用） ======================= */
+  const RULE_NAMES = {
+    "ENV1": "浏览器/设备无法启动", "ENV2": "连接或服务故障", "ENV-DESK": "执行机桌面不可用", "ENV3": "大面积相同报错",
+    "R1": "重跑通过", "SYS-EMPTY": "弹窗文字未读到", "DATA-LOCK": "数据被占用", "CHK-LOCK1": "数据被前面用例占用",
+    "SYS-CFG": "系统缺少配置", "CHK-CFG": "配置已核查", "SYS-CRASH": "被测程序崩溃",
+    "POP1": "干扰对话框", "POP1-未知": "未知对话框", "BIZ1": "业务报错·数据有问题", "BIZ2": "业务报错·数据正常", "BIZ3": "业务报错·待核查数据",
+    "POP2": "干扰弹框", "POP3": "点击被弹框遮挡", "POP3-弱": "点击被遮挡",
+    "MASK1": "掩盖型报错", "DSK-AMB": "匹配到多个控件", "DSK-OPT": "下拉框无此选项", "DSK-DTP": "日期设置失败", "CHK-DTP": "日期已核查",
+    "DSK-DIS": "控件不可用", "DSK-VIS": "控件不可见", "DSK-NF": "找不到窗口或控件", "GEN1": "笼统报错",
+    "SCR1": "找不到元素或超时", "SCR2": "定位写法错误", "SCR3": "测试代码错误", "AST1": "断言值不一致", "AST2": "断言失败无数值", "NONE": "无规则命中",
+  };
+  const ruleName = c => c.override ? "人工判定" : (RULE_NAMES[c.auto.rule] || c.auto.rule);
+  const q = s => "“" + String(s || "").replace(/\s+/g, " ").slice(0, 60) + "”";
+  // 一句话说清楚：看到了什么 → 说明什么 → 所以判为什么
+  function brief(c) {
+    if (c.override) return "人工判定：" + c.override.reason;
+    const a = c.auto, L = c.L || {}, hit = a.hits[0], m = (L.root && L.root.msg) || "";
+    const fn = L.rootAt ? L.rootAt.func : "";
+    const B = {
+      "ENV1": () => "异常 " + c.exception + " 表示浏览器/设备会话无法创建 → 执行环境问题",
+      "ENV-DESK": () => "报错" + q(hit) + "：执行机没有可交互的桌面，无法操作鼠标键盘 → 环境问题，与用例本身无关",
+      "ENV2": () => "报错" + q(hit) + "属于连接或服务故障 → 环境问题",
+      "ENV3": () => "同一报错在本次多个用例连续出现 → 疑似环境问题，待确认",
+      "R1": () => "重跑通过 → 本次失败不是必现",
+      "SYS-EMPTY": () => "提交后出现弹窗，但脚本没读到文字 → 原因未知，需看截图",
+      "DATA-LOCK": () => "系统提示" + q(hit) + "：保单正被其他会话占用 → 测试数据问题",
+      "CHK-LOCK1": () => "保单被本批次前面失败的用例占用（未释放）→ 前面用例的清理步骤有问题",
+      "SYS-CFG": () => "系统提示" + q(hit) + "：缺少系统配置 → 需确认配置是否应该存在",
+      "CHK-CFG": () => "系统提示" + q(hit) + "，核查结果：" + DATA_CHECK[c.dataCheck],
+      "SYS-CRASH": () => "被测程序弹出未处理异常 → 疑似产品缺陷",
+      "POP1": () => "对话框" + q(hit) + "在干扰清单中 → 弹窗干扰",
+      "POP1-未知": () => "出现不在清单中的对话框 → 需判断是不是干扰",
+      "BIZ1": () => "业务报错" + q(hit) + "，核查确认数据有问题 → 测试数据问题",
+      "BIZ2": () => "业务报错" + q(hit) + "，核查确认数据正常 → 系统有问题",
+      "BIZ3": () => "出现业务报错" + q(hit) + " → 要核查数据，才能区分是数据问题还是系统问题",
+      "POP2": () => "页面有干扰弹框" + q(hit) + "挡住操作 → 弹窗干扰",
+      "POP3": () => "点击被带弹框特征的元素挡住 → 疑似弹框遮挡，需看截图",
+      "POP3-弱": () => "点击被其他元素挡住 → 需看截图确认遮挡物",
+      "MASK1": () => "报错" + q(m) + "是因为前一步没找到控件或数据（返回了空值）→ 真实原因被掩盖，需查 " + (fn || "报错所在函数"),
+      "DSK-AMB": () => "定位条件同时匹配到多个控件 → 脚本定位需要加限定",
+      "DSK-OPT": () => "下拉框里没有" + q(hit) + " → 疑似选项名称变了",
+      "DSK-DTP": () => "日期控件设置失败 → 需核查日期值是否超出允许范围",
+      "CHK-DTP": () => "日期控件设置失败，核查结果：" + DATA_CHECK[c.dataCheck],
+      "DSK-DIS": () => "要操作的控件是灰色不可用 → 需看截图确认原因",
+      "DSK-VIS": () => "控件存在但不可见 → 疑似页签或区域没切换过去",
+      "DSK-NF": () => "找不到" + (L.expectWin ? "窗口" + q(L.expectWin) : "窗口或控件") + " → 需看截图确认当时的屏幕",
+      "GEN1": () => "只有笼统报错" + q(m) + " → 需看步骤日志和截图",
+      "SCR1": () => "找不到元素或等待超时，没有弹框和业务报错 → 疑似定位失效，需看截图",
+      "SCR2": () => "定位表达式写错 → 脚本问题",
+      "SCR3": () => "测试代码运行错误 " + c.exception + " → 脚本问题",
+      "AST1": () => "断言期望值与实际值不同 → 疑似产品缺陷，需确认期望值没有过时",
+      "AST2": () => "断言失败但没有期望值和实际值 → 需看日志",
+      "NONE": () => "没有规则能解释这个报错 → 需人工判断",
+    };
+    let s = (B[a.rule] || (() => a.why[0] || ""))();
+    if (a.phase === "verify") s += "（业务已提交成功，失败发生在结果校验）";
+    if (a.flags.includes("环境中断边界")) s += "；紧挨环境中断的起点，建议先重跑";
+    if (a.flags.includes("有残留窗口")) s += "；屏幕上有前面用例留下的窗口";
+    if (a.flags.includes("重跑仍失败")) s += "；重跑仍失败，问题必现";
+    return s;
+  }
+
+  // 写进 Jira 的英文说明（Jira 描述用英文）
+  const CAT_EN = { RERUN_PASS: "Passed on rerun", ENVIRONMENT: "Environment issue", POPUP_INTERFERENCE: "Popup interference", SCRIPT_ISSUE: "Test script issue", TEST_DATA: "Test data issue", PRODUCT_DEFECT: "Suspected product defect", NEEDS_HUMAN: "Needs manual analysis" };
+  const CHECK_EN = { ok: "data exists and is in the expected state", missing: "data does not exist", used: "data has already been used", invalid: "data state does not meet the test precondition",
+    lock_prev: "locked by an earlier failed case in the same run (not released)", lock_other: "locked by another user or run", lock_unknown: "lock owner not found",
+    cfg_missing: "the configuration should exist but is missing in the test environment", cfg_ok: "the configuration is correct but the system still fails", cfg_unsupported: "the scenario is not supported (test precondition invalid)",
+    dtp_out: "the date is outside the allowed range", dtp_in: "the date is within range but still cannot be set" };
+  function english(c) {
+    const a = c.auto, L = c.L || {}, hit = a.hits[0] || "", m = (L.root && L.root.msg || "").split("\n")[0].slice(0, 160), fn = L.rootAt ? L.rootAt.func : "";
+    const chk = c.dataCheck ? " Manual check: " + (CHECK_EN[c.dataCheck] || c.dataCheck) + (c.dataNote ? " (" + c.dataNote + ")" : "") + "." : "";
+    const T = {
+      "ENV1": ["The browser/device session could not be created (" + c.exception + ").", "Check the execution machine and driver, then rerun."],
+      "ENV-DESK": ["The execution machine had no interactive desktop (\"" + hit + "\"), so the automation could not move the mouse or type. This usually happens when the remote desktop session is minimized, disconnected or locked.", "Environment owner to confirm the session state of the execution machine during the run; rerun after it is fixed."],
+      "ENV2": ["Connection/service failure: \"" + hit + "\". The application lost its connection to the backend/database.", "Environment owner to confirm the database/service status at that time; rerun."],
+      "ENV3": ["The same error occurred in many consecutive cases in this run.", "Confirm whether the environment was unstable at that time."],
+      "R1": ["The case passed on rerun.", "No ticket needed unless it keeps recurring."],
+      "SYS-EMPTY": ["A popup appeared after submission, but the script could not read its text.", "Check the screenshot to identify the popup."],
+      "DATA-LOCK": ["The system reported \"" + hit + "\": the policy/contract was locked by another session.", "Find and release the lock, then rerun."],
+      "CHK-LOCK1": ["The policy was locked by an earlier failed case in the same run that did not release it.", "Fix the cleanup step of the earlier case."],
+      "SYS-CFG": ["The system reported \"" + hit + "\": a configuration is missing.", "Dev/config owner to confirm whether this configuration should exist in the test environment."],
+      "CHK-CFG": ["The system reported \"" + hit + "\".", "See manual check result."],
+      "SYS-CRASH": ["The application showed an unhandled exception dialog.", "Capture the exception details and confirm whether it is reproducible."],
+      "POP1": ["An unrelated dialog (\"" + hit + "\") blocked the test.", "Add handling for this dialog in the test script."],
+      "POP1-未知": ["An unexpected dialog appeared.", "Identify whether the dialog is expected."],
+      "BIZ1": ["The system returned \"" + hit + "\" and the test data was found to be invalid.", "Fix the test data and rerun."],
+      "BIZ2": ["The system returned \"" + hit + "\" although the test data was verified to be correct.", "Dev to investigate."],
+      "BIZ3": ["The system returned \"" + hit + "\".", "Check the test data to distinguish a data issue from a system issue."],
+      "POP2": ["A popup (\"" + hit + "\") blocked the operation.", "Add handling for this popup."],
+      "POP3": ["The click was intercepted by an overlay element.", "Check the screenshot to identify the overlay."],
+      "POP3-弱": ["The click was intercepted by another element.", "Check the screenshot to identify the element."],
+      "MASK1": ["\"" + m + "\" at " + (fn || "the failing function") + ": a previous lookup returned no control/data (False/None) and the script continued, so the real cause is hidden.", "Check which control/data the lookup at this line was looking for; check the screenshot."],
+      "DSK-AMB": ["The locator matched multiple controls (ElementAmbiguousError) at " + fn + ".", "Make the locator more specific; check for windows left open by earlier cases."],
+      "DSK-OPT": ["The dropdown does not contain the option " + hit + ".", "Confirm the actual option name in the application."],
+      "DSK-DTP": ["Failed to set the date in the Date Time Picker at " + fn + ".", "Confirm the date value and the allowed range."],
+      "CHK-DTP": ["Failed to set the date in the Date Time Picker at " + fn + ".", "See manual check result."],
+      "DSK-DIS": ["The control to operate was disabled (ElementNotEnabled) at " + fn + ".", "Check the screenshot to see why the control was disabled."],
+      "DSK-VIS": ["The control exists but is not visible (ElementNotVisible) at " + fn + ".", "Check whether the right tab/section was opened."],
+      "DSK-NF": ["Could not find " + (L.expectWin ? "the window \"" + L.expectWin + "\"" : "the window/control") + (fn ? " at " + fn : "") + ".", "Check the screenshot to see what was on screen; rerun."],
+      "GEN1": ["Generic error: \"" + m + "\".", "Check the step log and screenshot for the actual system message."],
+      "SCR1": ["Element not found / wait timeout (" + c.exception + ").", "Check the screenshot to confirm whether the locator is outdated."],
+      "SCR2": ["Invalid locator.", "Fix the locator."],
+      "SCR3": ["Test code error (" + c.exception + ").", "Fix the test code."],
+      "AST1": ["Assertion failed with different expected and actual values.", "Confirm the expected value is still valid."],
+      "AST2": ["Assertion failed without expected/actual values.", "Check the log."],
+      "NONE": ["No rule matched this error.", "Manual analysis needed."],
+    };
+    const t = T[a.rule] || ["See the error log.", "Manual analysis needed."];
+    let basis = t[0] + chk;
+    if (a.phase === "verify") basis += " The business transaction had already been submitted successfully; the failure occurred during result verification.";
+    if (c.override) basis = "Reviewer conclusion: " + c.override.reason + " (" + CAT_EN[c.override.cat] + ")";
+    return { cat: CAT_EN[c.final], status: c.override ? "confirmed by reviewer" : a.status === "confirmed" ? "confirmed by rule" : "to be confirmed", basis, next: t[1] };
   }
 
   // 跨用例的证据：环境中断的起点和边界、通过用例里出现的同样报错、同一功能的通过/失败对比、残留窗口
@@ -824,9 +1030,8 @@ window.ENG = (function () {
     });
   }
 
-  return { DEFAULT_RULES, CATS, REASONS, DATA_CHECK, FIELDS, classifyAll, evidenceOf, signature, mask, findAny, parseFile, guessMapping, toCases, isFail, analyzeLog };
+  return { DEFAULT_RULES, CATS, REASONS, DATA_CHECK, CHECK_KINDS, RULE_NAMES, ruleName, english, CAT_EN, FIELDS, classifyAll, evidenceOf, signature, mask, findAny, parseFile, guessMapping, toCases, isFail, analyzeLog, prepare };
 })();
-
 </script>
 <script>
 /* 框架：存储、菜单、页签、通用组件 */
@@ -901,6 +1106,8 @@ window.APP = (function () {
   }
   const catTag = (cat, small) => { const c = ENG.CATS[cat] || ENG.CATS.NEEDS_HUMAN; return '<span class="tag ' + c.color + '">' + c.name + "</span>"; };
   const statusTag = c => c.override ? '<span class="dot" style="--c:#409eff">人工已改</span>' : c.auto.status === "confirmed" ? '<span class="dot" style="--c:#67c23a">规则确认</span>' : '<span class="dot" style="--c:#e6a23c">待复核</span>';
+  // 用例显示名：重跑第 2 次的记录加标注
+  const caseLabel = c => esc(c.id) + (c.parent ? ' <span class="tag gray" style="font-size:11px;line-height:16px">重跑第2次</span>' : "");
   function pager(total, page, size, onGo) {
     const pages = Math.max(1, Math.ceil(total / size));
     let html = '<div class="pager"><span>共 ' + total + " 条</span><span>" + size + " 条/页</span>";
@@ -938,26 +1145,31 @@ window.APP = (function () {
     { grp: "测试分析" },
     { id: "import", name: "数据导入", crumb: "测试分析 / 数据导入" },
     { id: "triage", name: "失败分诊", crumb: "测试分析 / 失败分诊", badge: () => S.cases.filter(c => c.failed && !c.override && c.auto && c.auto.status === "suspected").length },
-    { id: "groups", name: "原因分组", crumb: "测试分析 / 原因分组" },
-    { id: "rerun", name: "重跑清单", crumb: "测试分析 / 重跑清单" },
-    { id: "datacheck", name: "数据核查", crumb: "测试分析 / 数据核查", badge: () => S.cases.filter(c => c.failed && !c.override && c.auto && c.auto.reason === "pending_data_check").length },
+    { id: "rerun", name: "重跑", crumb: "测试分析 / 重跑", badge: () => S.cases.filter(c => c.failed && !c.parent && !c.rerun && c.rerunReq).length },
+    { id: "datacheck", name: "人工核查", crumb: "测试分析 / 人工核查", badge: () => S.cases.filter(c => c.failed && !c.override && c.auto && c.auto.checkKind && !c.dataCheck).length },
     { id: "compare", name: "回归对比", crumb: "测试分析 / 回归对比" },
     { grp: "缺陷提报" },
     { id: "jira", name: "Jira 起草", crumb: "缺陷提报 / Jira 起草", badge: () => (S.drafts || []).filter(d => d.status === "draft").length },
     { id: "jirasub", name: "提交与导出", crumb: "缺陷提报 / 提交与导出" },
     { grp: "配置" },
     { id: "rules", name: "规则配置", crumb: "配置 / 规则配置" },
-    { id: "jiracfg", name: "Jira 配置", crumb: "配置 / Jira 配置" },
+    { id: "jiracfg", name: "接口与 Jira 配置", crumb: "配置 / 接口与 Jira 配置" },
   ];
   let open = ["home"], cur = "home";
+  const hist = [];
   const PAGES = {};
-  function go(id, opts) {
+  function go(id, opts, noPush) {
     const m = MENU.find(x => x.id === id);
     if (!m || m.dis) return;
     if (!open.includes(id)) open.push(id);
+    if (!noPush && id !== cur) { hist.push(cur); if (hist.length > 30) hist.shift(); }
     cur = id;
     if (opts) S.view[id] = Object.assign(S.view[id] || {}, opts);
     render();
+  }
+  function back() {
+    while (hist.length) { const p = hist.pop(); if (p !== cur && MENU.find(x => x.id === p)) { go(p, null, true); return; } }
+    go("home", null, true);
   }
   function closeTab(id) {
     if (id === "home") return;
@@ -979,7 +1191,9 @@ window.APP = (function () {
     }).join("");
     $$("#tabs [data-tab]").forEach(t => t.onclick = e => { if (e.target.dataset.x) closeTab(e.target.dataset.x); else go(t.dataset.tab); });
     const m = MENU.find(x => x.id === cur);
-    $("#crumb").innerHTML = "首页 / <b>" + esc(m.crumb) + "</b>";
+    $("#crumb").innerHTML = (cur !== "home" ? '<button class="btn sm" id="backBtn" title="返回上一页（Alt + ←）">← 返回</button>' : "") + '<a id="crumbHome">首页</a> / <b>' + esc(m.crumb) + "</b>";
+    if ($("#backBtn")) $("#backBtn").onclick = back;
+    $("#crumbHome").onclick = () => go("home");
     const failed = S.cases.filter(c => c.failed).length;
     $("#projInfo").innerHTML = (S.runs.length ? "已导入 " + S.runs.length + " 个批次" : "尚未导入数据") + "<small>" + (S.runs.length ? "失败用例 " + failed + " 条" : "数据只保存在本机浏览器") + "</small>";
   }
@@ -992,18 +1206,62 @@ window.APP = (function () {
   }
   function refreshMenu() { renderMenu(); }
 
-  function init() {
-    load(); reclassify();
+  /* ---------- 截图：保存在浏览器本地数据库（IndexedDB），刷新后仍在 ---------- */
+  let db = null;
+  function openDB() {
+    return new Promise(res => {
+      try {
+        const r = indexedDB.open("testAnalysisShots", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("shots");
+        r.onsuccess = () => { db = r.result; res(db); };
+        r.onerror = () => res(null);
+      } catch (e) { res(null); }
+    });
+  }
+  function saveShots(uid) {
+    if (!db) return;
+    try { db.transaction("shots", "readwrite").objectStore("shots").put((S.shots[uid] || []).map(s => ({ name: s.name, blob: s.blob })), uid); } catch (e) {}
+  }
+  function deleteShots(uids) {
+    if (!db) return;
+    try { const st = db.transaction("shots", "readwrite").objectStore("shots"); uids.forEach(u => st.delete(u)); } catch (e) {}
+  }
+  function loadShots() {
+    return new Promise(res => {
+      if (!db) return res();
+      try {
+        const st = db.transaction("shots").objectStore("shots"), req = st.openCursor();
+        req.onsuccess = () => {
+          const cur = req.result;
+          if (!cur) return res();
+          S.shots[cur.key] = (cur.value || []).filter(x => x.blob).map(x => ({ name: x.name, blob: x.blob, src: URL.createObjectURL(x.blob) }));
+          cur.continue();
+        };
+        req.onerror = () => res();
+      } catch (e) { res(); }
+    });
+  }
+  function addShot(uid, file, name) {
+    (S.shots[uid] = S.shots[uid] || []).push({ name: name || file.name || "截图.png", blob: file, src: URL.createObjectURL(file) });
+    saveShots(uid);
+  }
+
+  async function init() {
+    load();
+    await openDB(); await loadShots();
+    reclassify();
     $("#mask").onclick = closeDrawer;
     $("#drwX").onclick = closeDrawer;
     $("#dlgX").onclick = closeDialog;
-    document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") closeDrawer();
+      if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); if ($("#drawer").classList.contains("open")) closeDrawer(); else back(); }
+    });
     render();
   }
 
-  return { S, KEY, save, reclassify, esc, $, $$, highlight, toast, copy, showText, download, toCSV, readFile, catTag, statusTag, pager, emptyBlock, dialog, closeDialog, drawer, closeDrawer, go, render, refreshMenu, PAGES, init, MENU };
+  return { S, KEY, save, reclassify, esc, $, $$, highlight, toast, copy, showText, download, toCSV, readFile, catTag, statusTag, caseLabel, pager, emptyBlock, dialog, closeDialog, drawer, closeDrawer, go, back, render, refreshMenu, PAGES, init, MENU, addShot, saveShots, deleteShots };
 })();
-
 </script>
 <script>
 /* 页面：工作台、流程讲解、数据导入、规则配置 */
@@ -1018,19 +1276,19 @@ window.APP = (function () {
         '<div class="flow">' +
         step(1, "导入执行结果", "从平台导出（或通过 SDK 接口取到）的 JSON / CSV / JUnit XML，或者直接从平台页面复制表格粘贴进来。第一次导入需要对一下字段。", "你") +
         step(2, "自动初步分类", "失败用例按固定顺序过一遍规则：环境 → 重跑 → 弹窗 → 业务报错 → 脚本 → 断言。每条结论都写明依据和证据编号。", "脚本") +
-        step(3, "复核与导出", "“待复核”的用例看证据后确认或改分类；业务报错去数据核查；最后导出 CSV，或按原因分组起草 Jira，审核后导出或提交。", "你") +
+        step(3, "复核与导出", "“待复核”的用例看证据后确认或改分类；需要查系统的去“人工核查”；最后导出 CSV，或按原因分组起草 Jira。", "你") +
         "</div><div style=\"margin-top:16px;display:flex;gap:8px\"><button class=\"btn pri\" data-go=\"import\">去导入数据</button><button class=\"btn\" data-go=\"flow\">先看流程讲解</button></div></div>";
       bindGo(root); return;
     }
     const f = failedOf();
     const cnt = k => f.filter(c => c.final === k).length;
     const sus = f.filter(c => !c.override && c.auto.status === "suspected").length;
-    const pend = f.filter(c => !c.override && c.auto.reason === "pending_data_check").length;
+    const pend = f.filter(c => !c.override && c.auto.checkKind && !c.dataCheck).length;
     const total = S.runs.reduce((a, r) => a + r.total, 0);
     let html = '<div class="kpis">' +
       kpi(total, "执行用例总数", "#409eff") + kpi(f.length, "失败用例", "#f56c6c") +
       kpi(f.filter(c => !c.override && c.auto.status === "confirmed").length, "规则已确认", "#67c23a") +
-      kpi(sus, "待复核", "#e6a23c", "triage", { tab: "sus" }) + kpi(pend, "待数据核查", "#e6a23c", "datacheck") +
+      kpi(sus, "待复核", "#e6a23c", "triage", { tab: "sus" }) + kpi(pend, "待人工核查", "#e6a23c", "datacheck") +
       kpi(f.filter(c => c.override).length, "人工已改", "#909399") + "</div>";
     html += '<div class="card"><h3>失败原因分布 <span class="sub">按最终分类（人工修改优先）统计，全部批次</span></h3><div class="tbl-wrap"><table class="tbl"><thead><tr><th>分类</th><th>数量</th><th style="width:34%">占比</th><th>默认处理方</th><th>下一步</th></tr></thead><tbody>' +
       Object.keys(E.CATS).map(k => {
@@ -1067,7 +1325,7 @@ window.APP = (function () {
     $$("[data-run-del]", root).forEach(a => a.onclick = () => {
       const r = S.runs.find(x => x.id === a.dataset.runDel);
       A.dialog("删除批次", "确定删除批次“" + esc(r.name) + "”？该批次的分类、人工结论、核查记录和未提交的 Jira 草稿都会删除，无法恢复。建议先在“失败分诊”导出 CSV。", [
-        { t: "取消" }, { t: "删除", pri: true, fn: () => { S.runs = S.runs.filter(x => x !== r); S.cases = S.cases.filter(c => c.run !== r.id); S.drafts = S.drafts.filter(d => d.run !== r.id || d.status === "submitted"); A.save(); A.render(); A.toast("已删除"); } }]);
+        { t: "取消" }, { t: "删除", pri: true, fn: () => { S.runs = S.runs.filter(x => x !== r); A.deleteShots(S.cases.filter(c => c.run === r.id).map(c => c.uid)); S.cases = S.cases.filter(c => c.run !== r.id); S.drafts = S.drafts.filter(d => d.run !== r.id || d.status === "submitted"); A.save(); A.render(); A.toast("已删除"); } }]);
     });
   }
   A.runTable = runTable; A.bindRunTable = bindRunTable; A.bindGo = bindGo;
@@ -1083,15 +1341,15 @@ window.APP = (function () {
   };
   const FLOW = {
     flow: () => '<p class="hint" style="margin-top:0">一次回归跑完之后，从拿到结果到交给团队的完整过程。蓝色是页面自动完成，橙色需要你操作，灰色是后续再做的部分。</p><div class="flow">' +
-      step(1, "导入执行结果", "在“数据导入”选择文件或粘贴表格。支持平台导出的 JSON、CSV、Excel 复制的表格、JUnit XML、Allure 结果文件。第一次导入时把“用例标识、名称、结果、报错信息”等字段对上，之后会记住。", "你") +
-      step(2, "匹配截图（可选）", "选择截图文件或整个截图文件夹，文件名里含有用例标识的会自动挂到对应用例上，作为证据。截图只在本次打开页面期间有效。", "你") +
-      step(3, "自动初步分类", "每条失败用例按固定顺序判断：环境 → 重跑 → 原生弹窗 → 业务报错 → 网页弹框 → 脚本 → 断言 → 需人工。先命中的规则生效，结论分“规则确认”和“待复核”。", "脚本") +
-      step(4, "按原因分组", "报错去掉数字、时间、网址等会变化的部分后比较，相同的归为一组。40 条失败往往只有几个真正的原因，按组处理更快。", "脚本") +
-      step(5, "重跑", "“重跑清单”列出建议重跑的用例，复制用例标识到平台重跑。重跑结果导入后，通过的用例自动改为“重跑可过”。", "你") +
-      step(6, "数据核查", "页面出现业务报错（例如 record not found）时，只看报错分不清是数据问题还是系统问题。在“数据核查”填写查库结果后自动重新分类。", "你") +
+      step(1, "导入执行结果", "在“数据导入”选择文件或粘贴表格。支持平台导出的 JSON、CSV、Excel 复制的表格、JUnit XML、Allure 结果文件。第一次导入时把“用例编号、名称、结果、报错信息”等字段对上，之后会记住。", "你") +
+      step(2, "补充截图（可选）", "在“数据导入”选择截图文件夹（文件名含用例编号的自动匹配），或在用例详情里直接 Ctrl+V 粘贴截图。截图保存在本机浏览器，刷新后仍在。", "你") +
+      step(3, "自动初步分类", "先看整批（环境从哪个用例开始中断、通过的用例里有没有同样的报错），再逐条判断：环境 → 重跑 → 系统提示 → 弹窗 → 业务报错 → 控件异常 → 脚本 → 断言 → 需人工。每条都写出中文的判断依据。", "脚本") +
+      step(4, "按分类和原因分组、分派", "在“失败分诊”按“分类 → 原因”两级展示，同一原因的用例合在一起。顶部按处理方汇总：交给测试、交给开发、交给环境、待判断，可复制清单发给对应的人。", "脚本") +
+      step(5, "重跑", "“重跑”页按标准列出“建议立即重跑、处理后再重跑、不重跑”三类。确认后一键重跑（接入平台接口后），或复制用例编号到平台重跑；结果导入后自动更新分类。", "你") +
+      step(6, "人工核查", "规则需要人去系统里查一下才能下结论的情况（业务报错查数据、保单被占用查来源、缺配置问开发、日期设置失败查日期值），在“人工核查”填写结果，分类会自动更新。", "你") +
       step(7, "人工复核", "“待复核”的用例打开证据，看截图和报错后确认或改分类，写明原因。也可以复制脱敏后的复核材料给公司的 AI 工具辅助判断。", "你") +
       step(8, "导出结果", "导出 CSV（Excel 可直接打开），包含自动分类、依据、人工结论和最终分类，用于周报或交给开发。", "你") +
-      step(9, "起草 Jira", "按原因分组起草（一组 = 一张单）。页面填写标题、环境、受影响用例、实际结果、已做排查；AI 可补写现象、预期、推测；你补充重现步骤和测试数据，然后审核。", "你") + step(10, "导出或提交", "现在可以导出 Jira CSV 批量导入，或复制到 Jira 网页建单，再回填单号。后端接口做好后，可以直接从页面提交。", "你") + "</div>" +
+      step(9, "起草 Jira", "按原因分组起草（一组 = 一张单）。重跑仍失败且问题相同的，两次的情况写进同一张单；重跑通过的不提单；重跑失败但问题不同的，第二次单独起草一张。Description 用英文，附截图。", "你") + step(10, "导出或提交", "现在可以导出 Jira CSV 批量导入，或复制到 Jira 网页建单，再回填单号。后端接口做好后，可以直接从页面提交。", "你") + "</div>" +
       '<div class="card" style="margin:14px 0 0;background:#f5f7fa;box-shadow:none"><b>为什么环境排在重跑前面：</b><span class="hint">环境故障往往是暂时的，重跑会通过。如果先判“重跑可过”，环境问题就被掩盖了。所以环境问题即使重跑通过，仍然归为环境问题，并标注“重跑通过”。</span></div>',
     cats: () => '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>分类</th><th>什么情况下归入</th><th>默认处理方</th><th>常见误判</th></tr></thead><tbody>' +
       [["ENVIRONMENT", "浏览器/驱动/设备无法启动；报错含连接拒绝、502/503/504、域名解析失败、读取超时；或同一报错在短时间内大面积出现（待复核）", "单个用例超时不算环境问题"],
@@ -1111,10 +1369,10 @@ window.APP = (function () {
       "<li><b>CSV / 制表符表格</b>：可以直接从 Excel 或平台“测试报告”页面复制表格，粘贴到导入页的文本框。第一行必须是表头。</li>" +
       "<li><b>JUnit XML</b>：pytest、TestNG、JUnit 等常见输出，读取 testcase 的 failure / error。</li>" +
       "<li><b>Allure 结果</b>：allure-results 目录中的 <code>*-result.json</code>，可以多选一起导入。</li></ul>" +
-      "<p><b>需要的字段</b>（名称不必一致，导入时对应即可）</p><ul><li>必需：用例标识（如 Case000020）、用例名称、执行结果（Passed / Failed 等）</li><li>强烈建议：报错信息、堆栈/日志、截图路径</li><li>可选：异常类型（没有时从报错里自动识别）、页面/弹窗文字、开始时间（用于判断大面积失败是否集中在同一时段）、模块、执行设备</li></ul>" +
+      "<p><b>需要的字段</b>（名称不必一致，导入时对应即可）</p><ul><li>必需：用例编号（如 Case000020）、用例名称、执行结果（Passed / Failed 等）</li><li>强烈建议：报错信息、堆栈/日志、截图路径</li><li>可选：异常类型（没有时从报错里自动识别）、页面/弹窗文字、开始时间（用于判断大面积失败是否集中在同一时段）、模块、执行设备</li></ul>" +
       "<p><b>如果平台 SDK 接口能返回失败步骤的报错和截图地址，</b>分类会准很多。目前平台测试报告页显示的“标识、名称、结果、总数、通过数、通过率”只能统计，不足以判断原因，需要至少再拿到报错信息。</p>" +
       "<p><b>Windows 桌面端日志（LAS，BeautifulReport + pywinauto）：</b>把报告里每个用例“展开”后的整段日志对应到“报错信息”字段即可。页面会自动拆出：步骤日志、系统提示原文（<code>pop-up error:</code> 后的文字、<code>Validation Error:</code>）、最先发生的异常、项目代码里的失败位置、当时打开的窗口；并忽略 <code>SystemExit: 0</code> 和截图函数里的 <code>screen grab failed</code>。导入时请保持报告里的用例顺序，页面会据此判断“从哪个用例开始环境中断”。</p>" +
-      "<p><b>重跑结果：</b>导入时选择“重跑结果”，并选要更新的原批次。按用例标识匹配，通过的用例会记为“重跑通过”。</p></div>",
+      "<p><b>重跑结果：</b>导入时选择“重跑结果”，并选要更新的原批次。按用例编号匹配，通过的用例会记为“重跑通过”。</p></div>",
     compare: () => '<div class="prose"><p>回归对比页面用来一次看完同事 A 生成的全部对比报告，不用逐个打开 HTML。</p><ul>' +
       "<li><b>导入：</b>分别选择 Total 报告和 Ignore 报告（可以选整个文件夹）。文件名去掉 total / ignore 字样后相同的，视为同一个 Case 的两份报告。</li>" +
       "<li><b>Ignore / Total 切换：</b>默认看 Ignore（已过滤姓名、时间等噪声后的差异），需要时切换到 Total 看完整差异。</li>" +
@@ -1161,7 +1419,7 @@ window.APP = (function () {
       '<div class="drop" id="drop"><b>把文件拖到这里，或 <a id="pick">选择文件</a></b>JSON、CSV、TSV、JUnit XML、Allure *-result.json；可以多选<input type="file" id="file" multiple accept=".json,.csv,.tsv,.txt,.xml" style="display:none"></div>' +
       '<div style="margin-top:12px"><textarea class="ta" id="paste" rows="5" placeholder="也可以从 Excel 或平台页面复制表格（含表头）粘贴到这里，或粘贴 SDK 接口返回的 JSON"></textarea><div style="margin-top:8px;display:flex;gap:8px"><button class="btn pri" id="pasteGo">解析粘贴内容</button><button class="btn" id="pasteClr">清空</button></div></div></div>';
     if (v.parsed) html += mapCard(v);
-    html += '<div class="card"><h3>匹配截图 <span class="sub">文件名中包含用例标识的截图会挂到对应用例，作为证据；刷新页面后需要重新选择</span></h3>' +
+    html += '<div class="card"><h3>匹配截图 <span class="sub">文件名中包含用例编号的截图会挂到对应用例作为证据，保存在本机，刷新后仍在；也可以在用例详情里按 Ctrl+V 粘贴</span></h3>' +
       (S.runs.length ? '<div class="form"><label class="fi"><span>批次</span><select class="sel" id="sRun">' + S.runs.map(r => '<option value="' + r.id + '">' + esc(r.name) + "</option>").join("") + '</select></label><button class="btn" id="sFiles">选择截图文件</button><button class="btn" id="sDir">选择截图文件夹</button><input type="file" id="sFileIn" multiple accept="image/*" style="display:none"><input type="file" id="sDirIn" webkitdirectory multiple style="display:none"></div><div class="hint" id="sMsg" style="margin-top:8px"></div>'
         : '<p class="hint" style="margin:0">先导入执行结果，再匹配截图。</p>') + "</div>";
     if (S.runs.length) html += '<div class="card"><h3>已导入批次</h3>' + A.runTable() + "</div>";
@@ -1231,7 +1489,7 @@ window.APP = (function () {
     html += '<div class="map">' + E.FIELDS.map(f => '<label><span>' + f.name + (f.req ? "<i>*</i>" : "") + '</span><select class="sel" data-f="' + f.key + '"><option value="">（不使用）</option>' + cols.map(c => '<option value="' + esc(c) + '"' + (v.map[f.key] === c ? " selected" : "") + ">" + esc(c) + "</option>").join("") + "</select></label>").join("") + "</div>";
     html += '<div style="margin:14px 0 8px;display:flex;gap:16px;flex-wrap:wrap" class="hint"><span>共 <b style="color:#303133">' + cases.length + '</b> 行</span><span>判定为失败 <b style="color:#f56c6c">' + nFail + "</b> 行</span><span>执行结果取值：" +
       Object.keys(resVals).slice(0, 12).map(k => esc(k) + " × " + resVals[k]).join("，") + '</span><a id="mFailWords">失败判断不对？</a></div>';
-    html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>用例标识</th><th>用例名称</th><th>执行结果</th><th>判定</th><th>识别的异常类型</th><th>报错信息</th></tr></thead><tbody>' +
+    html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>用例编号</th><th>用例名称</th><th>执行结果</th><th>判定</th><th>识别的异常类型</th><th>报错信息</th></tr></thead><tbody>' +
       (cases.filter(c => c.failed).slice(0, 4).concat(cases.filter(c => !c.failed).slice(0, 2))).map(c => '<tr><td class="mono">' + esc(c.id) + "</td><td>" + esc(c.name) + "</td><td>" + esc(c.result) + "</td><td>" + (c.failed ? '<span class="tag red">失败</span>' : '<span class="tag gray">不分析</span>') + '</td><td class="mono">' + esc(c.exception || "-") + '</td><td class="clip">' + esc((c.error || c.stack || "-").split("\n")[0]) + "</td></tr>").join("") + "</tbody></table></div>";
     html += '<div style="margin-top:14px;display:flex;gap:8px;align-items:center">' + (miss.length ? '<span class="hint" style="color:#f56c6c">请先对应：' + miss.map(f => f.name).join("、") + "</span>" : "") +
       '<span style="flex:1"></span><button class="btn" id="mCancel">取消</button><button class="btn pri" id="mOk"' + (miss.length ? " disabled" : "") + ">" + (v.info.mode === "rerun" ? "导入重跑结果" : "确认导入") + "</button></div></div>";
@@ -1252,14 +1510,23 @@ window.APP = (function () {
       const target = v.info.rerunOf || (S.runs[0] && S.runs[0].id);
       const rc = E.toCases(t.rows, v.map, S.rules, "rerun", 0);
       const byId = {}; rc.forEach(c => { byId[c.id] = c; });
-      let hit = 0, pass = 0;
-      S.cases.filter(c => c.run === target && c.failed).forEach(c => {
+      let hit = 0, pass = 0, same = 0, diff = 0;
+      S.cases.filter(c => c.run === target && c.failed && !c.parent).forEach(c => {
         const r = byId[c.id]; if (!r) return;
-        hit++; c.rerun = r.failed ? "fail" : "pass"; if (!r.failed) pass++;
-        c.rerunNote = (v.info.name || "重跑") + " " + at + (r.failed && r.error ? "，报错：" + r.error.split("\n")[0].slice(0, 200) : "");
+        hit++; c.rerun = r.failed ? "fail" : "pass"; c.rerunReq = null;
+        const r2uid = c.uid + "#2";
+        S.cases = S.cases.filter(x => x.uid !== r2uid);
+        c.rerunNote = (v.info.name || "重跑") + " " + at;
+        if (!r.failed) { pass++; c.r2 = { start: r.start || at, screenshot: r.screenshot, same: null }; return; }
+        // 第二次的报错与第一次相同（报错特征一致）→ 同一个问题；不同 → 第二次单独作为一条记录分析、单独提单
+        const isSame = !!r.sig0 && r.sig0 === c.sig0;
+        c.r2 = { start: r.start || at, screenshot: r.screenshot, error: (r.error || r.stack || "").slice(0, 4000), same: isSame };
+        if (isSame) { same++; return; }
+        diff++;
+        S.cases.push(Object.assign({}, r, { uid: r2uid, run: c.run, seq: c.seq, id: c.id, name: c.name || r.name, parent: c.uid, attempt: 2, module: r.module || c.module, device: r.device || c.device }));
       });
       A.reclassify(); A.save(); v.parsed = null;
-      A.toast("已匹配 " + hit + " 条重跑结果，其中通过 " + pass + " 条");
+      A.toast("已匹配 " + hit + " 条重跑结果：通过 " + pass + " 条，仍失败且问题相同 " + same + " 条，仍失败但问题不同 " + diff + " 条");
       A.go("rerun");
       return;
     }
@@ -1281,7 +1548,8 @@ window.APP = (function () {
       const base = f.name.toLowerCase();
       const c = cs.find(c => c.screenshot && c.screenshot.toLowerCase().split(/[\\/;]/).map(s => s.trim()).includes(base)) || cs.find(c => c.id && n.includes(c.id.toLowerCase()));
       if (!c) { un.push(f.name); return; }
-      (S.shots[c.uid] = S.shots[c.uid] || []).push({ name: f.webkitRelativePath || f.name, src: URL.createObjectURL(f) });
+      (S.shots[c.uid] = S.shots[c.uid] || []).push({ name: f.webkitRelativePath || f.name, blob: f, src: URL.createObjectURL(f) });
+      A.saveShots(c.uid);
       matched++;
     });
     A.reclassify();
@@ -1291,18 +1559,35 @@ window.APP = (function () {
 
   /* ============================== 规则配置 ============================== */
   const RULE_SECTIONS = [
-    ["环境问题", [["env_exceptions", "异常类型（命中即环境问题）"], ["env_patterns", "报错关键字"]], "ENV1 / ENV2：命中即“环境问题·规则确认”。以 re: 开头的按正则表达式匹配，其他不区分大小写的包含匹配。"],
-    ["大面积相同报错", [["mass_min_cases", "至少几个用例", "num"], ["mass_ratio", "占失败数比例（%）", "num"], ["mass_window_min", "时间窗口（分钟）", "num"]], "ENV3：同一报错特征同时满足这三个条件时，判为“环境问题·待复核”。没有开始时间时不检查时间窗口。"],
+    ["环境问题", [["env_exceptions", "异常类型（命中即环境问题）"], ["env_patterns", "报错关键字"]], "报错里出现这些异常类型或文字，直接判为“环境问题（规则确认）”。"],
+    ["大面积相同报错", [["mass_min_cases", "至少几个用例", "num"], ["mass_ratio", "占失败数比例（%）", "num"], ["mass_window_min", "时间窗口（分钟）", "num"]], "同一种报错同时满足这三个条件（并且在执行顺序上连续，或集中在时间窗口内），判为“环境问题（待复核）”。"],
     ["弹窗清单", [["noise_popups", "干扰弹窗文字（与被测功能无关）"], ["business_errors", "业务报错文字（系统返回的真实错误）"], ["overlay_keywords", "遮挡元素特征（class / id 关键字）"]], "弹窗文字在“干扰”清单中 → 弹窗干扰；在“业务报错”清单中 → 进入数据核查；都不在 → 需人工判断（未知弹窗）。新出现的弹窗请补充到这里。"],
-    ["异常类型", [["alert_exceptions", "原生对话框"], ["intercept_exceptions", "点击被遮挡"], ["locator_exceptions", "找不到元素 / 超时"], ["invalid_selector", "定位表达式错误"], ["code_errors", "测试代码运行错误"], ["assertion_exceptions", "断言失败"]], "Selenium、Appium、pytest、Java 常见异常类型。异常类型从“异常类型”字段读取，没有时从报错信息中识别。"],
+    ["异常类型", [["alert_exceptions", "原生对话框"], ["intercept_exceptions", "点击被遮挡"], ["locator_exceptions", "找不到元素 / 超时"], ["invalid_selector", "定位表达式错误"], ["code_errors", "测试代码运行错误"], ["assertion_exceptions", "断言失败"]], "网页端（Selenium）、手机端（Appium）、pytest、Java 常见的异常名称。异常名称是程序输出的英文原文，不能翻译。"],
     ["其他", [["test_code_paths", "测试代码路径特征（判断代码错误是否发生在测试代码）"], ["expected_actual", "断言中“期望值/实际值”的格式"], ["fail_words", "执行结果中表示失败的文字"]], ""],
     ["日志解析（Python / BeautifulReport）", [["framework_paths", "框架和第三方库的路径（这些堆栈帧不算业务步骤）"], ["handler_funcs", "失败后才执行的处理函数（截图、清理）"], ["success_marks", "步骤日志中表示业务操作已成功的文字"]], "日志按 “During handling of the above exception” 拆成多段：第一段是最先发生的异常，后面是处理过程中又发生的异常。SystemExit 和截图函数里的异常不作为失败原因。"],
     ["系统提示的含义", [["lock_messages", "数据被其他会话占用 → 测试数据问题"], ["config_messages", "缺少配置 → 需确认（环境或缺陷）"], ["crash_messages", "程序未处理异常对话框 → 疑似产品缺陷"]], "系统提示来自弹窗处理函数读到的文字（pop-up error: …）和步骤日志里的 Validation Error。弹窗按文字含义分类，不按“是不是弹窗”分类。"],
     ["桌面端控件异常（pywinauto）", [["masked_patterns", "掩盖型报错（前一步返回了 False/None）"], ["desk_ambiguous", "定位条件匹配到多个控件"], ["desk_not_found", "找不到窗口 / 控件"], ["desk_not_visible", "控件不可见"], ["desk_not_enabled", "控件不可用（灰色）"], ["desk_option_missing", "下拉框没有该选项"], ["desk_datetime", "日期控件设置失败"]], ""],
   ];
+  const RULE_TIPS = {
+    "ENV1": "异常类型表示浏览器/驱动/设备无法启动 → 环境问题", "ENV2": "报错里有连接中断、数据库连不上等关键字 → 环境问题", "ENV-DESK": "执行机没有可交互桌面（远程桌面最小化、断开、锁屏）→ 环境问题",
+    "ENV3": "同一报错在本批次大面积、连续出现 → 环境问题（待复核）", "R1": "重跑通过 → 重跑可过",
+    "SYS-EMPTY": "出现弹窗但没读到文字 → 需人工判断", "DATA-LOCK": "系统提示数据被占用 → 测试数据问题（需查占用来源）", "CHK-LOCK1": "核查确认被本批次前面用例占用 → 脚本问题",
+    "SYS-CFG": "系统提示缺少配置 → 需人工核查", "CHK-CFG": "配置已核查 → 按核查结果分类", "SYS-CRASH": "被测程序弹出未处理异常 → 疑似产品缺陷",
+    "POP1": "原生对话框文字在干扰清单中 → 弹窗干扰", "POP1-未知": "原生对话框不在任何清单中 → 需人工判断",
+    "BIZ1": "业务报错 + 核查确认数据有问题 → 测试数据问题", "BIZ2": "业务报错 + 核查确认数据正常 → 疑似产品缺陷", "BIZ3": "业务报错，还没核查数据 → 需人工判断",
+    "POP2": "页面有干扰弹框 → 弹窗干扰", "POP3": "点击被带弹框特征的元素挡住 → 弹窗干扰（待复核）", "POP3-弱": "点击被其他元素挡住 → 需人工判断",
+    "MASK1": "前一步没找到控件/数据却继续执行，报错不是真实原因 → 需人工判断", "DSK-AMB": "定位条件匹配到多个控件 → 脚本问题", "DSK-OPT": "下拉框没有该选项 → 待复核",
+    "DSK-DTP": "日期控件设置失败 → 需人工核查日期", "CHK-DTP": "日期已核查 → 按核查结果分类", "DSK-DIS": "控件是灰色不可用 → 需人工判断", "DSK-VIS": "控件存在但不可见 → 待复核",
+    "DSK-NF": "找不到窗口或控件 → 需看截图判断", "GEN1": "只有笼统报错，没有原因 → 需人工判断",
+    "SCR1": "找不到元素或等待超时，没有弹框和业务报错 → 脚本问题（待复核）", "SCR2": "定位表达式写错 → 脚本问题", "SCR3": "测试代码运行错误 → 脚本问题",
+    "AST1": "断言期望值与实际值不同 → 疑似产品缺陷（待复核）", "AST2": "断言失败但没有数值 → 需人工判断", "NONE": "没有规则命中 → 需人工判断",
+  };
   A.PAGES.rules = function (root, v) {
     let html = '<div class="card"><h3>规则配置 <span class="sub">每行一项；保存后所有用例立即重新分类，人工修改过的结论不受影响</span><span class="acts"><button class="btn" id="rReset">恢复默认</button><button class="btn" id="rExport">导出规则</button><button class="btn pri" id="rSave">保存并重新分类</button></span></h3>' +
-      '<p class="hint" style="margin:0">判断顺序：先看整批（大面积相同报错、环境中断的起点）→ 环境 → 重跑 → 系统提示（数据占用、缺少配置、程序崩溃、读不到文字的弹窗）→ 原生弹窗 → 业务报错 → 掩盖型报错 → 桌面端控件异常 → 网页弹框 → 脚本 → 断言 → 需人工。先命中的规则生效。</p></div>';
+      '<p class="hint" style="margin:0">判断顺序：先看整批（大面积相同报错、环境中断的起点）→ 环境 → 重跑 → 系统提示（数据占用、缺少配置、程序崩溃、读不到文字的弹窗）→ 原生弹窗 → 业务报错 → 掩盖型报错 → 桌面端控件异常 → 网页弹框 → 脚本 → 断言 → 需人工。先命中的规则生效。</p>' +
+      '<p class="hint" style="margin:6px 0 0">填写方法：每行写一段报错里会出现的文字，不区分大小写。以 <code>re:</code> 开头的行表示“模糊匹配”，可以匹配一类相似的文字，例如 <code>re:record .* not found</code> 能匹配 “record 40100 not found”；不熟悉的话只写普通文字即可。</p></div>';
+    html += '<div class="card"><details><summary><b>规则一览</b> <span class="hint">“失败分诊”里“规则”一列显示的名称，以及会判成什么</span></summary><div class="tbl-wrap" style="margin-top:6px"><table class="tbl mini"><thead><tr><th>规则名称</th><th>什么情况下命中</th></tr></thead><tbody>' +
+      Object.entries(E.RULE_NAMES).map(([k, n]) => "<tr><td class=\"nw\">" + esc(n) + "</td><td>" + esc(RULE_TIPS[k] || "") + "</td></tr>").join("") + "</tbody></table></div></details></div>";
     RULE_SECTIONS.forEach(([t, items, note]) => {
       html += '<div class="card"><h3>' + t + "</h3>" + (note ? '<p class="hint" style="margin:-4px 0 12px">' + note + "</p>" : "") + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">' +
         items.map(([k, label, type]) => '<label><div style="margin-bottom:6px;color:#606266">' + label + "</div>" + (type === "num" ? '<input class="inp" type="number" data-r="' + k + '" value="' + S.rules[k] + '">' : '<textarea class="ta" rows="7" data-r="' + k + '" id="r_' + k + '">' + esc((S.rules[k] || []).join("\n")) + "</textarea>") + "</label>").join("") + "</div></div>";
@@ -1320,10 +1605,9 @@ window.APP = (function () {
     $("#rExport").onclick = () => A.showText("规则（JSON，可以发给同事或留档）", JSON.stringify(S.rules, null, 2));
   };
 })();
-
 </script>
 <script>
-/* 页面：失败分诊（含证据详情）、原因分组、重跑清单、数据核查 */
+/* 页面：失败分诊（分类 → 原因两级分组、分派、证据详情）、重跑、人工核查 */
 (function () {
   const A = APP, E = ENG, S = A.S, esc = A.esc, $ = A.$, $$ = A.$$;
   const runName = id => (S.runs.find(r => r.id === id) || {}).name || "-";
@@ -1331,64 +1615,151 @@ window.APP = (function () {
   const catOptions = (val, blank) => (blank ? '<option value="">' + blank + "</option>" : "") + Object.keys(E.CATS).map(k => '<option value="' + k + '"' + (val === k ? " selected" : "") + ">" + E.CATS[k].name + "</option>").join("");
   const firstLine = c => (c.error || c.stack || "").split("\n").find(s => s.trim()) || "";
   const noData = root => { root.innerHTML = '<div class="card">' + A.emptyBlock("还没有导入数据", "先在“数据导入”导入一次执行结果。", '<button class="btn pri" data-go="import">去导入</button>') + "</div>"; A.bindGo(root); };
+  const flagTags = c => c.auto.flags.length ? '<div class="flags">' + c.auto.flags.map(f => '<span class="tag orange">' + esc(f) + "</span>").join("") + "</div>" : "";
+  // 分类的展示顺序和分派对象
+  const CAT_ORDER = ["ENVIRONMENT", "PRODUCT_DEFECT", "SCRIPT_ISSUE", "TEST_DATA", "POPUP_INTERFERENCE", "NEEDS_HUMAN", "RERUN_PASS"];
+  const DISPATCH = [
+    { k: "test", name: "交给测试", cats: ["SCRIPT_ISSUE", "TEST_DATA", "POPUP_INTERFERENCE"], todo: "修脚本、换测试数据、补弹窗处理，处理后重跑验证" },
+    { k: "dev", name: "交给开发", cats: ["PRODUCT_DEFECT"], todo: "起草 Jira，附截图和执行摘要" },
+    { k: "env", name: "交给环境/运维", cats: ["ENVIRONMENT"], todo: "确认执行机、数据库、服务状态，恢复后整批重跑" },
+    { k: "human", name: "待判断", cats: ["NEEDS_HUMAN"], todo: "看证据和截图后改分类，或先做人工核查" },
+  ];
+  // 原因组名称：规则中文名 + 关键报错
+  const causeName = c => { const h = c.auto.hits[0] || (c.L && c.L.root ? c.L.root.msg.split("\n")[0] : firstLine(c)); return E.ruleName(c) + (h && !c.override ? " · “" + String(h).replace(/\s+/g, " ").slice(0, 70) + "”" : ""); };
+  function groupCases(list) {
+    const byCat = {};
+    list.forEach(c => { const g = byCat[c.final] = byCat[c.final] || {}; const k = c.sig || "(无报错)"; (g[k] = g[k] || []).push(c); });
+    return CAT_ORDER.filter(k => byCat[k]).map(cat => ({ cat, causes: Object.entries(byCat[cat]).map(([sig, cs]) => ({ sig, cs: cs.sort((a, b) => a.seq - b.seq) })).sort((a, b) => b.cs.length - a.cs.length) }));
+  }
+  // 复制给处理人的清单：分类 → 原因 → 用例编号、判断依据、下一步
+  function packText(cats, list, title) {
+    const gs = groupCases(list.filter(c => cats.includes(c.final)));
+    const n = gs.reduce((s, g) => s + g.causes.reduce((t, x) => t + x.cs.length, 0), 0);
+    let s = "【" + title + "】共 " + n + " 条失败用例" + (gs.length ? "（" + gs.map(g => E.CATS[g.cat].name + " " + g.causes.reduce((t, x) => t + x.cs.length, 0)).join("，") + "）" : "") + "\n";
+    gs.forEach(g => {
+      s += "\n■ " + E.CATS[g.cat].name + "\n";
+      g.causes.forEach((x, i) => {
+        const c0 = x.cs[0];
+        s += "  原因 " + (i + 1) + "：" + causeName(c0) + "（" + x.cs.length + " 条）\n";
+        s += "    判断依据：" + c0.auto.brief + "\n";
+        if (c0.auto.need.length) s += "    下一步：" + c0.auto.need[0] + "\n";
+        s += "    用例：" + x.cs.map(c => c.id).join("、") + "\n";
+      });
+    });
+    return E.mask(s);
+  }
 
   /* ============================== 失败分诊 ============================== */
   const TABS = [["all", "全部失败"], ["sus", "待复核"], ["conf", "规则确认"], ["manual", "人工已改"]];
-  function filterCases(v) {
-    const q = (v.q || "").toLowerCase();
+  function filterCases(v, tab) {
+    const q = (v.q || "").toLowerCase(); tab = tab || v.tab;
     return S.cases.filter(c => c.failed &&
       (!v.run || c.run === v.run) &&
       (!v.cat || c.final === v.cat) &&
-      (!v.owner || E.CATS[c.final].owner === v.owner) &&
+      (!v.owner || DISPATCH.find(d => d.k === v.owner).cats.includes(c.final)) &&
       (!v.sig || c.sig === v.sig) &&
       (!q || (c.id + " " + c.name + " " + c.error + " " + c.module).toLowerCase().includes(q)) &&
-      (v.tab === "sus" ? !c.override && c.auto.status === "suspected" : v.tab === "conf" ? !c.override && c.auto.status === "confirmed" : v.tab === "manual" ? !!c.override : true));
+      (tab === "sus" ? !c.override && c.auto.status === "suspected" : tab === "conf" ? !c.override && c.auto.status === "confirmed" : tab === "manual" ? !!c.override : true));
   }
+  const caseRow = (c, v, withCat) => '<tr class="' + (v.sel.includes(c.uid) ? "sel" : "") + '"><td class="ck"><input type="checkbox" data-sel="' + c.uid + '"' + (v.sel.includes(c.uid) ? " checked" : "") + '></td><td class="mono nw"><a data-open="' + c.uid + '">' + A.caseLabel(c) + "</a></td>" +
+    '<td class="nm" title="' + esc(c.name) + '">' + esc(c.name || "-") + (v.run ? "" : '<div class="hint">' + esc(runName(c.run)) + "</div>") + "</td>" +
+    (withCat ? "<td>" + A.catTag(c.final) + "</td>" : "") +
+    '<td class="basis">' + esc(c.auto.brief) + flagTags(c) + "</td><td class=\"nw\">" + A.statusTag(c) + '</td><td class="nw">' + esc(E.ruleName(c)) + "</td>" +
+    (withCat ? '<td class="nw">' + E.CATS[c.final].owner + "</td>" : "") +
+    '<td class="ops nw"><a data-open="' + c.uid + '">证据</a><a data-quick="' + c.uid + '">改分类</a></td></tr>';
   A.PAGES.triage = function (root, v) {
     if (!S.runs.length) return noData(root);
-    v.tab = v.tab || "all"; v.page = v.page || 1; v.sel = v.sel || [];
+    v.tab = v.tab || "all"; v.page = v.page || 1; v.sel = v.sel || []; v.mode = v.mode || "group"; v.fold = v.fold || {};
     const list = filterCases(v);
-    const size = 30, pages = Math.max(1, Math.ceil(list.length / size));
-    if (v.page > pages) v.page = pages;
-    const rows = list.slice((v.page - 1) * size, v.page * size);
-    const owners = Array.from(new Set(Object.values(E.CATS).map(c => c.owner)));
+    const scope = S.cases.filter(c => c.failed && (!v.run || c.run === v.run));
     let html = '<div class="card"><div class="form">' +
       '<label class="fi"><span>批次</span>' + runSelect("fRun", v.run, true) + "</label>" +
-      '<label class="fi"><span>用例</span><input class="inp" id="fQ" placeholder="标识 / 名称 / 报错关键字" value="' + esc(v.q || "") + '"></label>' +
-      '<label class="fi"><span>分类</span><select class="sel" id="fCat">' + catOptions(v.cat, "请选择分类") + "</select></label>" +
-      '<label class="fi"><span>处理方</span><select class="sel" id="fOwner"><option value="">请选择处理方</option>' + owners.map(o => '<option' + (v.owner === o ? " selected" : "") + ">" + o + "</option>").join("") + "</select></label>" +
-      '<button class="btn pri" id="fGo">查询</button><button class="btn okb" id="fReset">重置</button></div>' +
-      (v.sig ? '<div class="hint" style="margin-top:10px">当前只看同一原因分组：<code>' + esc(v.sig.slice(0, 100)) + '</code> <a id="fSigX">取消</a></div>' : "") + "</div>";
-    html += '<div class="card"><div class="bar"><div class="subtabs" style="margin:0;border:none">' + TABS.map(([k, n]) => {
-      const cnt = filterCases(Object.assign({}, v, { tab: k })).length;
-      return '<button data-tab="' + k + '" class="' + (v.tab === k ? "on" : "") + '">' + n + "（" + cnt + "）</button>";
-    }).join("") + '</div><span class="sp"></span>' +
-      '<button class="btn" id="bBatch"' + (v.sel.length ? "" : " disabled") + ">批量改分类" + (v.sel.length ? "（" + v.sel.length + "）" : "") + "</button>" +
-      '<button class="btn" id="bAI">复制复核材料</button><button class="btn" id="bCsv">导出 CSV</button></div>';
+      '<label class="fi"><span>用例</span><input class="inp" id="fQ" placeholder="编号 / 名称 / 报错关键字" value="' + esc(v.q || "") + '"></label>' +
+      '<label class="fi"><span>分类</span><select class="sel" id="fCat">' + catOptions(v.cat, "全部分类") + "</select></label>" +
+      '<label class="fi"><span>处理方</span><select class="sel" id="fOwner"><option value="">全部</option>' + DISPATCH.map(d => '<option value="' + d.k + '"' + (v.owner === d.k ? " selected" : "") + ">" + d.name + "</option>").join("") + "</select></label>" +
+      '<button class="btn pri" id="fGo">查询</button><button class="btn" id="fReset">重置</button></div>' +
+      (v.sig ? '<div class="hint" style="margin-top:8px">只看同一原因：' + esc(list[0] ? causeName(list[0]) : v.sig.slice(0, 80)) + ' <a id="fSigX">显示全部</a></div>' : "") + "</div>";
+
+    // 分派汇总：按处理方打包
+    html += '<div class="card"><div class="card-h"><b>分派汇总</b><span class="hint">按处理方汇总当前批次的失败用例。“复制清单”复制的是：分类 → 原因 → 判断依据、下一步、用例编号，可直接发给对应的人。</span></div><div class="dispatch">' +
+      DISPATCH.map(d => {
+        const cs = scope.filter(c => d.cats.includes(c.final));
+        const nCause = new Set(cs.map(c => c.final + "|" + c.sig)).size;
+        return '<div class="dp' + (cs.length ? "" : " zero") + '"><div class="dp-h"><b>' + d.name + '</b><span class="num">' + cs.length + '</span><span class="hint">条 · ' + nCause + " 个原因</span></div>" +
+          '<div class="hint dp-c">' + d.cats.map(k => E.CATS[k].name + " " + cs.filter(c => c.final === k).length).join(" · ") + "</div>" +
+          '<div class="hint dp-t">' + d.todo + '</div><div class="dp-a"><button class="btn sm" data-pack="' + d.k + '"' + (cs.length ? "" : " disabled") + '>复制清单</button><button class="btn sm" data-only="' + d.k + '"' + (cs.length ? "" : " disabled") + ">只看这些</button></div></div>";
+      }).join("") + "</div>" +
+      (scope.some(c => c.final === "RERUN_PASS") ? '<div class="hint" style="margin-top:6px">另有 ' + scope.filter(c => c.final === "RERUN_PASS").length + " 条重跑已通过，不需要处理。</div>" : "") + "</div>";
+
+    html += '<div class="card"><div class="bar"><div class="subtabs">' + TABS.map(([k, n]) => '<button data-tab="' + k + '" class="' + (v.tab === k ? "on" : "") + '">' + n + "（" + filterCases(v, k).length + "）</button>").join("") + '</div><span class="sp"></span>' +
+      '<div class="seg"><button data-mode="group" class="' + (v.mode === "group" ? "on" : "") + '">按分类分组</button><button data-mode="flat" class="' + (v.mode === "flat" ? "on" : "") + '">列表</button></div>' +
+      '<button class="btn sm" id="bBatch"' + (v.sel.length ? "" : " disabled") + ">批量改分类" + (v.sel.length ? "（" + v.sel.length + "）" : "") + "</button>" +
+      '<button class="btn sm" id="bRerun"' + (v.sel.length ? "" : " disabled") + ">加入重跑" + "</button>" +
+      '<button class="btn sm" id="bAI" title="把待复核用例的证据整理成文字（已脱敏），可发给 AI 辅助判断">复制复核材料</button><button class="btn sm" id="bCsv">导出 CSV</button></div>';
+
+    let pg = null;
     if (!list.length) html += A.emptyBlock("没有符合条件的用例", v.tab === "sus" ? "所有失败用例都已由规则确认或人工处理。" : "调整筛选条件试试。");
-    else {
-      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th><input type="checkbox" id="selAll"' + (rows.every(c => v.sel.includes(c.uid)) ? " checked" : "") + '></th><th>序号</th><th>用例标识</th><th>用例名称</th><th>异常类型</th><th>报错摘要</th><th>分类</th><th>判定状态</th><th>规则</th><th>处理方</th><th>操作</th></tr></thead><tbody>' +
-        rows.map(c => '<tr class="' + (v.sel.includes(c.uid) ? "sel" : "") + '"><td><input type="checkbox" data-sel="' + c.uid + '"' + (v.sel.includes(c.uid) ? " checked" : "") + "></td><td>" + c.seq + '</td><td class="mono">' + esc(c.id) + '</td><td style="min-width:120px">' + esc(c.name) + (v.run ? "" : '<div class="hint">' + esc(runName(c.run)) + "</div>") + '</td><td class="mono">' + esc(c.exception || "-") +
-          '</td><td class="clip" title="' + esc(firstLine(c)) + '">' + esc(firstLine(c) || "-") + "</td><td>" + A.catTag(c.final) + (c.auto.flags.length ? '<div style="margin-top:4px">' + c.auto.flags.map(f => '<span class="tag orange">' + esc(f) + "</span>").join(" ") + "</div>" : "") +
-          "</td><td>" + A.statusTag(c) + '</td><td class="mono">' + esc(c.override ? "人工" : c.auto.rule) + "</td><td>" + E.CATS[c.final].owner + '</td><td class="ops"><a data-open="' + c.uid + '">查看证据</a><a data-quick="' + c.uid + '">改分类</a></td></tr>').join("") +
-        "</tbody></table></div>";
-      const pg = A.pager(list.length, v.page, size, p => { v.page = p; A.render(); });
-      html += pg.html; html += "</div>";
-      root.innerHTML = html; pg.bind(root);
+    else if (v.mode === "group") {
+      const gs = groupCases(list);
+      html += '<div class="hint" style="margin-bottom:6px">先按分类，再按原因（报错去掉数字、时间等变化部分后相同）分组。点组标题可折叠。“复制用例编号”复制这一组的用例编号，每行一个，可粘贴到平台筛选或重跑。</div>';
+      html += '<div class="tbl-wrap"><table class="tbl grp"><thead><tr><th class="ck"></th><th>用例</th><th>名称</th><th>判断依据</th><th>判定状态</th><th>规则</th><th>操作</th></tr></thead><tbody>' +
+        gs.map((g, gi) => {
+          const all = g.causes.reduce((a, x) => a.concat(x.cs), []);
+          const fk = "c:" + g.cat, fold = v.fold[fk];
+          let h = '<tr class="g1"><td colspan="7"><a class="fold" data-fold="' + esc(fk) + '">' + (fold ? "▸" : "▾") + "</a>" + A.catTag(g.cat) + "<b>" + all.length + ' 条</b><span class="hint">' + g.causes.length + " 个原因 · 处理方：" + E.CATS[g.cat].owner + '</span><span class="g-ops"><a data-gsel="c' + gi + '">全选本类</a><a data-gedit="c' + gi + '">整类改分类</a><a data-gcopy="c' + gi + '">复制用例编号</a></span></td></tr>';
+          if (fold) return h;
+          g.causes.forEach((x, xi) => {
+            const ck = "s:" + g.cat + "|" + x.sig, f2 = v.fold[ck], c0 = x.cs[0], id = gi + "_" + xi;
+            h += '<tr class="g2"><td colspan="7"><a class="fold" data-fold="' + esc(ck) + '">' + (f2 ? "▸" : "▾") + "</a>原因：" + esc(causeName(c0)) + " <b>" + x.cs.length + ' 条</b><span class="g-ops"><a data-gsel="s' + id + '">全选</a><a data-gedit="s' + id + '">整组改分类</a><a data-gcopy="s' + id + '">复制用例编号</a></span></td></tr>';
+            if (!f2) h += x.cs.map(c => caseRow(c, v, false)).join("");
+          });
+          return h;
+        }).join("") + "</tbody></table></div>";
+      v._groups = gs;
+    } else {
+      const size = 30, pages = Math.max(1, Math.ceil(list.length / size));
+      if (v.page > pages) v.page = pages;
+      const rows = list.slice((v.page - 1) * size, v.page * size);
+      html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="ck"><input type="checkbox" id="selAll"' + (rows.every(c => v.sel.includes(c.uid)) ? " checked" : "") + '></th><th>用例</th><th>名称</th><th>分类</th><th>判断依据</th><th>判定状态</th><th>规则</th><th>处理方</th><th>操作</th></tr></thead><tbody>' +
+        rows.map(c => caseRow(c, v, true)).join("") + "</tbody></table></div>";
+      pg = A.pager(list.length, v.page, size, p => { v.page = p; A.render(); });
+      html += pg.html;
+      v._rows = rows;
     }
-    if (!list.length) { html += "</div>"; root.innerHTML = html; }
+    html += "</div>";
+    root.innerHTML = html;
+    if (pg) pg.bind(root);
 
     const apply = () => { v.run = $("#fRun").value; v.q = $("#fQ").value.trim(); v.cat = $("#fCat").value; v.owner = $("#fOwner").value; v.page = 1; A.render(); };
     $("#fGo").onclick = apply;
     $("#fQ").onkeydown = e => { if (e.key === "Enter") apply(); };
     $("#fReset").onclick = () => { Object.assign(v, { run: "", q: "", cat: "", owner: "", sig: "", page: 1, sel: [] }); A.render(); };
     if ($("#fSigX")) $("#fSigX").onclick = () => { v.sig = ""; A.render(); };
+    $$("[data-pack]", root).forEach(b => b.onclick = () => { const d = DISPATCH.find(x => x.k === b.dataset.pack); A.showText(d.name + "的清单（已脱敏）", packText(d.cats, scope, d.name)); });
+    $$("[data-only]", root).forEach(b => b.onclick = () => { v.owner = b.dataset.only; v.cat = ""; v.page = 1; A.render(); });
     $$("[data-tab]", root).forEach(b => b.onclick = () => { v.tab = b.dataset.tab; v.page = 1; A.render(); });
+    $$("[data-mode]", root).forEach(b => b.onclick = () => { v.mode = b.dataset.mode; A.render(); });
+    $$("[data-fold]", root).forEach(a => a.onclick = () => { const k = a.dataset.fold; v.fold[k] = !v.fold[k]; A.render(); });
     $$("[data-sel]", root).forEach(cb => cb.onchange = () => { const u = cb.dataset.sel; v.sel = cb.checked ? v.sel.concat(u) : v.sel.filter(x => x !== u); A.render(); });
-    if ($("#selAll")) $("#selAll").onchange = e => { const ids = rows.map(c => c.uid); v.sel = e.target.checked ? Array.from(new Set(v.sel.concat(ids))) : v.sel.filter(x => !ids.includes(x)); A.render(); };
+    if ($("#selAll")) $("#selAll").onchange = e => { const ids = v._rows.map(c => c.uid); v.sel = e.target.checked ? Array.from(new Set(v.sel.concat(ids))) : v.sel.filter(x => !ids.includes(x)); A.render(); };
+    const groupOf = key => {
+      const gs = v._groups;
+      if (key[0] === "c") { const g = gs[+key.slice(1)]; return g.causes.reduce((a, x) => a.concat(x.cs), []); }
+      const [gi, xi] = key.slice(1).split("_").map(Number); return gs[gi].causes[xi].cs;
+    };
+    $$("[data-gsel]", root).forEach(a => a.onclick = () => { const ids = groupOf(a.dataset.gsel).map(c => c.uid); const on = ids.every(u => v.sel.includes(u)); v.sel = on ? v.sel.filter(u => !ids.includes(u)) : Array.from(new Set(v.sel.concat(ids))); A.render(); });
+    $$("[data-gedit]", root).forEach(a => a.onclick = () => batchDialog(groupOf(a.dataset.gedit).map(c => c.uid)));
+    $$("[data-gcopy]", root).forEach(a => a.onclick = () => A.copy(groupOf(a.dataset.gcopy).map(c => c.id).join("\n")));
     $$("[data-open]", root).forEach(a => a.onclick = () => openCase(a.dataset.open));
     $$("[data-quick]", root).forEach(a => a.onclick = () => batchDialog([a.dataset.quick]));
     $("#bBatch").onclick = () => batchDialog(v.sel, () => { v.sel = []; });
+    $("#bRerun").onclick = () => {
+      const cs = S.cases.filter(c => v.sel.includes(c.uid) && !c.parent && !c.rerun);
+      if (!cs.length) return A.toast("选中的用例都已重跑过，或是重跑产生的第2次记录", true);
+      const rv = S.view.rerun = S.view.rerun || {};
+      rv.run = cs[0].run; rv.sel = Array.from(new Set((rv.run === cs[0].run && rv.sel || []).concat(cs.filter(c => c.run === cs[0].run).map(c => c.uid)))); rv.tab = "all";
+      A.go("rerun"); A.toast("已加入重跑页的勾选，确认后可一键重跑");
+    };
     $("#bAI").onclick = () => {
       const pick = v.sel.length ? S.cases.filter(c => v.sel.includes(c.uid)) : list.filter(c => !c.override && c.auto.status === "suspected");
       if (!pick.length) { A.toast("当前没有待复核的用例；也可以先勾选要复核的用例", true); return; }
@@ -1402,10 +1773,10 @@ window.APP = (function () {
     if (!cs.length) return;
     const one = cs.length === 1 ? cs[0] : null;
     A.dialog(one ? "修改分类：" + one.id : "批量修改分类（" + cs.length + " 条）",
-      (one ? '<p class="hint" style="margin-top:0">自动分类：' + E.CATS[one.auto.cat].name + "（" + one.auto.rule + "）</p>" : "") +
-      '<div style="display:grid;gap:10px"><label><div style="margin-bottom:4px">人工分类</div><select class="sel" id="bdCat" style="width:100%">' + catOptions(one && one.override ? one.override.cat : "", "请选择") + '</select></label>' +
-      '<label><div style="margin-bottom:4px">修改原因 <span style="color:#f56c6c">*</span></div><textarea class="ta" id="bdReason" rows="3" placeholder="写下看到的证据，例如：截图 E4 中有“系統公告”弹窗挡住了提交按钮">' + esc(one && one.override ? one.override.reason : "") + "</textarea></label></div>",
-      [{ t: "取消" }].concat(one && one.override ? [{ t: "恢复自动分类", fn: () => { delete one.override; done(); } }] : []).concat([{ t: "保存", pri: true, fn: () => {
+      (one ? '<p class="hint" style="margin-top:0">自动分类：' + E.CATS[one.auto.cat].name + "（" + esc(E.RULE_NAMES[one.auto.rule] || one.auto.rule) + "）<br>判断依据：" + esc(E.ruleName(one) === "人工判定" ? one.override.reason : one.auto.brief) + "</p>" : '<p class="hint" style="margin-top:0">' + cs.slice(0, 12).map(c => esc(c.id)).join("、") + (cs.length > 12 ? " 等" : "") + "</p>") +
+      '<div style="display:grid;gap:8px"><label><div style="margin-bottom:4px">人工分类</div><select class="sel" id="bdCat" style="width:100%">' + catOptions(one && one.override ? one.override.cat : "", "请选择") + '</select></label>' +
+      '<label><div style="margin-bottom:4px">修改原因 <span style="color:#f56c6c">*</span></div><textarea class="ta" id="bdReason" rows="3" placeholder="写下看到的证据，例如：截图中有“系統公告”弹窗挡住了提交按钮">' + esc(one && one.override ? one.override.reason : "") + "</textarea></label></div>",
+      [{ t: "取消" }].concat(cs.some(c => c.override) ? [{ t: "恢复自动分类", fn: () => { cs.forEach(c => { delete c.override; }); done(); } }] : []).concat([{ t: "保存", pri: true, fn: () => {
         const cat = $("#bdCat").value, reason = $("#bdReason").value.trim();
         if (!cat || !reason) { A.toast("请选择分类并填写原因", true); return false; }
         const at = new Date().toLocaleString();
@@ -1414,32 +1785,55 @@ window.APP = (function () {
       } }]));
     function done() { A.reclassify(); A.save(); if (after) after(); A.render(); if ($("#drawer").classList.contains("open") && one) openCase(one.uid); A.toast("已保存"); }
   }
+  A.batchDialog = batchDialog;
 
   /* ---------- 用例详情（证据） ---------- */
+  let pasteUid = null;
+  document.addEventListener("paste", e => {
+    if (!pasteUid || !$("#drawer").classList.contains("open") || $("#dlg").classList.contains("open")) return;
+    const items = Array.from((e.clipboardData || {}).items || []).filter(i => i.type.indexOf("image") === 0);
+    if (!items.length) return;
+    e.preventDefault();
+    const uid = pasteUid, n = (S.shots[uid] || []).length;
+    items.forEach((it, i) => A.addShot(uid, it.getAsFile(), "粘贴截图" + (n + i + 1) + ".png"));
+    A.reclassify(); openCase(uid); A.toast("截图已保存到本机，刷新后仍在");
+  });
   function openCase(uid) {
     const c = S.cases.find(x => x.uid === uid); if (!c) return;
+    pasteUid = uid;
     const a = c.auto, sus = a.status === "suspected";
     const hits = a.hits.concat(c.exception ? [c.exception] : []);
-    let b = '<div class="sec"><h5>基本信息</h5><dl class="kv"><dt>批次</dt><dd>' + esc(runName(c.run)) + "</dd><dt>用例名称</dt><dd>" + esc(c.name || "-") + "</dd><dt>执行结果</dt><dd>" + esc(c.result) + "</dd>" +
+    const kind = a.checkKind && E.CHECK_KINDS[a.checkKind];
+    const sameN = S.cases.filter(x => x.failed && x.sig === c.sig && x.final === c.final).length;
+    let b = '<div class="sec"><h5>判断依据 ' + A.catTag(c.final) + A.statusTag(c) + '<span class="tag gray">' + esc(E.ruleName(c)) + "</span></h5>" +
+      '<div class="verdict' + (sus && !c.override ? " sus" : "") + '"><div class="brief">' + esc(a.brief) + "</div><b>详细依据</b><ul>" + a.why.map(w => "<li>" + esc(w) + "</li>").join("") + "</ul>" + (a.need.length ? '<b style="display:block;margin-top:4px">还需确认 / 下一步</b><ul>' + a.need.map(w => "<li>" + esc(w) + "</li>").join("") + "</ul>" : "") + "</div></div>";
+    if (c.override) b += '<div class="sec"><h5>人工结论 ' + A.catTag(c.override.cat) + '</h5><div class="verdict">' + esc(c.override.reason) + '<div class="hint">' + esc(c.override.at) + "；规则原本判为 " + E.CATS[a.cat].name + "</div></div></div>";
+    b += '<div class="sec"><h5>基本信息</h5><dl class="kv"><dt>批次</dt><dd>' + esc(runName(c.run)) + "</dd><dt>用例名称</dt><dd>" + esc(c.name || "-") + "</dd><dt>执行结果</dt><dd>" + esc(c.result) + (c.parent ? '（重跑第2次，报错与第一次不同；<a id="dPar">查看第一次</a>）' : c.r2 ? "（已重跑：" + (c.rerun === "pass" ? "通过" : c.r2.same === false ? "失败，报错不同" : "失败，报错相同") + "）" : "") + "</dd>" +
       (c.module ? "<dt>模块/套件</dt><dd>" + esc(c.module) + "</dd>" : "") + (c.device ? "<dt>执行设备</dt><dd>" + esc(c.device) + "</dd>" : "") + (c.start ? "<dt>开始时间</dt><dd>" + esc(c.start) + "</dd>" : "") + (c.duration ? "<dt>耗时</dt><dd>" + esc(c.duration) + "</dd>" : "") +
-      '<dt>原因分组</dt><dd><a id="dSig">同一报错特征共 ' + S.cases.filter(x => x.failed && x.sig === c.sig).length + " 条</a></dd></dl></div>";
-    b += '<div class="sec"><h5>规则判定 ' + A.catTag(a.cat) + (sus ? '<span class="dot" style="--c:#e6a23c">待复核</span>' : '<span class="dot" style="--c:#67c23a">规则确认</span>') + '<span class="tag gray">' + esc(a.rule) + "</span>" + (a.reason ? '<span class="tag gray">' + esc(E.REASONS[a.reason]) + "</span>" : "") + "</h5>" +
-      '<div class="verdict' + (sus ? " sus" : "") + '"><b>依据</b><ul>' + a.why.map(w => "<li>" + esc(w) + "</li>").join("") + "</ul>" + (a.need.length ? '<b style="display:block;margin-top:6px">还需确认</b><ul>' + a.need.map(w => "<li>" + esc(w) + "</li>").join("") + "</ul>" : "") + "</div></div>";
-    if (c.override) b += '<div class="sec"><h5>人工结论 ' + A.catTag(c.override.cat) + '</h5><div class="verdict">' + esc(c.override.reason) + '<div class="hint">' + esc(c.override.at) + "</div></div></div>";
-    b += '<div class="sec"><h5>证据 <span class="hint" style="font-weight:400">黄色标记是规则命中的文字</span></h5>' + (a.ev.length ? a.ev.map(e => '<div class="ev"><div class="eh"><b>' + e.id + "</b>" + esc(e.label) + (e.derived ? '<span class="tag gray">从报错中识别</span>' : "") + "</div>" +
-      (e.kind === "shot" && e.src ? '<img src="' + e.src + '" alt=""><pre>' + esc(e.text) + "</pre>" : "<pre>" + A.highlight(e.text, hits) + "</pre>") + "</div>").join("") : '<p class="hint">没有任何证据材料。</p>') +
-      (!c.shots && !c.screenshot ? '<p class="hint">没有截图。可以在“数据导入 → 匹配截图”中选择截图文件夹。</p>' : "") + "</div>";
-    b += '<div class="sec"><h5>补充记录</h5><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
-      '<label><div class="hint">重跑结果</div><select class="sel" id="dRerun" style="width:100%"><option value="">未重跑</option><option value="pass"' + (c.rerun === "pass" ? " selected" : "") + '>重跑通过</option><option value="fail"' + (c.rerun === "fail" ? " selected" : "") + ">重跑仍失败</option></select></label>" +
-      '<label><div class="hint">数据核查</div><select class="sel" id="dData" style="width:100%"><option value="">未核查</option>' + Object.keys(E.DATA_CHECK).map(k => '<option value="' + k + '"' + (c.dataCheck === k ? " selected" : "") + ">" + E.DATA_CHECK[k] + "</option>").join("") + "</select></label>" +
-      '<label style="grid-column:1/-1"><div class="hint">备注（重跑/核查说明，例如查询了哪张表、核查人）</div><textarea class="ta" id="dNote" rows="2">' + esc(c.dataNote || c.rerunNote || "") + "</textarea></label></div></div>";
-    A.drawer(esc(c.id) + ' <span class="hint" style="font-weight:400">' + esc(c.name || "") + "</span>", b,
+      '<dt>同一原因</dt><dd><a id="dSig">共 ' + sameN + " 条，点击只看这些</a></dd></dl></div>";
+    const shots = S.shots[uid] || [];
+    b += '<div class="sec"><h5>截图 <span class="hint" style="font-weight:400">打开本面板时按 Ctrl+V 可直接粘贴截图；保存在本机，刷新后仍在</span></h5><div class="shots">' +
+      shots.map((s, i) => '<div class="shot"><img src="' + s.src + '" alt="" data-big="' + i + '"><div class="hint">' + esc(s.name) + ' <a data-delshot="' + i + '">删除</a></div></div>').join("") +
+      '<label class="shot add"><input type="file" accept="image/*" multiple id="dShotF" hidden><span>＋ 选择图片<br><small>或按 Ctrl+V 粘贴</small></span></label></div>' +
+      (!shots.length && c.screenshot ? '<p class="hint">报告里的截图路径：' + esc(c.screenshot) + "（需要把图片粘贴或选择进来才能显示）</p>" : "") + "</div>";
+    b += '<div class="sec"><h5>证据 <span class="hint" style="font-weight:400">黄色是规则命中的文字</span></h5>' + (a.ev.filter(e => e.kind !== "shot").length ? a.ev.filter(e => e.kind !== "shot").map(e => '<div class="ev"><div class="eh"><b>' + e.id + "</b>" + esc(e.label) + (e.derived ? '<span class="tag gray">从报错中识别</span>' : "") + "</div><pre>" + A.highlight(e.text, hits) + "</pre></div>").join("") : '<p class="hint">没有任何证据材料。</p>') + "</div>";
+    b += '<div class="sec"><h5>补充记录</h5><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+      '<label><div class="hint">重跑结果</div><select class="sel" id="dRerun" style="width:100%"' + (c.parent ? " disabled" : "") + '><option value="">未重跑</option><option value="pass"' + (c.rerun === "pass" ? " selected" : "") + '>重跑通过</option><option value="fail"' + (c.rerun === "fail" ? " selected" : "") + ">重跑仍失败</option></select></label>" +
+      '<label><div class="hint">人工核查' + (kind ? "：" + esc(kind.name) : "") + '</div><select class="sel" id="dData" style="width:100%"' + (kind ? "" : " disabled") + ">" + (kind ? '<option value="">未核查</option>' + Object.entries(kind.options).map(([k, o]) => '<option value="' + k + '"' + (c.dataCheck === k ? " selected" : "") + ">" + esc(o[0]) + "</option>").join("") : "<option>这条用例不需要人工核查</option>") + "</select></label>" +
+      (kind ? '<div class="hint" style="grid-column:1/-1">要查什么：' + esc(kind.what) + "</div>" : "") +
+      '<label style="grid-column:1/-1"><div class="hint">备注（例如查了哪张表、核查人）</div><textarea class="ta" id="dNote" rows="2">' + esc(c.dataNote || c.rerunNote || "") + "</textarea></label></div></div>";
+    A.drawer(A.caseLabel(c) + ' <span class="hint" style="font-weight:400">' + esc(c.name || "") + "</span>", b,
       '<button class="btn" id="dAI">复制本条复核材料</button><button class="btn" id="dSave">保存补充记录</button><button class="btn pri" id="dOver">' + (c.override ? "修改人工结论" : "确认 / 改分类") + "</button>");
-    $("#dSig").onclick = () => { A.closeDrawer(); A.go("triage", { sig: c.sig, tab: "all", page: 1, run: "" }); };
+    $("#dSig").onclick = () => { A.closeDrawer(); A.go("triage", { sig: c.sig, tab: "all", page: 1, run: "", cat: "", owner: "", mode: "flat" }); };
+    if ($("#dPar")) $("#dPar").onclick = () => openCase(c.parent);
     $("#dAI").onclick = () => A.copy(aiMaterial([c]));
     $("#dOver").onclick = () => batchDialog([c.uid]);
+    $("#dShotF").onchange = e => { Array.from(e.target.files).forEach(f => A.addShot(uid, f)); A.reclassify(); openCase(uid); A.toast("截图已保存到本机"); };
+    $$("[data-delshot]").forEach(x => x.onclick = () => { S.shots[uid].splice(+x.dataset.delshot, 1); A.saveShots(uid); A.reclassify(); openCase(uid); });
+    $$("[data-big]").forEach(img => img.onclick = () => { A.dialog("截图", '<img src="' + img.src + '" style="max-width:100%">', [{ t: "关闭" }]); $("#dlg").style.width = "90vw"; });
     $("#dSave").onclick = () => {
-      c.rerun = $("#dRerun").value || null; c.dataCheck = $("#dData").value || null;
+      if (!c.parent) c.rerun = $("#dRerun").value || null;
+      if (kind) c.dataCheck = $("#dData").value || null;
       const note = $("#dNote").value.trim();
       if (c.dataCheck) c.dataNote = note; else if (c.rerun) c.rerunNote = note;
       A.reclassify(); A.save(); A.render(); openCase(c.uid); A.toast("已保存，分类已重新计算");
@@ -1454,13 +1848,13 @@ window.APP = (function () {
       "2. 看截图时只描述能看到的页面状态（例如“保单录入页完整显示，Submit 按钮可见”），不要推测数据库或后台状态；\n" +
       "3. 证据不足时回答“需人工判断”，并写明还缺什么证据；\n" +
       "4. 如果你的结论与“规则初步结论”不同，说明理由；\n" +
-      "5. 按表格输出：用例标识 | 分类 | 依据（含证据编号）| 还需确认。\n" +
+      "5. 按表格输出：用例编号 | 分类 | 依据（含证据编号）| 还需确认。\n" +
       "可选分类：环境问题、重跑可过、弹窗干扰、脚本问题、测试数据问题、疑似产品缺陷、需人工判断。\n" +
       "判断要点：找不到元素可能是脚本定位过时，也可能是页面没加载出来（产品问题）或被弹窗挡住；弹窗文字是业务报错（如 record not found）时不是干扰；断言的期望值可能已过时。\n";
     const shots = [];
     const body = list.map(c => {
       const a = c.auto;
-      let s = "\n==========\n用例 " + c.id + (c.name ? " " + c.name : "") + "\n规则初步结论：" + E.CATS[a.cat].name + "（" + (a.status === "confirmed" ? "规则确认" : "待复核") + "，" + a.rule + "）\n规则依据：" + a.why.join("；") + "\n";
+      let s = "\n==========\n用例 " + c.id + (c.name ? " " + c.name : "") + "\n规则初步结论：" + E.CATS[a.cat].name + "（" + (a.status === "confirmed" ? "规则确认" : "待复核") + "，" + (E.RULE_NAMES[a.rule] || a.rule) + "）\n判断依据：" + a.brief + "\n详细依据：" + a.why.join("；") + "\n";
       a.ev.forEach(e => {
         if (e.kind === "shot") { s += e.id + " 截图：" + e.text + "（请随本材料上传这张截图）\n"; shots.push(e.text); return; }
         let t = e.text; if (e.kind === "stack" && t.length > 1500) t = t.slice(0, 1500) + "\n…（已截断）";
@@ -1479,87 +1873,123 @@ window.APP = (function () {
   }
   function csvOf(list, doMask) {
     const m = s => doMask ? E.mask(s) : s;
-    const rows = [["批次", "序号", "用例标识", "用例名称", "执行结果", "异常类型", "报错首行", "自动分类", "判定状态", "命中规则", "依据", "还需确认", "人工分类", "修改原因", "最终分类", "处理方", "重跑", "数据核查", "备注", "原因特征"]];
-    list.forEach(c => rows.push([runName(c.run), c.seq, c.id, c.name, c.result, c.exception, m(firstLine(c)), E.CATS[c.auto.cat].name, c.auto.status === "confirmed" ? "规则确认" : "待复核", c.auto.rule,
-      m(c.auto.why.join("；")), c.auto.need.join("；"), c.override ? E.CATS[c.override.cat].name : "", c.override ? m(c.override.reason) : "", E.CATS[c.final].name, E.CATS[c.final].owner,
-      c.rerun === "pass" ? "重跑通过" : c.rerun === "fail" ? "重跑仍失败" : "", c.dataCheck ? E.DATA_CHECK[c.dataCheck] : "", m(c.dataNote || c.rerunNote || ""), c.sig]));
+    const rows = [["批次", "用例编号", "用例名称", "执行次数", "最终分类", "处理方", "判断依据", "判定状态", "命中规则", "详细依据", "还需确认", "自动分类", "人工分类", "修改原因", "重跑", "人工核查", "备注", "报错首行", "原因"]];
+    list.forEach(c => rows.push([runName(c.run), c.id, c.name, c.parent ? "重跑第2次" : "第1次", E.CATS[c.final].name, E.CATS[c.final].owner, m(c.auto.brief), c.override ? "人工已改" : c.auto.status === "confirmed" ? "规则确认" : "待复核", E.ruleName(c),
+      m(c.auto.why.join("；")), c.auto.need.join("；"), E.CATS[c.auto.cat].name, c.override ? E.CATS[c.override.cat].name : "", c.override ? m(c.override.reason) : "",
+      c.rerun === "pass" ? "重跑通过" : c.rerun === "fail" ? (c.r2 && c.r2.same === false ? "重跑失败（报错不同）" : "重跑失败（报错相同）") : "", c.dataCheck ? E.DATA_CHECK[c.dataCheck] : "", m(c.dataNote || c.rerunNote || ""), m(firstLine(c)), causeName(c)]));
     return A.toCSV(rows);
   }
 
-  /* ============================== 原因分组 ============================== */
-  A.PAGES.groups = function (root, v) {
-    if (!S.runs.length) return noData(root);
-    const fs = S.cases.filter(c => c.failed && (!v.run || c.run === v.run));
-    const g = {};
-    fs.forEach(c => { const k = c.final + "|" + (c.sig || "(无报错)"); (g[k] = g[k] || []).push(c); });
-    const groups = Object.entries(g).map(([k, cs]) => ({ k, cat: cs[0].final, sig: cs[0].sig, cs })).sort((a, b) => b.cs.length - a.cs.length);
-    let html = '<div class="card"><div class="form"><label class="fi"><span>批次</span>' + runSelect("gRun", v.run, true) + '</label><span class="hint">报错去掉数字、时间、网址等会变化的部分后相同的，归为一组。' + fs.length + " 条失败用例，共 " + groups.length + " 组。</span></div></div>";
-    html += '<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>序号</th><th>分类</th><th>用例数</th><th>异常类型</th><th>代表性报错</th><th>涉及用例</th><th>操作</th></tr></thead><tbody>' +
-      groups.map((x, i) => { const c0 = x.cs[0]; return "<tr><td>" + (i + 1) + "</td><td>" + A.catTag(x.cat) + "</td><td><b>" + x.cs.length + '</b></td><td class="mono">' + esc(c0.exception || "-") + '</td><td class="clip" style="max-width:420px" title="' + esc(firstLine(c0)) + '">' + esc(firstLine(c0) || "(无报错信息)") + '</td><td class="clip mono" style="max-width:240px" title="' + esc(x.cs.map(c => c.id).join(", ")) + '">' + esc(x.cs.map(c => c.id).join(", ")) + '</td><td class="ops"><a data-gv="' + i + '">查看用例</a><a data-ge="' + i + '">整组改分类</a><a data-gc="' + i + '">复制标识</a></td></tr>'; }).join("") +
-      "</tbody></table></div>" + (groups.length ? "" : A.emptyBlock("没有失败用例")) + "</div>";
-    root.innerHTML = html;
-    $("#gRun").onchange = e => { v.run = e.target.value; A.render(); };
-    $$("[data-gv]", root).forEach(a => a.onclick = () => A.go("triage", { sig: groups[+a.dataset.gv].sig, tab: "all", page: 1, run: v.run || "", cat: "" }));
-    $$("[data-ge]", root).forEach(a => a.onclick = () => batchDialog(groups[+a.dataset.ge].cs.map(c => c.uid)));
-    $$("[data-gc]", root).forEach(a => a.onclick = () => A.copy(groups[+a.dataset.gc].cs.map(c => c.id).join("\n")));
-  };
-  A.batchDialog = batchDialog;
-
-  /* ============================== 重跑清单 ============================== */
+  /* ============================== 重跑 ============================== */
+  // 重跑标准：建议立即重跑（可能是偶发）/ 处理后再重跑（不处理重跑也会失败）/ 不重跑
+  const GO_RULES = { "DSK-NF": "窗口没出现可能是前一步偶发没生效，重跑一次可区分", "SCR1": "找不到元素可能是页面加载慢，重跑一次可区分偶发和定位失效", "DSK-VIS": "控件不可见可能是页面没切换完，重跑一次确认",
+    "SYS-EMPTY": "重跑一次看弹窗是否再出现，同时截下弹窗文字", "POP1-未知": "对话框可能是偶发，重跑一次确认", "POP3": "遮挡多为偶发弹框，重跑一次确认", "POP3-弱": "遮挡多为偶发，重跑一次确认", "AST1": "断言不一致先重跑一次排除偶发；仍失败就提 Jira" };
   function rerunAdvice(c) {
-    const a = c.auto, f = c.final;
-    if (c.rerun) return { go: false, why: "已有重跑结果" };
-    if (a.reason === "pending_data_check") return { go: false, why: "先做数据核查；数据有问题时重跑仍会失败" };
-    if (f === "TEST_DATA") return { go: false, why: "先补测试数据再重跑" };
-    if (f === "PRODUCT_DEFECT" && a.status === "confirmed") return { go: false, why: "已确认是产品问题" };
-    if (a.rule === "SCR2" || (a.rule === "SCR3" && a.status === "confirmed")) return { go: false, why: "测试代码错误，重跑结果不会变，先修脚本" };
-    if (f === "ENVIRONMENT") return { go: true, why: "等环境恢复后重跑，确认是否只受环境影响" };
-    if (f === "POPUP_INTERFERENCE") return { go: true, why: "弹窗可能是偶发，重跑可确认" };
-    if (f === "SCRIPT_ISSUE") return { go: true, why: "区分是偶发等待问题还是定位真的失效" };
-    if (f === "PRODUCT_DEFECT") return { go: true, why: "断言失败重跑一次，排除偶发" };
-    return { go: true, why: "证据不足，重跑可以补充信息" };
+    const a = c.auto, f = c.final, r = a.rule;
+    if (c.parent) return { b: "no", why: "这是重跑产生的第2次记录，结果已在第一次的用例上体现" };
+    if (c.rerun) return { b: "done", why: c.rerun === "pass" ? "重跑已通过" : c.r2 && c.r2.same === false ? "重跑失败，报错与第一次不同（第2次已单独成一条）" : "重跑失败，报错与第一次相同（问题必现）" };
+    if (f === "RERUN_PASS") return { b: "no", why: "重跑已通过" };
+    if (a.checkKind && !c.dataCheck && !c.override) return { b: "fix", why: "先到“人工核查”完成：" + E.CHECK_KINDS[a.checkKind].name + "；不核查直接重跑结果不会变" };
+    if (a.flags.includes("环境中断边界")) return { b: "go", why: "紧挨环境中断的起点，很可能也受环境影响" };
+    if (f === "ENVIRONMENT") return c.dataCheck === "cfg_missing" ? { b: "fix", why: "先补上测试环境缺失的配置，再重跑" } : { b: "go", why: "环境问题与用例无关；确认环境已恢复后重跑" };
+    if (f === "POPUP_INTERFERENCE") return { b: "go", why: "弹窗多为偶发，重跑可确认；反复出现就给脚本加弹窗处理" };
+    if (f === "PRODUCT_DEFECT") return GO_RULES[r] && !c.override ? { b: "go", why: GO_RULES[r] } : { b: "no", why: "已确认是系统问题，直接起草 Jira，重跑不会改变结果" };
+    if (f === "TEST_DATA") return { b: "fix", why: r === "DATA-LOCK" ? "先释放被占用的保单（或换一张），再重跑" : "先补数据或换数据，再重跑" };
+    if (f === "SCRIPT_ISSUE") return { b: "fix", why: r === "CHK-LOCK1" ? "先修前面用例的清理步骤（失败后关闭窗口、释放保单），再重跑" : "脚本本身有错，直接重跑结果不会变；修好脚本后再重跑验证" };
+    if (GO_RULES[r] && !c.override) return { b: "go", why: GO_RULES[r] };
+    if (a.flags.includes("有残留窗口")) return { b: "go", why: "屏幕上有前面用例留下的窗口，单独重跑可排除干扰" };
+    if (r === "MASK1") return { b: "fix", why: "真实原因被掩盖，先看截图确认没找到的是什么，否则重跑多半同样失败" };
+    return { b: "fix", why: "证据不足，先看截图和日志判断原因；能判断后再决定是否重跑" };
   }
+  const BUCKETS = [["go", "建议立即重跑", "blue"], ["fix", "处理后再重跑", "orange"], ["no", "不重跑", "gray"], ["done", "已重跑", "green"]];
   A.PAGES.rerun = function (root, v) {
     if (!S.runs.length) return noData(root);
-    v.run = v.run || S.runs[S.runs.length - 1].id; v.sel = v.sel || null;
-    const fs = S.cases.filter(c => c.failed && c.run === v.run).map(c => Object.assign(c, { _adv: rerunAdvice(c) }));
-    if (!v.sel) v.sel = fs.filter(c => c._adv.go).map(c => c.uid);
-    const done = fs.filter(c => c.rerun), pass = done.filter(c => c.rerun === "pass").length;
-    let html = '<div class="card"><div class="form"><label class="fi"><span>批次</span>' + runSelect("rRun", v.run) + '</label><span class="hint">建议重跑 ' + fs.filter(c => c._adv.go).length + " 条；已有重跑结果 " + done.length + " 条，其中通过 " + pass + " 条</span></div>" +
-      '<p class="hint" style="margin:10px 0 0">做法：勾选要重跑的用例 → 复制用例标识到平台重跑 → 重跑完成后在“数据导入”选择“重跑结果”导入，通过的用例会自动改为“重跑可过”。也可以在下表直接填写重跑结果。</p></div>';
-    html += '<div class="card"><div class="bar"><span>已选 ' + v.sel.length + ' 条</span><span class="sp"></span><button class="btn" id="rCopy">复制用例标识（每行一个）</button><button class="btn" id="rCopy2">复制为逗号分隔</button><button class="btn pri" id="rImp">导入重跑结果</button></div>' +
-      '<div class="tbl-wrap"><table class="tbl"><thead><tr><th><input type="checkbox" id="rAll"></th><th>用例标识</th><th>用例名称</th><th>当前分类</th><th>建议</th><th>原因</th><th>重跑结果</th></tr></thead><tbody>' +
-      fs.map(c => '<tr><td><input type="checkbox" data-rs="' + c.uid + '"' + (v.sel.includes(c.uid) ? " checked" : "") + '></td><td class="mono"><a data-open="' + c.uid + '">' + esc(c.id) + "</a></td><td>" + esc(c.name) + "</td><td>" + A.catTag(c.final) + "</td><td>" + (c.rerun ? '<span class="tag gray">已重跑</span>' : c._adv.go ? '<span class="tag blue">建议重跑</span>' : '<span class="tag gray">暂不重跑</span>') + '</td><td class="hint">' + esc(c._adv.why) +
-        '</td><td><select class="sel" style="min-width:110px" data-rr="' + c.uid + '"><option value="">未重跑</option><option value="pass"' + (c.rerun === "pass" ? " selected" : "") + '>通过</option><option value="fail"' + (c.rerun === "fail" ? " selected" : "") + ">仍失败</option></select></td></tr>").join("") +
-      "</tbody></table></div>" + (fs.length ? "" : A.emptyBlock("该批次没有失败用例")) + "</div>";
+    v.run = v.run || S.runs[S.runs.length - 1].id; v.tab = v.tab || "all";
+    const fs = S.cases.filter(c => c.failed && c.run === v.run).sort((a, b) => a.seq - b.seq).map(c => Object.assign(c, { _adv: rerunAdvice(c) }));
+    if (!v.sel) v.sel = fs.filter(c => c._adv.b === "go").map(c => c.uid);
+    v.sel = v.sel.filter(u => fs.some(c => c.uid === u && !c.parent && !c.rerun));
+    const cnt = k => fs.filter(c => c._adv.b === k).length;
+    const shown = fs.filter(c => v.tab === "all" || c._adv.b === v.tab);
+    const sent = fs.filter(c => c.rerunReq && !c.rerun && !c.parent);
+    const C = S.jira || {};
+    let html = '<div class="card"><div class="form"><label class="fi"><span>批次</span>' + runSelect("rRun", v.run) + '</label><span class="hint">失败 ' + fs.filter(c => !c.parent).length + " 条：建议立即重跑 " + cnt("go") + "，处理后再重跑 " + cnt("fix") + "，不重跑 " + cnt("no") + "，已重跑 " + cnt("done") + (sent.length ? "；已提交重跑、等待结果 " + sent.length + " 条" : "") + "</span></div>" +
+      '<details class="std"' + (v.stdOpen === false ? "" : " open") + '><summary>重跑标准（点击收起）</summary><table class="tbl mini"><thead><tr><th style="width:120px">建议</th><th>适用情况</th><th>为什么</th></tr></thead><tbody>' +
+      '<tr><td><span class="tag blue">建议立即重跑</span></td><td>环境问题（环境恢复后）、紧挨环境中断起点的用例、弹窗干扰、找不到窗口/元素、控件不可见、弹窗文字没读到、断言不一致（先排除偶发）、有前面用例残留的窗口</td><td>这些失败可能是偶发的，重跑一次就能区分“偶发”和“必现”</td></tr>' +
+      '<tr><td><span class="tag orange">处理后再重跑</span></td><td>需要人工核查但还没核查的；测试数据问题（换数据后）；数据被占用（释放后）；缺少配置（补配置后）；脚本问题（修脚本后）；真实原因被掩盖的；证据不足、原因不明的</td><td>不先处理，重跑结果不会变，只会浪费执行时间</td></tr>' +
+      '<tr><td><span class="tag gray">不重跑</span></td><td>已确认的系统问题（直接提 Jira）、重跑已通过、重跑产生的第2次记录</td><td>结论已经明确</td></tr>' +
+      '</tbody></table><p class="hint" style="margin:6px 0 0">重跑后：通过 → 改为“重跑可过”，不提单；失败且报错相同 → 问题必现，两次情况写进同一张 Jira；失败但报错不同 → 第2次单独成一条记录，单独分析、单独提单。</p></details></div>';
+    html += '<div class="card"><div class="bar"><div class="subtabs"><button data-rt="all" class="' + (v.tab === "all" ? "on" : "") + '">全部（' + fs.length + "）</button>" + BUCKETS.map(([k, n]) => '<button data-rt="' + k + '" class="' + (v.tab === k ? "on" : "") + '">' + n + "（" + cnt(k) + "）</button>").join("") + '</div><span class="sp"></span>' +
+      '<span class="hint">已勾选 ' + v.sel.length + ' 条</span><button class="btn sm" id="rPickGo">勾选“建议立即重跑”</button><button class="btn sm" id="rClear">清空勾选</button><button class="btn sm" id="rCopy">复制用例编号</button><button class="btn sm" id="rImp">导入重跑结果</button><button class="btn sm pri" id="rRun1"' + (v.sel.length ? "" : " disabled") + ">一键重跑（" + v.sel.length + "）</button></div>" +
+      '<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="ck"><input type="checkbox" id="rAll"></th><th>用例</th><th>名称</th><th>分类</th><th>判断依据</th><th>重跑建议</th><th>原因</th><th>重跑结果</th></tr></thead><tbody>' +
+      shown.map(c => {
+        const ad = c._adv, bk = BUCKETS.find(x => x[0] === ad.b), can = !c.parent && !c.rerun;
+        return '<tr class="' + (v.sel.includes(c.uid) ? "sel" : "") + '"><td class="ck">' + (can ? '<input type="checkbox" data-rs="' + c.uid + '"' + (v.sel.includes(c.uid) ? " checked" : "") + ">" : "") + '</td><td class="mono nw"><a data-open="' + c.uid + '">' + A.caseLabel(c) + '</a></td><td class="nm">' + esc(c.name) + "</td><td>" + A.catTag(c.final) + '</td><td class="basis">' + esc(c.auto.brief) + '</td><td class="nw"><span class="tag ' + bk[2] + '">' + bk[1] + "</span>" + (c.rerunReq && can ? '<div class="hint">已提交 ' + esc(String(c.rerunReq).slice(0, 16)) + "</div>" : "") + '</td><td class="hint">' + esc(ad.why) + "</td>" +
+          "<td>" + (c.parent ? "-" : '<select class="sel" style="min-width:96px" data-rr="' + c.uid + '"><option value="">未重跑</option><option value="pass"' + (c.rerun === "pass" ? " selected" : "") + '>通过</option><option value="fail"' + (c.rerun === "fail" ? " selected" : "") + ">仍失败</option></select>") + "</td></tr>";
+      }).join("") + "</tbody></table></div>" + (shown.length ? "" : A.emptyBlock("这一类没有用例")) + "</div>";
     root.innerHTML = html;
+    $("details.std", root).ontoggle = e => { v.stdOpen = e.target.open; };
     $("#rRun").onchange = e => { v.run = e.target.value; v.sel = null; A.render(); };
+    $$("[data-rt]", root).forEach(b => b.onclick = () => { v.tab = b.dataset.rt; A.render(); });
     $$("[data-rs]", root).forEach(cb => cb.onchange = () => { const u = cb.dataset.rs; v.sel = cb.checked ? v.sel.concat(u) : v.sel.filter(x => x !== u); A.render(); });
-    $("#rAll").onchange = e => { v.sel = e.target.checked ? fs.map(c => c.uid) : []; A.render(); };
-    $$("[data-rr]", root).forEach(s => s.onchange = () => { const c = S.cases.find(x => x.uid === s.dataset.rr); c.rerun = s.value || null; c.rerunNote = s.value ? "手工填写 " + new Date().toLocaleString() : ""; A.reclassify(); A.save(); A.render(); A.toast("已保存，分类已重新计算"); });
+    $("#rAll").onchange = e => { const ids = shown.filter(c => !c.parent && !c.rerun).map(c => c.uid); v.sel = e.target.checked ? Array.from(new Set(v.sel.concat(ids))) : v.sel.filter(x => !ids.includes(x)); A.render(); };
+    $("#rPickGo").onclick = () => { v.sel = Array.from(new Set(v.sel.concat(fs.filter(c => c._adv.b === "go").map(c => c.uid)))); A.render(); };
+    $("#rClear").onclick = () => { v.sel = []; A.render(); };
+    $$("[data-rr]", root).forEach(s => s.onchange = () => {
+      const c = S.cases.find(x => x.uid === s.dataset.rr);
+      c.rerun = s.value || null; c.rerunNote = s.value ? "手工填写 " + new Date().toLocaleString() : "";
+      if (c.rerun) { c.rerunReq = null; c.r2 = c.r2 || { same: c.rerun === "fail" ? true : null }; } else delete c.r2;
+      A.reclassify(); A.save(); A.render(); A.toast("已保存，分类已重新计算");
+    });
     $$("[data-open]", root).forEach(a => a.onclick = () => openCase(a.dataset.open));
-    const ids = () => S.cases.filter(c => v.sel.includes(c.uid)).map(c => c.id);
-    $("#rCopy").onclick = () => { if (!v.sel.length) return A.toast("请先勾选用例", true); A.copy(ids().join("\n")); };
-    $("#rCopy2").onclick = () => { if (!v.sel.length) return A.toast("请先勾选用例", true); A.copy(ids().join(",")); };
+    const picked = () => S.cases.filter(c => v.sel.includes(c.uid));
+    $("#rCopy").onclick = () => { if (!v.sel.length) return A.toast("请先勾选用例", true); A.copy(picked().map(c => c.id).join("\n")); };
     $("#rImp").onclick = () => A.go("import", { info: { name: "", plan: "", device: "", env: "", mode: "rerun", rerunOf: v.run } });
+    $("#rRun1").onclick = () => {
+      const cs = picked(), fixN = cs.filter(c => c._adv.b === "fix").length, url = (C.rerunUrl || "").trim();
+      A.dialog("一键重跑（" + cs.length + " 条）",
+        (fixN ? '<p style="margin-top:0;color:#e6a23c">其中 ' + fixN + " 条属于“处理后再重跑”，请确认已经处理（核查、换数据、修脚本等），否则重跑多半仍会失败。</p>" : "") +
+        '<p class="hint" style="margin-top:0">' + cs.map(c => esc(c.id)).join("、") + "</p>" +
+        (url ? "<p>将发送到重跑接口：<code>" + esc(url) + "</code>（批次 " + esc(runName(v.run)) + "）。</p>" : '<p>还没有配置重跑接口（在“配置 → 接口与 Jira 配置”填写）。现在会复制用例编号，请粘贴到 SmartAutoTest 平台发起重跑。</p>') +
+        '<p class="hint">重跑完成后，在本页点“导入重跑结果”，工具会自动对比两次报错。</p>',
+        [{ t: "取消" }, { t: url ? "确认并发送" : "确认并复制编号", pri: true, fn: () => {
+          const at = new Date().toLocaleString();
+          const mark = () => { cs.forEach(c => { c.rerunReq = at; }); A.save(); A.render(); };
+          if (!url) { A.copy(cs.map(c => c.id).join("\n")); mark(); return; }
+          fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run: runName(v.run), cases: cs.map(c => c.id) }) })
+            .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); mark(); A.toast("已提交重跑 " + cs.length + " 条"); })
+            .catch(e => { A.copy(cs.map(c => c.id).join("\n")); A.toast("重跑接口调用失败（" + e.message + "），已改为复制用例编号", true); });
+        } }]);
+    };
   };
 
-  /* ============================== 数据核查 ============================== */
+  /* ============================== 人工核查 ============================== */
   A.PAGES.datacheck = function (root, v) {
     if (!S.runs.length) return noData(root);
-    const fs = S.cases.filter(c => c.failed && (!v.run || c.run === v.run) && /^BIZ/.test(c.auto.rule));
-    const pend = fs.filter(c => !c.dataCheck).length;
-    let html = '<div class="card"><div class="form"><label class="fi"><span>批次</span>' + runSelect("dcRun", v.run, true) + '</label><span class="hint">页面出现业务报错的用例 ' + fs.length + " 条，待核查 " + pend + " 条</span></div>" +
-      '<p class="hint" style="margin:10px 0 0">只凭“record not found”这类报错，分不清是测试数据有问题还是系统有问题。请查库（或用公司批准的只读查询）后填写结果：数据正常但系统仍报错 → 疑似产品缺陷（规则确认）；数据不存在、已被使用、状态不对 → 测试数据问题。数据库状态必须由人核查，不能根据截图推断。</p></div>';
-    html += '<div class="card">' + (fs.length ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>用例标识</th><th>用例名称</th><th>业务报错</th><th>页面/报错原文</th><th>核查结果</th><th>核查说明（查了什么、谁查的）</th><th>当前分类</th><th>操作</th></tr></thead><tbody>' +
-      fs.map(c => {
-        const same = fs.filter(x => x !== c && x.auto.hits[0] === c.auto.hits[0] && x.sig === c.sig).length;
-        return '<tr><td class="mono"><a data-open="' + c.uid + '">' + esc(c.id) + "</a></td><td>" + esc(c.name) + '</td><td><span class="tag red">' + esc(c.auto.hits[0] || "") + '</span></td><td class="clip" style="max-width:280px" title="' + esc(c.pageText || c.alertText || firstLine(c)) + '">' + esc(c.pageText || c.alertText || firstLine(c)) +
-          '</td><td><select class="sel" style="min-width:150px" data-dc="' + c.uid + '"><option value="">未核查</option>' + Object.keys(E.DATA_CHECK).map(k => '<option value="' + k + '"' + (c.dataCheck === k ? " selected" : "") + ">" + E.DATA_CHECK[k] + "</option>").join("") + '</select></td><td><input class="inp" style="min-width:200px" data-dn="' + c.uid + '" value="' + esc(c.dataNote || "") + '" placeholder="如：查 agent 表，40100 存在且有效"></td><td>' + A.catTag(c.final) +
-          '</td><td class="ops">' + (same ? '<a data-same="' + c.uid + '">应用到相同报错的 ' + same + " 条</a>" : "") + "</td></tr>";
-      }).join("") + "</tbody></table></div>" : A.emptyBlock("没有需要数据核查的用例", "只有页面或弹窗中出现业务报错的用例才会出现在这里。")) + "</div>";
+    v.st = v.st || "all";
+    const all = S.cases.filter(c => c.failed && (!v.run || c.run === v.run) && c.auto.checkKind && !c.override);
+    const fs = all.filter(c => v.st === "all" || (v.st === "todo" ? !c.dataCheck : !!c.dataCheck));
+    const pend = all.filter(c => !c.dataCheck).length;
+    let html = '<div class="card"><div class="card-h"><b>这一页做什么</b></div><p class="hint" style="margin:0 0 6px">有些失败只看日志分不清原因，必须有人去查系统或数据库，例如：页面提示“记录不存在”，可能是测试数据不对，也可能是系统有问题。工具把这类用例列在这里，告诉你要查什么；你查完选结果，工具会<b>自动重新分类</b>。</p>' +
+      '<div class="steps3"><div><b>1</b>看“要查什么”</div><div><b>2</b>到系统/数据库里查（只读查询）</div><div><b>3</b>选核查结果、写一句说明</div><div><b>4</b>分类自动更新；相同原因可一键沿用</div></div>' +
+      '<p class="hint" style="margin:6px 0 0">会出现在这里的四种情况：' + Object.values(E.CHECK_KINDS).map(k => esc(k.name)).join("；") + "。数据库状态必须由人核查，不能根据截图推断。</p></div>";
+    html += '<div class="card"><div class="form"><label class="fi"><span>批次</span>' + runSelect("dcRun", v.run, true) + '</label><div class="seg">' + [["all", "全部"], ["todo", "待核查"], ["done", "已核查"]].map(([k, n]) => '<button data-st="' + k + '" class="' + (v.st === k ? "on" : "") + '">' + n + "</button>").join("") + '</div><span class="hint">需要核查 ' + all.length + " 条，待核查 " + pend + " 条</span></div></div>";
+    if (!all.length) html += '<div class="card">' + A.emptyBlock("当前批次没有需要人工核查的用例", "只有出现业务报错、数据被占用、缺少配置、日期设置失败的用例才需要核查。这次导入的失败用例都能直接从日志判断，所以这里是空的。") + "</div>";
+    Object.entries(E.CHECK_KINDS).forEach(([k, kind]) => {
+      const cs = fs.filter(c => c.auto.checkKind === k);
+      if (!cs.length) return;
+      html += '<div class="card"><div class="card-h"><b>' + esc(kind.name) + "</b><span class=\"hint\">" + cs.length + ' 条</span></div><p class="hint" style="margin:0 0 6px">要查什么：' + esc(kind.what) + "。结果对应：" + Object.values(kind.options).map(o => esc(o[0]) + " → " + E.CATS[o[1]].name).join("；") + "</p>" +
+        '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>用例</th><th>名称</th><th>报错原文</th><th>核查结果</th><th>核查说明（查了什么、谁查的）</th><th>当前分类</th><th>操作</th></tr></thead><tbody>' +
+        cs.map(c => {
+          const same = all.filter(x => x !== c && x.auto.checkKind === k && x.sig === c.sig).length;
+          const raw = c.pageText || c.alertText || (c.L && c.L.popupText) || c.auto.hits[0] || firstLine(c);
+          return '<tr><td class="mono nw"><a data-open="' + c.uid + '">' + A.caseLabel(c) + '</a></td><td class="nm">' + esc(c.name) + '</td><td class="clip" style="max-width:260px" title="' + esc(raw) + '">' + esc(raw) +
+            '</td><td><select class="sel" style="min-width:150px" data-dc="' + c.uid + '"><option value="">未核查</option>' + Object.entries(kind.options).map(([ok, o]) => '<option value="' + ok + '"' + (c.dataCheck === ok ? " selected" : "") + ">" + esc(o[0]) + "</option>").join("") + '</select></td><td><input class="inp" style="min-width:180px" data-dn="' + c.uid + '" value="' + esc(c.dataNote || "") + '" placeholder="如：查 agent 表，40100 存在且有效"></td><td>' + A.catTag(c.final) +
+            '</td><td class="ops nw">' + (same ? '<a data-same="' + c.uid + '">沿用到相同原因 ' + same + " 条</a>" : "") + "</td></tr>";
+        }).join("") + "</tbody></table></div></div>";
+    });
     root.innerHTML = html;
     $("#dcRun").onchange = e => { v.run = e.target.value; A.render(); };
+    $$("[data-st]", root).forEach(b => b.onclick = () => { v.st = b.dataset.st; A.render(); });
     $$("[data-open]", root).forEach(a => a.onclick = () => openCase(a.dataset.open));
     const upd = () => { A.reclassify(); A.save(); A.render(); };
     $$("[data-dc]", root).forEach(s => s.onchange = () => { const c = S.cases.find(x => x.uid === s.dataset.dc); c.dataCheck = s.value || null; upd(); A.toast("已保存，分类已重新计算"); });
@@ -1567,13 +1997,12 @@ window.APP = (function () {
     $$("[data-same]", root).forEach(a => a.onclick = () => {
       const c = S.cases.find(x => x.uid === a.dataset.same);
       if (!c.dataCheck) { A.toast("请先填写这一条的核查结果", true); return; }
-      const others = fs.filter(x => x !== c && x.auto.hits[0] === c.auto.hits[0] && x.sig === c.sig);
-      A.dialog("应用到相同报错", "把核查结果“" + E.DATA_CHECK[c.dataCheck] + "”应用到以下 " + others.length + " 条用例？只有它们用的是同一组数据时才适用。<p class=\"hint\">" + others.map(x => esc(x.id)).join("、") + "</p>",
-        [{ t: "取消" }, { t: "应用", pri: true, fn: () => { others.forEach(x => { x.dataCheck = c.dataCheck; x.dataNote = (c.dataNote || "") + "（沿用 " + c.id + " 的核查）"; }); upd(); A.toast("已应用"); } }]);
+      const others = all.filter(x => x !== c && x.auto.checkKind === c.auto.checkKind && x.sig === c.sig);
+      A.dialog("沿用核查结果", "把“" + esc(E.DATA_CHECK[c.dataCheck]) + "”沿用到以下 " + others.length + " 条用例？只有它们用的是同一组数据时才适用。<p class=\"hint\">" + others.map(x => esc(x.id)).join("、") + "</p>",
+        [{ t: "取消" }, { t: "沿用", pri: true, fn: () => { others.forEach(x => { x.dataCheck = c.dataCheck; x.dataNote = (c.dataNote || "") + "（沿用 " + c.id + " 的核查）"; }); upd(); A.toast("已沿用"); } }]);
     });
   };
 })();
-
 </script>
 <script>
 /* 页面：回归对比（读取 difflib 生成的 Total / Ignore HTML 报告，合并在一页查看） */
@@ -1790,7 +2219,6 @@ window.APP = (function () {
     };
   }
 })();
-
 </script>
 <script>
 /* 页面：Jira 起草、提交与导出、Jira 配置。
@@ -1806,12 +2234,15 @@ window.APP = (function () {
     envMode: "field", titleTpl: "[{system} Regression] {market} - {module} {cases} failed due to {cause}",
     highKeywords: ["issue", "underwriting", "核保", "payment", "支付", "premium", "保费", "amount", "金额", "quotation", "报价"],
     draftCats: ["PRODUCT_DEFECT", "TEST_DATA", "ENVIRONMENT", "SCRIPT_ISSUE", "POPUP_INTERFERENCE", "NEEDS_HUMAN"],
-    backendUrl: "", maskOnExport: true, reviewer: "",
+    backendUrl: "", rerunUrl: "", maskOnExport: true, reviewer: "",
   };
   const cfg = () => (S.jira = Object.assign({}, DEFAULT_CFG, S.jira || {}));
   S.drafts = S.drafts || []; S.jiraLog = S.jiraLog || [];
 
-  const SECS = [["s1", "1. 现象"], ["s2", "2. 受影响的用例"], ["s3", "3. 重现步骤"], ["s4", "4. 预期结果"], ["s5", "5. 实际结果"], ["s6", "6. 已做的排查"], ["s7", "7. 测试数据"], ["s8", "8. 推测与待确认"]];
+  // Description 用英文；第三项是给填写人看的中文说明
+  const SECS = [["s1", "1. Execution Summary", "执行摘要（含重跑情况）"], ["s2", "2. Affected Cases", "受影响的用例和截图"], ["s3", "3. Steps to Reproduce", "重现步骤"], ["s4", "4. Expected Result", "预期结果"],
+    ["s5", "5. Actual Result", "实际结果（报错原文）"], ["s6", "6. Investigation Done", "已做的排查"], ["s7", "7. Test Data", "测试数据"], ["s8", "8. Suspected Cause / To Be Confirmed", "推测与待确认"]];
+  const TODO = /To be added|待补充/;
   const FIELD_NAMES = { summary: "Summary 标题", issueType: "Issue Type", priority: "Priority", system: "System", components: "Components", labels: "Labels", assignee: "Assignee", environment: "Environment" };
   const SRC = { 脚本: "blue", AI: "purple", 人工: "orange" };
   const ST = { draft: ["待审核", "orange"], approved: ["已审核", "blue"], submitted: ["已提交", "green"], discarded: ["已放弃", "gray"] };
@@ -1841,7 +2272,17 @@ window.APP = (function () {
     if (cat === "RERUN_PASS") return { text: "intermittent failure (passed on rerun)", sure: true };
     if (EXC_EN[c.exception]) return { text: EXC_EN[c.exception] + (c.module ? " on " + c.module : ""), sure: false };
     if (/^AST/.test(a.rule)) return { text: "assertion failed - " + words(firstLine(c).replace(/^[\w.]*(Error|Exception|Failure)\s*:?\s*/, "")), sure: false };
-    return { text: "待确认原因", sure: false };
+    // 桌面端和系统提示类规则：按规则给出英文原因短语
+    const L = c.L || {}, fn = L.rootAt ? " in " + L.rootAt.func : "";
+    const R = {
+      "DSK-AMB": "locator matched multiple controls" + fn, "DSK-NF": (L.expectWin ? 'window "' + words(L.expectWin) + '" not found' : "window/control not found") + fn,
+      "DSK-VIS": "control not visible" + fn, "DSK-DIS": "control disabled" + fn, "DSK-OPT": "dropdown option not found (" + words(hit) + ")", "DSK-DTP": "date picker value could not be set" + fn, "CHK-DTP": "date picker value could not be set" + fn,
+      "MASK1": "control/data lookup returned empty" + fn, "GEN1": "generic error" + fn, "SYS-EMPTY": "unreadable popup after submission",
+      "SYS-CFG": 'missing system configuration ("' + words(hit) + '")', "CHK-CFG": 'system configuration issue ("' + words(hit) + '")', "SYS-CRASH": "application unhandled exception",
+      "DATA-LOCK": "policy locked by another session", "CHK-LOCK1": "policy locked by an earlier failed case", "SCR2": "invalid locator", "SCR3": "test code error (" + c.exception + ")" + fn,
+    };
+    if (R[a.rule]) return { text: R[a.rule], sure: a.status === "confirmed" || !!c.override };
+    return { text: "[cause TBD]", sure: false };
   }
   function priorityOf(cs, d) {
     const c = cs[0], cat = c.final, k = cfg().highKeywords;
@@ -1856,7 +2297,12 @@ window.APP = (function () {
     if (["TEST_DATA", "SCRIPT_ISSUE", "POPUP_INTERFERENCE", "RERUN_PASS"].includes(cat)) return { v: "Low", why: "测试数据 / 脚本 / 弹窗类问题" };
     return { v: "Medium", why: "默认" };
   }
-  function shotNames(cs) { return Array.from(new Set(cs.map(c => (c.shots && c.shots[0] && base(c.shots[0].name)) || base((c.screenshot || "").split(";")[0])).filter(Boolean))); }
+  // 每个用例两次执行的截图文件名：第 1 次（页面里粘贴的优先，其次报告路径），第 2 次（重跑结果里的路径）
+  const shot1 = c => (c.shots && c.shots[0] && base(c.shots[0].name)) || base((c.screenshot || "").split(";")[0]);
+  const shot2 = c => c.rerun === "fail" && c.r2 && c.r2.same !== false ? base((c.r2.screenshot || "").split(";")[0]) : "";
+  const rerunSame = c => c.rerun === "fail" && !(c.r2 && c.r2.same === false);
+  function shotNames(cs) { return Array.from(new Set(cs.reduce((a, c) => a.concat((c.shots || []).map(s => base(s.name)), [shot1(c), shot2(c)]), []).filter(Boolean))); }
+  const oneLine = s => String(s || "").replace(/[{}|]/g, "").replace(/\s+/g, " ").trim();
 
   function scriptFields(d) {
     const C = cfg(), cs = casesOf(d), r = runOf(d.run), c0 = cs[0];
@@ -1867,32 +2313,48 @@ window.APP = (function () {
       .replace("{cases}", cs.length > 1 ? "cases" : "case").replace("{n}", cs.length).replace("{cause}", cause.text);
     const pr = priorityOf(cs, d);
     const starts = cs.map(c => c.start).filter(Boolean).sort();
-    const environment = ["Environment: " + (r.env || "待补充"), "Device / Browser: " + (Array.from(new Set(cs.map(c => c.device).filter(Boolean))).join(", ") || r.device || "待补充"),
+    const environment = ["Environment: " + (r.env || "To be added"), "Device / Browser: " + (Array.from(new Set(cs.map(c => c.device).filter(Boolean))).join(", ") || r.device || "To be added"),
       "Run: " + (r.name || "-"), "Test plan: " + (r.plan || "-"), "Executed at: " + (starts[0] || r.at || "-") + " (UTC+8)"].join("\n");
-    const shots = shotNames(cs);
-    const table = "|| 用例编号 || 用例名称 || 截图 ||\n" + cs.slice(0, 20).map(c => {
-      const s = (c.shots && c.shots[0] && base(c.shots[0].name)) || base((c.screenshot || "").split(";")[0]);
-      return "| " + c.id + " | " + (c.name || "-").replace(/\|/g, "/") + " | " + (s ? "!" + s + "|thumbnail!" : "-") + " |";
-    }).join("\n") + (cs.length > 20 ? "\n其余 " + (cs.length - 20) + " 个用例见附件 affected_cases.csv" : "");
+    const en = E.english(c0), same = cs.filter(rerunSame), second = cs.filter(c => c.parent);
+    // 1. 执行摘要：第 1 次 + 重跑（重跑失败且报错相同时，两次写在同一张单里）
+    let s1 = "* *Run:* " + (r.name || "-") + " — " + cs.length + " case" + (cs.length > 1 ? "s" : "") + " failed (" + mod + ")\n" +
+      "* *Category:* " + en.cat + " (" + en.status + ")\n";
+    if (second.length) {
+      const p = S.cases.find(x => x.uid === c0.parent);
+      s1 += "* *Note:* this failure occurred on the *rerun (attempt 2)*. The first attempt failed with a different error" + (p && p.auto ? ": " + E.english(p).basis : "") + "\n";
+      s1 += "* *Attempt 2:* " + en.basis + "\n";
+    } else {
+      s1 += "* *Attempt 1:* " + en.basis + "\n";
+      if (same.length) s1 += "* *Attempt 2 (rerun" + (same[0].r2 && same[0].r2.start ? ", " + same[0].r2.start : "") + "):* " + (same.length === cs.length ? "all " : same.length + " of the ") + "case(s) failed again with the *same error* — the issue is reproducible.\n";
+      else if (cs.some(c => c.rerun === "fail")) s1 += "* *Attempt 2 (rerun):* failed with a different error; the second failure is reported separately.\n";
+      else s1 += "* *Attempt 2:* not rerun yet.\n";
+    }
+    s1 += "* *Next step:* " + en.next;
+    const two = cs.some(c => shot2(c));
+    const table = "|| Case ID || Case Name || " + (two ? "Attempt 1 Screenshot || Attempt 2 Screenshot ||" : "Screenshot ||") + "\n" + cs.slice(0, 20).map(c => {
+      const a1 = shot1(c), a2 = shot2(c);
+      return "| " + c.id + " | " + (c.name || "-").replace(/\|/g, "/") + " | " + (a1 ? "!" + a1 + "|thumbnail!" : "-") + (two ? " | " + (a2 ? "!" + a2 + "|thumbnail!" : "-") : "") + " |";
+    }).join("\n") + (cs.length > 20 ? "\nThe other " + (cs.length - 20) + " cases are listed in the attachment affected_cases.csv" : "");
     const err = (c0.pageText || c0.alertText) ? (c0.pageText || c0.alertText) + "\n" + firstLine(c0) : (c0.error || c0.stack || "").slice(0, 800);
+    const err2 = same.find(c => c.r2 && c.r2.error);
     const checks = [];
     const rr = cs.filter(c => c.rerun), rp = rr.filter(c => c.rerun === "pass").length;
-    if (rr.length) checks.push("* 已重跑 " + rr.length + " 个用例：" + rp + " 个通过，" + (rr.length - rp) + " 个仍失败");
-    Array.from(new Set(cs.filter(c => c.dataCheck).map(c => E.DATA_CHECK[c.dataCheck] + (c.dataNote ? "（" + c.dataNote + "）" : "")))).forEach(t => checks.push("* 数据核查：" + t));
-    Array.from(new Set(cs.filter(c => c.override).map(c => c.override.reason))).forEach(t => checks.push("* 人工复核：" + t));
-    const a = c0.auto;
+    if (rr.length) checks.push("* Rerun " + rr.length + " case(s): " + rp + " passed, " + same.length + " failed with the same error" + (rr.length - rp - same.length ? ", " + (rr.length - rp - same.length) + " failed with a different error" : ""));
+    if (second.length) checks.push("* This ticket covers the second attempt of: " + second.map(c => c.id).join(", "));
+    Array.from(new Set(cs.filter(c => c.dataCheck).map(c => (E.CHECK_EN[c.dataCheck] || E.DATA_CHECK[c.dataCheck]) + (c.dataNote ? " (" + c.dataNote + ")" : "")))).forEach(t => checks.push("* Manual check: " + t));
+    Array.from(new Set(cs.filter(c => c.override).map(c => c.override.reason))).forEach(t => checks.push("* Reviewer note: " + t));
     return {
       summary, issueType: c0.final === "ENVIRONMENT" ? C.issueTypeEnv : C.issueType, priority: pr.v, system: C.system, components: C.components,
       labels: C.labels, assignee: "", environment,
-      s1: "执行 " + mod + " 用例时失败" + (c0.exception ? "（" + c0.exception + "）" : "") + "，报错：{{" + firstLine(c0).slice(0, 200).replace(/[{}]/g, "") + "}}",
-      s2: "共 " + cs.length + " 个\n" + table,
-      s3: "待补充：请从平台复制用例步骤",
-      s4: "待补充：根据用例描述或断言中的期望值",
-      s5: "{noformat}\n" + err.slice(0, 1200) + "\n{noformat}",
-      s6: checks.join("\n") || "待补充：尚未做额外排查（重跑、数据核查）",
-      s7: "待补充：只写业务编码（Agent code、Product code、Policy no.），不写姓名、证件号、手机号",
-      s8: "* 推测（规则初步分类：" + E.CATS[c0.final].name + "，" + (c0.override ? "人工确认" : a.rule) + "）：" + a.why.join("；") + (a.need.length ? "\n" + a.need.map(n => "* 待确认：" + n).join("\n") : ""),
-      _priorityWhy: pr.why, _causeSure: cause.sure, _attach: shots.concat(cs.length > 20 ? ["affected_cases.csv"] : []),
+      s1,
+      s2: "Total " + cs.length + "\n" + table,
+      s3: "To be added: copy the test steps from the platform",
+      s4: "To be added: expected result from the case description or the assertion",
+      s5: (second.length ? "Attempt 2 error:\n" : same.length ? "Attempt 1 error:\n" : "") + "{noformat}\n" + err.slice(0, 1200) + "\n{noformat}" + (err2 ? "\nAttempt 2 error (same as attempt 1):\n{noformat}\n" + err2.r2.error.slice(0, 600) + "\n{noformat}" : ""),
+      s6: checks.join("\n") || "To be added: no extra investigation yet (rerun, data check)",
+      s7: "To be added: business codes only (agent code, product code, policy no.); no names, ID numbers or phone numbers",
+      s8: "* Suspected (" + en.status + "): " + en.basis + "\n* To be confirmed: " + en.next,
+      _priorityWhy: pr.why, _causeSure: cause.sure, _attach: shotNames(cs).concat(cs.length > 20 ? ["affected_cases.csv"] : []),
     };
   }
   function newDraft(run, cat, sig, uids) {
@@ -1909,7 +2371,7 @@ window.APP = (function () {
   const wiki = d => {
     const C = cfg();
     return (C.envMode === "description" ? "h3. Environment\n{noformat}\n" + d.f.environment + "\n{noformat}\n\n" : "") +
-      SECS.map(([k, n]) => "h3. " + (k === "s2" ? n + "（共 " + casesOf(d).length + " 个）" : n) + "\n" + (k === "s2" ? d.f.s2.replace(/^共 \d+ 个\n/, "") : d.f[k])).join("\n\n");
+      SECS.map(([k, n]) => "h3. " + (k === "s2" ? n + " (" + casesOf(d).length + ")" : n) + "\n" + (k === "s2" ? d.f.s2.replace(/^(Total \d+|共 \d+ 个)\n/, "") : d.f[k])).join("\n\n");
   };
 
   /* ============================== 校验 ============================== */
@@ -1919,15 +2381,15 @@ window.APP = (function () {
     if (!d.f.summary.trim()) errs.push("标题为空");
     if (/\{(system|market|module|cases|cause|n)\}/.test(d.f.summary)) errs.push("标题里还有未替换的占位符");
     if (d.f.summary.length > 255) errs.push("标题超过 255 个字符（" + d.f.summary.length + "）");
-    if (/待确认原因/.test(d.f.summary)) errs.push("标题中的原因还是“待确认原因”，请写明原因");
+    if (/\[cause TBD\]/.test(d.f.summary)) errs.push("标题中的原因还是“[cause TBD]”（待确认），请写明原因");
     if (d.mode === "comment" && !/^[A-Z][A-Z0-9]+-\d+$/.test(d.target.trim())) errs.push("追加评论需要填写正确的单号，例如 ROTQA-5339");
     const txt = [d.f.summary, d.f.environment].concat(SECS.map(s => d.f[s[0]])).join("\n");
     if (E.mask(txt) !== txt) errs.push("内容中有疑似个人信息（证件号、手机号、邮箱、卡号）");
     const sus = cs.filter(c => !c.override && c.auto.status === "suspected");
     if (sus.length && !d.ack) warns.push({ k: "sus", t: sus.length + " 个用例的分类仍是“待复核”：" + sus.slice(0, 6).map(c => c.id).join("、") + (sus.length > 6 ? "…" : "") });
     if (d.meta && !d.meta.causeSure && d.src.summary === "脚本") warns.push({ t: "标题中的原因由异常类型推出，不一定是真正原因，请对照证据修改" });
-    const todo = SECS.filter(s => /待补充/.test(d.f[s[0]])).map(s => s[1]);
-    if (todo.length) warns.push({ t: "以下小节还是“待补充”：" + todo.join("、") });
+    const todo = SECS.filter(s => TODO.test(d.f[s[0]])).map(s => s[1]);
+    if (todo.length) warns.push({ t: "以下小节还是“To be added”（待补充）：" + todo.join("、") });
     const dup = dupOf(d);
     if (dup && d.mode === "create") warns.push({ t: "可能重复：" + dup.text + "。建议改为“追加评论到已有单”" });
     if (!d.f.assignee) warns.push({ t: "没有填写 Assignee（经办人），提交后需在 Jira 里指派" });
@@ -1948,17 +2410,19 @@ window.APP = (function () {
     if (!S.runs.length) { root.innerHTML = '<div class="card">' + A.emptyBlock("还没有导入数据", "先导入执行结果，完成失败分诊，再来起草 Jira。", '<button class="btn pri" data-go="import">去导入</button>') + "</div>"; A.bindGo(root); return; }
     v.run = v.run || S.runs[S.runs.length - 1].id; v.st = v.st || "open";
     const used = new Set(); S.drafts.filter(d => d.status !== "discarded").forEach(d => d.uids.forEach(u => used.add(u)));
-    const avail = S.cases.filter(c => c.failed && c.run === v.run && !used.has(c.uid) && cfg().draftCats.includes(c.final));
-    const availGroups = {}; avail.forEach(c => { const k = c.final + "|" + c.sig; (availGroups[k] = availGroups[k] || []).push(c); });
+    // 重跑通过的不提单；重跑失败且报错不同的第 2 次记录（c.parent）单独成组、单独起草
+    const avail = S.cases.filter(c => c.failed && c.run === v.run && !used.has(c.uid) && c.rerun !== "pass" && c.final !== "RERUN_PASS" && cfg().draftCats.includes(c.final));
+    const skipped = S.cases.filter(c => c.failed && c.run === v.run && (c.rerun === "pass" || c.final === "RERUN_PASS")).length;
+    const availGroups = {}; avail.forEach(c => { const k = c.final + "|" + c.sig + (c.parent ? "|#2" : ""); (availGroups[k] = availGroups[k] || []).push(c); });
     const nG = Object.keys(availGroups).length;
     const drafts = S.drafts.filter(d => d.run === v.run && (v.st === "all" || (v.st === "open" ? ["draft", "approved"].includes(d.status) : d.status === v.st)));
     if (!v.cur || !drafts.find(d => d.id === v.cur)) v.cur = drafts[0] ? drafts[0].id : null;
     v.msel = v.msel || [];
 
     let html = '<div class="card"><div class="form"><label class="fi"><span>批次</span><select class="sel" id="jRun">' + S.runs.map(r => '<option value="' + r.id + '"' + (r.id === v.run ? " selected" : "") + ">" + esc(r.name) + "</option>").join("") + "</select></label>" +
-      '<span class="hint">可起草的失败用例 <b style="color:#303133">' + avail.length + "</b> 条，可分为 <b style=\"color:#303133\">" + nG + '</b> 组（一组 = 一张 Jira 单）</span><span style="flex:1"></span>' +
+      '<span class="hint">可起草的失败用例 <b style="color:#303133">' + avail.length + "</b> 条，可分为 <b style=\"color:#303133\">" + nG + '</b> 组（一组 = 一张 Jira 单）' + (skipped ? "；重跑已通过 " + skipped + " 条，不提单" : "") + '</span><span style="flex:1"></span>' +
       '<button class="btn" id="jCats">起草范围</button><button class="btn pri" id="jGen"' + (nG ? "" : " disabled") + ">为 " + nG + " 组起草</button></div>" +
-      '<p class="hint" style="margin:10px 0 0">分组规则与“原因分组”页相同：最终分类相同、报错特征相同的用例合并成一张单。标题、环境、受影响用例、实际结果、已做排查由页面根据分诊结果填写；现象、预期结果、推测可以复制材料给 AI 补写；重现步骤和测试数据需要你补充。每张单都要审核后才能导出或提交。</p></div>';
+      '<p class="hint" style="margin:8px 0 0">分组与“失败分诊”里的“分类 → 原因”一致：同一分类、同一原因的用例合成一张单。重跑规则：重跑通过 → 不提单；重跑失败且报错相同 → 两次的执行摘要和截图写在同一张单；重跑失败但报错不同 → 第2次单独起草一张。Description 用英文，由页面根据分诊结果生成；重现步骤和测试数据需要你补充。每张单审核后才能导出或提交。</p></div>';
 
     html += '<div class="cmp" style="grid-template-columns:330px minmax(0,1fr)"><div class="card" style="padding:12px;margin:0">' +
       '<div class="subtabs" style="margin-bottom:8px">' + [["open", "进行中"], ["submitted", "已提交"], ["discarded", "已放弃"], ["all", "全部"]].map(([k, n]) => '<button data-jst="' + k + '" class="' + (v.st === k ? "on" : "") + '">' + n + "</button>").join("") + "</div>" +
@@ -1979,7 +2443,7 @@ window.APP = (function () {
       A.save(); v.st = "open"; A.render(); A.toast("已起草 " + nG + " 张");
     };
     $$("[data-jst]", root).forEach(b => b.onclick = () => { v.st = b.dataset.jst; v.cur = null; A.render(); });
-    $$("[data-jd]", root).forEach(el => el.onclick = e => { if (e.target.dataset.jm) return; v.cur = el.dataset.jd; v.tab = "edit"; A.render(); });
+    $$("[data-jd]", root).forEach(el => el.onclick = e => { if (e.target.dataset.jm) return; v.cur = el.dataset.jd; v.tab = "preview"; A.render(); });
     $$("[data-jm]", root).forEach(cb => cb.onchange = () => { const id = cb.dataset.jm; v.msel = cb.checked ? v.msel.concat(id) : v.msel.filter(x => x !== id); A.render(); });
     $("#jMerge").onclick = () => mergeDialog(v);
     if (d) bindForm(root, d, v);
@@ -2005,12 +2469,12 @@ window.APP = (function () {
   /* ---------- 草稿表单 ---------- */
   const srcTag = s => '<span class="tag ' + (SRC[s] || "gray") + '" style="font-size:11px;line-height:17px">' + (s || "脚本") + "</span>";
   function form(d, v) {
-    v.tab = v.tab || "edit";
+    v.tab = v.tab || "preview";
     const cs = casesOf(d), C = cfg(), val = validate(d), lock = d.status === "submitted";
     let h = '<div class="bar"><span class="tag ' + ST[d.status][1] + '">' + ST[d.status][0] + "</span>" + (d.issueKey ? '<span class="tag green">' + esc(d.issueKey) + "</span>" : "") + '<span class="hint">' + esc(runOf(d.run).name) + " · 起草于 " + esc(d.created) + (d.reviewer ? " · 审核：" + esc(d.reviewer) + " " + esc(d.reviewedAt || "") : "") + '</span><span class="sp"></span>' +
-      '<div class="seg"><button data-jt="edit" class="' + (v.tab === "edit" ? "on" : "") + '">编辑</button><button data-jt="preview" class="' + (v.tab === "preview" ? "on" : "") + '">预览</button><button data-jt="cases" class="' + (v.tab === "cases" ? "on" : "") + '">用例（' + cs.length + ")</button></div></div>";
-    h += '<div class="verdict" style="margin-bottom:12px;border-color:#d9ecff;background:#f4f9ff">本单包含 <b>' + cs.length + "</b> 个用例，分类 " + A.catTag(cs[0] ? cs[0].final : d.cat) + "，报错特征：<code style=\"font-size:11.5px\">" + esc((d.sig || "(无报错)").slice(0, 120)) + "</code></div>";
-    if (v.tab === "preview") return h + preview(d);
+      '<div class="seg"><button data-jt="preview" class="' + (v.tab === "preview" ? "on" : "") + '">① 预览</button><button data-jt="edit" class="' + (v.tab === "edit" ? "on" : "") + '">② 编辑</button><button data-jt="cases" class="' + (v.tab === "cases" ? "on" : "") + '">用例（' + cs.length + ")</button></div></div>";
+    h += '<div class="verdict" style="margin-bottom:8px;border-color:#d9ecff;background:#f4f9ff">本单 <b>' + cs.length + "</b> 个用例 · " + A.catTag(cs[0] ? cs[0].final : d.cat) + " · 原因：" + esc(cs[0] ? E.ruleName(cs[0]) + " — " + cs[0].auto.brief : "-") + (cs.some(c => c.parent) ? ' <span class="tag orange">重跑第2次的新问题</span>' : cs.some(c => c.rerun === "fail") ? ' <span class="tag orange">含重跑仍失败（同一问题）</span>' : "") + "</div>";
+    if (v.tab === "preview") return h + preview(d) + checksBlock(d, val, lock) + actions(d, val, lock);
     if (v.tab === "cases") return h + caseTab(d);
     const dis = lock ? " disabled" : "";
     const row = (k, input, extra) => '<label style="display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px;align-items:start;margin-bottom:10px"><span style="padding-top:6px;color:#606266">' + FIELD_NAMES[k] + " " + srcTag(d.src[k]) + "</span><div>" + input + (extra || "") + "</div></label>";
@@ -2025,20 +2489,23 @@ window.APP = (function () {
       row("system", txt("system")) + row("components", txt("components", "多个用逗号分隔")) + row("labels", txt("labels", "多个用逗号分隔"), '<div class="hint" style="margin-top:4px">提交时会自动加上 triage-' + esc(d.id) + "，后端用它防止重复建单</div>") +
       row("assignee", txt("assignee", "不自动填写，由你决定")) + "</div>";
     h += row("environment", '<textarea class="ta" rows="5" data-jf="environment"' + dis + ">" + esc(d.f.environment) + "</textarea>", C.envMode === "description" ? '<div class="hint">当前配置：Environment 写在 Description 最前面</div>' : "");
-    h += '<div style="margin:6px 0 10px;display:flex;align-items:center;gap:10px"><b>Description</b><span class="hint">8 个小节，没有信息的写“待补充：缺什么”，不要删除小节，不要编造</span><span style="flex:1"></span>' + (lock ? "" : '<button class="btn sm" id="jAI">复制起草材料给 AI</button><button class="btn sm" id="jPaste">粘贴 AI 结果</button>') + "</div>";
-    SECS.forEach(([k, n]) => {
-      h += '<div style="margin-bottom:10px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:4px"><span style="color:#606266">' + n + "</span>" + srcTag(d.src[k]) + (/待补充/.test(d.f[k]) ? '<span class="tag orange" style="font-size:11px;line-height:17px">待补充</span>' : "") + '</div><textarea class="ta" rows="' + Math.min(10, Math.max(2, d.f[k].split("\n").length + 1)) + '" data-jf="' + k + '"' + dis + ">" + esc(d.f[k]) + "</textarea></div>";
+    h += '<div style="margin:6px 0 8px;display:flex;align-items:center;gap:10px"><b>Description</b><span class="hint">英文填写；8 个小节，没有信息的写“To be added: 缺什么”，不要删除小节，不要编造</span><span style="flex:1"></span>' + (lock ? "" : '<button class="btn sm" id="jAI">复制起草材料给 AI</button><button class="btn sm" id="jPaste">粘贴 AI 结果</button>') + "</div>";
+    SECS.forEach(([k, n, zh]) => {
+      h += '<div style="margin-bottom:8px"><div style="display:flex;gap:8px;align-items:center;margin-bottom:3px"><span style="color:#606266">' + n + '</span><span class="hint">' + zh + "</span>" + srcTag(d.src[k]) + (TODO.test(d.f[k]) ? '<span class="tag orange" style="font-size:11px;line-height:16px">待补充</span>' : "") + '</div><textarea class="ta" rows="' + Math.min(10, Math.max(2, d.f[k].split("\n").length + 1)) + '" data-jf="' + k + '"' + dis + ">" + esc(d.f[k]) + "</textarea></div>";
     });
-    const att = d.meta ? d.meta.attach : [];
-    h += '<div class="sec"><h5>附件 <span class="hint" style="font-weight:400">由后端上传；文件名必须与实际截图一致</span></h5>' + (att.length ? att.map(a => '<span class="tag gray" style="margin:0 6px 6px 0">' + esc(a) + "</span>").join("") : '<span class="hint">没有截图。可以在“数据导入 → 匹配截图”中补充，或提交后在 Jira 中手动上传。</span>') + "</div>";
-    h += '<div class="sec"><h5>提交前检查</h5>' + (val.errs.length || val.warns.length ? "" : '<div class="verdict">全部通过</div>') +
+    return h + checksBlock(d, val, lock) + actions(d, val, lock);
+  }
+  function checksBlock(d, val, lock) {
+    return '<div class="sec"><h5>提交前检查</h5>' + (val.errs.length || val.warns.length ? "" : '<div class="verdict">全部通过</div>') +
       val.errs.map(e => '<div class="verdict" style="border-color:#fde2e2;background:#fef0f0;margin-bottom:6px;color:#f56c6c">必须修改：' + esc(e) + (/个人信息/.test(e) && !lock ? ' <a id="jMask">一键脱敏</a>' : "") + "</div>").join("") +
-      val.warns.map(w => '<div class="verdict sus" style="margin-bottom:6px">请确认：' + esc(w.t) + (w.k === "sus" && !lock ? '<label style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="jAck">我已看过这些用例的证据，确认归入这张单</label>' : "") + "</div>").join("") + "</div>";
-    if (d.history.length) h += '<div class="sec"><h5>记录</h5><div class="hint">' + d.history.slice(-8).map(esc).join("<br>") + "</div></div>";
-    h += '<div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #ebeef5;padding-top:12px;flex-wrap:wrap">';
+      val.warns.map(w => '<div class="verdict sus" style="margin-bottom:6px">请确认：' + esc(w.t) + (w.k === "sus" && !lock ? '<label style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="jAck"' + (d.ack ? " checked" : "") + ">我已看过这些用例的证据，确认归入这张单</label>" : "") + "</div>").join("") + "</div>" +
+      (d.history.length ? '<div class="sec"><h5>记录</h5><div class="hint">' + d.history.slice(-8).map(esc).join("<br>") + "</div></div>" : "");
+  }
+  function actions(d, val, lock) {
+    let h = '<div style="display:flex;gap:6px;justify-content:flex-end;border-top:1px solid #ebeef5;padding-top:10px;flex-wrap:wrap">';
     if (lock) h += '<button class="btn" id="jCopy">复制 Description</button>';
     else {
-      h += '<button class="btn dang" id="jDiscard">' + (d.status === "discarded" ? "恢复草稿" : "放弃这张单") + '</button><button class="btn" id="jRefresh">按最新分诊刷新脚本字段</button><button class="btn" id="jCopy">复制 Description</button>';
+      h += '<button class="btn dang" id="jDiscard">' + (d.status === "discarded" ? "恢复草稿" : "放弃这张单") + '</button><button class="btn" id="jRefresh">按最新分诊刷新</button><button class="btn" id="jCopy">复制 Description</button>' + (d.status !== "discarded" ? '<button class="btn" data-jt="edit">去编辑</button>' : "");
       h += d.status === "approved" ? '<button class="btn" id="jUnapprove">撤回审核</button><button class="btn pri" data-go="jirasub">去提交与导出</button>' : d.status === "draft" ? '<button class="btn pri" id="jApprove"' + (val.ok ? "" : " disabled") + ">审核通过</button>" : "";
     }
     return h + "</div>";
@@ -2046,14 +2513,16 @@ window.APP = (function () {
   function caseTab(d) {
     const cs = casesOf(d), lock = d.status === "submitted";
     const others = S.drafts.filter(x => x !== d && x.run === d.run && ["draft", "approved"].includes(x.status));
-    return '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>用例标识</th><th>用例名称</th><th>分类</th><th>判定状态</th><th>报错摘要</th><th>操作</th></tr></thead><tbody>' +
-      cs.map(c => '<tr><td class="mono"><a data-jopen="' + c.uid + '">' + esc(c.id) + "</a></td><td>" + esc(c.name) + "</td><td>" + A.catTag(c.final) + "</td><td>" + A.statusTag(c) + '</td><td class="clip" style="max-width:260px">' + esc(firstLine(c)) + '</td><td class="ops">' +
-        (lock ? "" : '<a data-jrm="' + c.uid + '">移出本单</a>' + (others.length ? '<select class="sel" style="min-width:0;height:26px;font-size:12px" data-jmv="' + c.uid + '"><option value="">移到其他单…</option>' + others.map(o => '<option value="' + o.id + '">' + esc(o.f.summary.slice(0, 40)) + "</option>").join("") + "</select>" : "")) + "</td></tr>").join("") +
-      '</tbody></table></div><p class="hint">移出的用例回到“可起草”列表，可以重新起草成单独的单。移入、移出后，脚本字段会按新的用例重新生成。</p>';
+    return '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>用例</th><th>名称</th><th>分类</th><th>判定状态</th><th>判断依据</th><th>重跑</th><th>操作</th></tr></thead><tbody>' +
+      cs.map(c => '<tr><td class="mono nw"><a data-jopen="' + c.uid + '">' + A.caseLabel(c) + '</a></td><td class="nm">' + esc(c.name) + "</td><td>" + A.catTag(c.final) + '</td><td class="nw">' + A.statusTag(c) + '</td><td class="basis">' + esc(c.auto.brief) + '</td><td class="nw">' + (c.parent ? "第2次" : c.rerun === "fail" ? (c.r2 && c.r2.same === false ? "失败·报错不同" : "失败·报错相同") : "-") + '</td><td class="ops nw">' +
+        (lock ? "" : '<a data-jrm="' + c.uid + '">移出本单</a>' + (others.length ? '<select class="sel" style="min-width:0;height:22px;font-size:12px" data-jmv="' + c.uid + '"><option value="">移到其他单…</option>' + others.map(o => '<option value="' + o.id + '">' + esc(o.f.summary.slice(0, 40)) + "</option>").join("") + "</select>" : "")) + "</td></tr>").join("") +
+      '</tbody></table></div><p class="hint">移出的用例回到“可起草”列表，可以重新起草成单独的单。移入、移出后，页面生成的字段会按新的用例重新生成。</p>';
   }
   function bindForm(root, d, v) {
+    A.bindGo(root);
     $$("[data-jt]", root).forEach(b => b.onclick = () => { v.tab = b.dataset.jt; A.render(); });
     $$("[data-jopen]", root).forEach(a => a.onclick = () => A.openCase(a.dataset.jopen));
+    $$("[data-pimg]", root).forEach(img => img.onclick = () => { A.dialog("截图", '<img src="' + img.src + '" style="max-width:100%">', [{ t: "关闭" }]); $("#dlg").style.width = "90vw"; });
     const touch = msg => { if (d.status === "approved") { d.status = "draft"; d.history.push(now() + " 审核后又修改，需重新审核"); } if (msg) d.history.push(now() + " " + msg); A.save(); };
     $$("[data-jf]", root).forEach(el => el.onchange = () => { const k = el.dataset.jf; if (d.f[k] === el.value) return; d.f[k] = el.value; d.src[k] = "人工"; touch(); A.render(); });
     $$("[data-jrm]", root).forEach(a => a.onclick = () => { d.uids = d.uids.filter(u => u !== a.dataset.jrm); applyScript(d); touch("移出用例"); A.render(); });
@@ -2062,7 +2531,7 @@ window.APP = (function () {
       d.uids = d.uids.filter(u => u !== s.dataset.jmv); o.uids.push(s.dataset.jmv); applyScript(d); applyScript(o);
       if (o.status === "approved") o.status = "draft"; o.history.push(now() + " 移入用例"); touch("移出用例到另一张单"); A.render();
     });
-    if (v.tab !== "edit") return;
+    if (v.tab === "cases") return;
     if ($("#jMode")) $("#jMode").onchange = e => { d.mode = e.target.value; touch(); A.render(); };
     if ($("#jTarget")) $("#jTarget").onchange = e => { d.target = e.target.value.trim().toUpperCase(); touch(); A.render(); };
     if ($("#jAck")) $("#jAck").onchange = e => { d.ack = e.target.checked; A.save(); A.render(); };
@@ -2105,25 +2574,41 @@ window.APP = (function () {
     close();
     return out.join("");
   }
+  // 预览：三部分表格 —— 1. Title　2. Description（执行摘要 + 截图 + 其他小节）　3. Details（字段）
   function preview(d) {
-    const C = cfg();
-    return '<div style="border:1px solid #ebeef5;border-radius:4px;padding:16px"><div class="hint">' + esc(C.project) + " / " + esc(d.f.issueType) + (d.mode === "comment" ? " · 追加评论到 " + esc(d.target) : "") + '</div><h3 style="margin:4px 0 12px;font-size:17px">' + esc(d.f.summary) + "</h3>" +
-      '<dl class="kv" style="margin-bottom:12px"><dt>Priority</dt><dd>' + esc(d.f.priority) + "</dd><dt>System</dt><dd>" + esc(d.f.system) + "</dd><dt>Components</dt><dd>" + esc(d.f.components) + "</dd><dt>Labels</dt><dd>" + esc(labelsOf(d).join(", ")) + "</dd><dt>Assignee</dt><dd>" + esc(d.f.assignee || "未指派") + "</dd>" +
-      (C.envMode === "field" ? '<dt>Environment</dt><dd style="white-space:pre-wrap">' + esc(d.f.environment) + "</dd>" : "") + "</dl>" + renderWiki(wiki(d)) + "</div>";
+    const C = cfg(), cs = casesOf(d);
+    const sec = (k, n) => '<tr><th class="pk">' + esc(n.replace(/^\d+\.\s*/, "")) + '</th><td class="pv">' + renderWiki(k === "s2" ? d.f.s2.replace(/^(Total \d+|共 \d+ 个)\n/, "") : d.f[k]) + (TODO.test(d.f[k]) ? '<span class="tag orange">待补充</span>' : "") + "</td></tr>";
+    // 截图：页面里粘贴/匹配的图片直接显示；只有报告路径时显示文件名
+    const imgs = cs.slice(0, 12).map(c => {
+      const pics = (c.shots || []).map(s => '<img src="' + s.src + '" data-pimg alt="" title="' + esc(s.name) + '">').join("");
+      const a2 = shot2(c);
+      return '<div class="pshot"><div class="hint mono">' + esc(c.id) + (c.parent ? "（第2次）" : "") + "</div>" + (pics || (shot1(c) ? '<span class="tag gray">Attempt 1：' + esc(shot1(c)) + "</span>" : '<span class="hint">没有截图</span>')) + (a2 ? '<span class="tag gray">Attempt 2：' + esc(a2) + "</span>" : "") + "</div>";
+    }).join("");
+    const det = [["Project", C.project], ["Issue Type", d.f.issueType], ["Priority", d.f.priority + (d.meta && d.meta.priorityWhy ? "（建议依据：" + d.meta.priorityWhy + "）" : "")], ["Labels", labelsOf(d).join(", ")], ["Components", d.f.components], ["System", d.f.system], ["Assignee", d.f.assignee || "未指派"]]
+      .concat(C.envMode === "field" ? [["Environment", d.f.environment]] : []).concat([["提交方式", d.mode === "comment" ? "追加评论到 " + d.target : "新建 Jira 单"], ["附件", (d.meta ? d.meta.attach : []).join(", ") || "无"]]);
+    return '<table class="ptbl">' +
+      '<tr class="ph"><td colspan="2">1. Title</td></tr><tr><th class="pk">Summary</th><td class="pv"><b>' + esc(d.f.summary) + '</b><div class="hint">' + d.f.summary.length + " / 255</div></td></tr>" +
+      '<tr class="ph"><td colspan="2">2. Description <span class="hint">英文；截图和执行摘要在最前面</span></td></tr>' +
+      (C.envMode === "description" ? '<tr><th class="pk">Environment</th><td class="pv" style="white-space:pre-wrap">' + esc(d.f.environment) + "</td></tr>" : "") +
+      sec("s1", SECS[0][1]) + '<tr><th class="pk">Screenshots</th><td class="pv"><div class="pshots">' + imgs + "</div></td></tr>" +
+      SECS.slice(1).map(([k, n]) => sec(k, n)).join("") +
+      '<tr class="ph"><td colspan="2">3. Details</td></tr>' + det.map(([k, val]) => '<tr><th class="pk">' + k + '</th><td class="pv" style="white-space:pre-wrap">' + esc(val) + "</td></tr>").join("") +
+      "</table>";
   }
 
   /* ---------- AI 起草材料 ---------- */
   function aiPrompt(d) {
     const cs = casesOf(d);
     const s = "你是测试缺陷单起草助手。请根据下面的证据，为这张 Jira 单补写内容。要求：\n" +
-      "1. 只能使用给出的证据，不能编造步骤、数据或原因；证据不足的地方写“待补充：缺什么”；\n" +
-      "2. 现象、实际结果引用报错原文，不要改写；\n" +
-      "3. 所有推测写在“推测与待确认”里，并标明“推测”；\n" +
+      "1. 输出用英文；只能使用给出的证据，不能编造步骤、数据或原因；证据不足的地方写 “To be added: 缺什么”；\n" +
+      "2. 引用报错原文时不要改写；\n" +
+      "3. 所有推测写在 Suspected Cause 里，并标明 “Suspected”；\n" +
       "4. 标题原因用英文短语，不超过 12 个单词，必须来自证据；\n" +
-      "5. 严格按下面的格式输出，每个【】标记单独一行，不要输出其他内容：\n" +
-      "【标题原因】\n【1. 现象】\n【4. 预期结果】\n【8. 推测与待确认】\n\n" +
-      "========== 当前草稿 ==========\n标题：" + d.f.summary + "\n分类：" + E.CATS[cs[0].final].name + "\n" + SECS.map(([k, n]) => n + "：\n" + d.f[k]).join("\n\n") +
-      "\n\n========== 用例证据（最多 5 个） ==========\n" + cs.slice(0, 5).map(c => "用例 " + c.id + " " + (c.name || "") + "\n" + c.auto.ev.filter(e => e.kind !== "shot").map(e => e.id + " " + e.label + "：" + (e.text.length > 1200 ? e.text.slice(0, 1200) + "…（已截断）" : e.text)).join("\n")).join("\n\n");
+      "5. 如果有重跑：重跑失败且报错相同，Execution Summary 里分别写 Attempt 1 和 Attempt 2；\n" +
+      "6. 严格按下面的格式输出，每个【】标记单独一行，不要输出其他内容：\n" +
+      "【Title cause】\n【1. Execution Summary】\n【4. Expected Result】\n【8. Suspected Cause】\n\n" +
+      "========== 当前草稿 ==========\nTitle: " + d.f.summary + "\nCategory: " + E.CAT_EN[cs[0].final] + "\n" + SECS.map(([k, n]) => n + ":\n" + d.f[k]).join("\n\n") +
+      "\n\n========== 用例证据（最多 5 个） ==========\n" + cs.slice(0, 5).map(c => "Case " + c.id + " " + (c.name || "") + (c.parent ? "（重跑第2次）" : "") + "\n" + c.auto.ev.filter(e => e.kind !== "shot").map(e => e.id + " " + e.label + "：" + (e.text.length > 1200 ? e.text.slice(0, 1200) + "…（已截断）" : e.text)).join("\n") + (c.r2 && c.r2.error ? "\n重跑（第2次）报错：" + c.r2.error.slice(0, 800) : "")).join("\n\n");
     return E.mask(s);
   }
   function pasteDialog(d, v) {
@@ -2134,13 +2619,13 @@ window.APP = (function () {
         const get = k => (parts[k] || []).join("\n").trim();
         let n = 0;
         const put = (key, val) => { if (!val) return; d.f[key] = E.mask(val); d.src[key] = "AI"; n++; };
-        const cause = get("标题原因");
+        const cause = (get("Title cause") || get("标题原因"));
         if (cause) {
           // 只替换标题中的原因部分，前缀（系统、市场、模块）保持不变
           const at = d.f.summary.lastIndexOf(" due to ");
           put("summary", at > 0 ? d.f.summary.slice(0, at + 8) + cause : cfg().titleTpl.replace("{system}", d.f.system).replace("{market}", cfg().market).replace("{module}", most(casesOf(d).map(c => c.module)) || "Regression").replace("{cases}", d.uids.length > 1 ? "cases" : "case").replace("{n}", d.uids.length).replace("{cause}", cause));
         }
-        put("s1", get("1. 现象")); put("s4", get("4. 预期结果")); put("s8", get("8. 推测与待确认"));
+        put("s1", get("1. Execution Summary")); put("s4", get("4. Expected Result")); put("s8", get("8. Suspected Cause"));
         if (!n) { A.toast("没有识别到【】标记，请确认 AI 按格式输出", true); return false; }
         if (d.status === "approved") d.status = "draft";
         d.history.push(now() + " 填入 AI 结果（" + n + " 项）"); A.save(); A.render(); A.toast("已填入 " + n + " 项，请核对");
@@ -2160,7 +2645,7 @@ window.APP = (function () {
     return {
       draftId: d.id, mode: d.mode, target: d.mode === "comment" ? d.target : null, idempotencyLabel: "triage-" + d.id,
       fields: d.mode === "create" ? fields : undefined,
-      comment: d.mode === "comment" ? mk("h4. 自动回归 " + runOf(d.run).name + " 再次出现（" + cs.length + " 个用例）\n* 环境：" + (runOf(d.run).env || "-") + "\n* 受影响用例：" + cs.map(c => c.id).join(", ") + "\n* 报错原文：{{" + firstLine(cs[0] || {}).slice(0, 200).replace(/[{}]/g, "") + "}}\n\n" + wiki(d)) : undefined,
+      comment: d.mode === "comment" ? mk("h4. Automated regression " + runOf(d.run).name + ": occurred again (" + cs.length + " case" + (cs.length > 1 ? "s" : "") + ")\n* Environment: " + (runOf(d.run).env || "-") + "\n* Affected cases: " + cs.map(c => c.id).join(", ") + "\n* Error: {{" + firstLine(cs[0] || {}).slice(0, 200).replace(/[{}]/g, "") + "}}\n\n" + wiki(d)) : undefined,
       attachments: (d.meta ? d.meta.attach : []).map(n => ({ fileName: n, sourcePath: n === "affected_cases.csv" ? null : ((cs.find(c => (c.screenshot || "").includes(n)) || {}).screenshot || "").split(";")[0].trim() || null })),
       cases: cs.map(c => ({ id: c.id, name: c.name, category: c.final, rule: c.override ? "人工" : c.auto.rule })),
       reviewer: d.reviewer, reviewedAt: d.reviewedAt,
@@ -2252,12 +2737,13 @@ window.APP = (function () {
   A.PAGES.jiracfg = function (root) {
     const C = cfg();
     const f = (k, label, ph, note) => '<label style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:start;margin-bottom:12px"><span style="padding-top:6px;color:#606266">' + label + '</span><div><input class="inp" style="width:100%" data-c="' + k + '" value="' + esc(Array.isArray(C[k]) ? C[k].join(", ") : C[k]) + '" placeholder="' + esc(ph || "") + '">' + (note ? '<div class="hint" style="margin-top:4px">' + note + "</div>" : "") + "</div></label>";
-    root.innerHTML = '<div class="card"><h3>Jira 配置 <span class="sub">保存在本机浏览器；这里不填写也不保存 Jira 账号和 Token</span><span class="acts"><button class="btn" id="cfgReset">恢复默认</button><button class="btn pri" id="cfgSave">保存</button></span></h3>' +
+    root.innerHTML = '<div class="card"><h3>接口与 Jira 配置 <span class="sub">保存在本机浏览器；这里不填写也不保存 Jira 账号和 Token</span><span class="acts"><button class="btn" id="cfgReset">恢复默认</button><button class="btn pri" id="cfgSave">保存</button></span></h3>' +
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:0 28px">' +
       '<div><h4 style="margin:4px 0 12px">连接</h4>' +
       '<label style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:center;margin-bottom:12px"><span style="color:#606266">Jira 类型</span><select class="sel" data-c="deploy"><option value="cloud"' + (C.deploy === "cloud" ? " selected" : "") + '>Jira Cloud（网址是 xxx.atlassian.net）</option><option value="dc"' + (C.deploy === "dc" ? " selected" : "") + ">Jira Data Center / Server（公司自建）</option></select></label>" +
       f("baseUrl", "Jira 地址", "https://xxx.atlassian.net", "用于生成单号链接。不确定类型时，打开 <code>Jira地址/rest/api/2/serverInfo</code>，看 deploymentType 是 Cloud 还是 Server/DataCenter") +
       f("backendUrl", "后端接口地址", "http://内网地址:端口/api", "后端做好后填写。留空时“通过后端接口提交”不可用，其他功能不受影响") +
+      f("rerunUrl", "重跑接口地址", "http://内网地址:端口/api/rerun", "“重跑”页的“一键重跑”会把勾选的用例编号 POST 到这个地址（JSON：{run, cases:[用例编号]}）。留空时一键重跑改为复制用例编号，到 SmartAutoTest 平台粘贴重跑") +
       '<h4 style="margin:18px 0 12px">字段</h4>' +
       f("project", "Project Key", "ROTQA") + f("issueType", "Issue Type", "Bug") + f("issueTypeEnv", "环境问题用的类型", "Task") +
       f("system", "System 默认值", "NBS") + f("systemField", "System 字段 ID", "customfield_10xxx", "自定义字段的 ID，后端或 Jira 管理员可以查到；留空则不提交这个字段") +
@@ -2278,7 +2764,6 @@ window.APP = (function () {
 
   A.jiraBadge = () => S.drafts.filter(d => d.status === "draft").length;
 })();
-
 </script>
 <script>APP.init();</script>
 </body>
