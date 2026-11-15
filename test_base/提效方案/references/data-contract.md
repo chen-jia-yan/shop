@@ -5,16 +5,18 @@
 ## 文件流转
 
 ```
-结果目录 ──load_results──▶ failures.json
+结果目录 / 页面工作文件 ──load_results──▶ failures.json
                               │
-              rerun_failed ──▶ rerun.json
+ data_checks.yaml ─┐          ▼        （规则 config/rules.json，截图文字 *.ocr.json）
+ workspace.json ───┴▶ classify_rules ──▶ classified.json + workspace.json + rerun_plan.json + data_checks.todo.yaml
+                              │                              │
+                     （AI 复核写入 ai_review）        （页面打开 workspace.json：看截图、记观察、选核查结果，保存后交回）
                               │
- data_checks.yaml ─┐          ▼
-                   └▶ classify_rules ──▶ classified.json + data_checks.todo.yaml
+          （人工确认重跑名单）rerun_failed --plan ──▶ rerun.json
                               │
-                     （AI 复核写入 ai_review）
+              classify_rules --rerun ──▶ classified.json（加上 rerun_result，分类不变，ai_review 保留）
                               │
-              group_by_cause ──▶ groups.json
+       group_by_cause --rerun ──▶ groups.json（默认一个用例一张单）
                               │
            check_duplicates ──▶ duplicates.json
                               │
@@ -29,7 +31,7 @@
 
 ## 1. 输入：结果目录
 
-`load_results.py` 支持三种格式：
+`load_results.py` 支持四种格式（第四种 `--format workspace` 读取页面“保存工作文件”得到的文件，见 5.2 节）：
 
 ### 1.1 Allure（`--format allure`）
 
@@ -153,63 +155,147 @@
 
 ## 4. data_checks.yaml（人工填写）
 
+也可以不填这个文件：在页面打开 `workspace.json`，在用例上直接选核查结果后“保存工作文件”，第 2 步加 `--workspace`。两种方式结果相同，工作文件里已有的以工作文件为准。
+
 ```yaml
-- key: agent_code=40100        # 与 data_checks.todo.yaml 中的 key 一致
-  result: ok                   # ok / missing / used / invalid_state
+# 按数据填写（业务报错）：key 与 data_checks.todo.yaml 一致
+- key: agent_code=40100
+  result: ok                   # ok / missing / used / invalid（旧写法 invalid_state 也可以）
   checked_by: 同事B
   checked_at: 2026-11-03 16:10
   method: "SIT2 只读账号查询 AGENT 表"
   note: "记录存在，状态 Active"
+# 按用例填写（数据占用、缺少配置、日期设置失败）：key 写 case=<用例编号>，result 用 todo 里列出的选项
+- key: case=test_27_TC_LAS_PaidToDateAdvance_01
+  result: lock_prev            # lock_prev / lock_other / lock_unknown；cfg_missing / cfg_ok / cfg_unsupported；dtp_out / dtp_in
+  note: "前一个用例失败后没关窗口"
 ```
+
+一个用例涉及多项数据时：有一项有问题就按那一项判断；全部核查过且都是 `ok` 才算“数据正常”。
 
 ## 5. classified.json
 
 ```json
 {
   "run_id": "...",
+  "engine": "ta_engine（与页面 engine.js 相同）",
   "cases": [
     {
       "case_id": "Case7",
-      "category": "PRODUCT_DEFECT",
+      "category": "PRODUCT_DEFECT", "category_cn": "产品缺陷", "owner": "开发",
+      "auto_category": "PRODUCT_DEFECT",
       "status": "confirmed",
-      "rule_id": "BIZ2",
-      "owner": "开发",
-      "reason": "页面业务报错 'Agent record not found'，数据核查结果为 ok",
-      "evidence_ids": ["E3", "E5"],
+      "rule_id": "BIZ2", "rule_name": "业务报错·数据正常",
+      "brief": "业务报错“Agent record not found”，核查确认数据正常 → 系统有问题",
+      "reason": "（同 brief，供后续步骤使用）",
+      "why": ["出现业务报错“record not found”（E3）", "数据已核查且正常（E5），系统仍报错"],
+      "need": [],
       "needs_human_reason": null,
-      "flags": {"historically_flaky": false, "rerun_pass_with_business_error": false},
+      "flags": [],
+      "check_kind": "biz", "phase": null, "from_ocr": false,
+      "group_key": null,
+      "evidence": [{"id": "E1", "kind": "error_message", "label": "报错信息", "content": "..."}],
+      "evidence_ids": ["E1", "E2", "E3", "E4", "E5"],
+      "human": {"dataCheck": "ok", "dataNote": "agent_code=40100：记录存在，状态 Active"},
+      "log_summary": null,
+      "rerun_result": null,
+      "rerun_plan": {"advice": "no", "reason": "已判断是系统问题，直接起草 Jira，重跑不会改变结果"},
       "ai_review": null
     }
   ],
   "summary": {
     "total_failed": 40,
     "by_category": {"PRODUCT_DEFECT": 6, "...": 0},
-    "popups": [{"text": "Agent record not found", "count": 6, "pages": ["/agent/select"]}]
+    "by_rule": {"ENV-DESK": 26, "...": 0},
+    "by_rerun_advice": {"go": 28, "fix": 6, "no": 6}
   }
 }
 ```
 
 原始用例字段会一并保留在每个 case 中（脚本会把 failures.json 的字段合并进来），方便后续步骤读取。
 
-## 6. groups.json
+- 分类、规则编号、`brief`、`why`、`need`、`flags`、`rerun_plan` 与页面上同一用例显示的完全相同（同一个分析核心，见 `taxonomy.md`）。
+- `flags`：页面上显示的标记，例如“环境中断边界”“失败时截图失败”“有残留窗口”“重跑通过”“重跑仍失败”“重跑报错不同”。
+- `evidence[].kind`：`error_message` 报错信息、`popup_text` 页面/弹窗文字、`system_message` 系统提示原文、`root_exception` 最先发生的异常、`step_log` 步骤日志、`failure_location` 失败位置、`open_windows` 当时打开的窗口、`handler_error` 截图/清理中的异常、`stack_trace` 完整日志、`screenshot` 截图、`screenshot_observation` 截图观察（人工）、`screenshot_text` 截图文字（自动识别）、`rerun` 重跑记录、`data_check` 核查结果。
+- `from_ocr: true`：结论用到了截图自动识别的文字，状态一定是 `suspected`。
+- `rerun_result`：没有重跑时为 `null`；重跑后为 `pass`（重跑通过，偶发）/ `fail_same`（同样报错）/ `fail_diff`（报错不同）。**不影响 `category`。**
+- `rerun_plan.advice`：`go` 建议立即重跑 / `fix` 处理后再重跑 / `no` 不需要重跑 / `done` 已重跑。标准见 `taxonomy.md` 的“重跑标准”。
+- 再次运行 `classify_rules.py`（加 `--rerun`）时，原 `classified.json` 中的 `ai_review` 会按 `case_id` 保留。
+- 所有文字都经过脱敏（证件号、手机号、邮箱、卡号、`rules.json` 的 `pii_names`）。
+
+### 5.2 workspace.json（工作文件，页面和 skill 共用）
+
+`classify_rules.py` 每次写在 classified.json 同目录；页面“保存工作文件”得到的也是这个格式。页面“打开工作文件”、`load_results.py --format workspace`、`classify_rules.py --workspace` 都读它。
+
+```json
+{
+  "tool": "ta-workspace", "v": 1, "saved_at": "2026-11-15T10:30:00", "saved_by": "page", "masked": true,
+  "rules": {"env_patterns": ["..."], "...": "与 config/rules.json 的 rules 相同"},
+  "runs": [{"id": "R1", "name": "LAS HK 2026-10-30", "total": 50}],
+  "cases": [
+    {"uid": "R1#25", "run": "R1", "seq": 25, "id": "No.25", "name": "...", "result": "Failed", "failed": true,
+     "error": "...（已脱敏）", "stack": "", "screenshot": "No.25.png", "start": "2026-10-30 14:02",
+     "obs": {"kind": "popup", "text": "Contract is currently used by other user"},
+     "ocrText": "截图识别的文字（已脱敏）",
+     "dataCheck": "lock_other", "dataNote": "...",
+     "override": {"cat": "SCRIPT_ISSUE", "reason": "人工确认的原因"},
+     "rerun": "fail", "r2": {"same": true},
+     "analysis": {"category": "TEST_DATA", "rule_id": "DATA-LOCK", "status": "confirmed", "brief": "...", "rerun_plan": {"advice": "fix", "reason": "..."}}}
+  ]
+}
+```
+
+- 包含通过的用例（`failed: false`），整批规律（环境中断的起点、大面积相同报错）才能算对。skill 从结果文件读取、文件里没有通过用例的详情时，按执行序号补占位记录（名称为“（结果文件里没有通过用例的详情）”）。
+- 人工记录：`obs` 截图观察（`kind`：normal / popup / blank / other / disabled / desktop / unclear）、`dataCheck` 核查结果（取值见第 4 节）、`override` 人工改判、`rerun` 重跑结果（pass / fail）和 `r2.same`（报错是否与第一次相同）。
+- `analysis` 是保存时的分析结果，只供阅读；打开时会重新分析，不读取它。
+- 截图本身不在文件里。页面打开后，截图按用例编号保留，或在“补充截图”里重新选择截图文件夹。
+
+### 5.3 rules.json（判断规则，页面和 skill 共用）
+
+`config/rules.json`：`{"tool": "ta-rules", "v": 1, "rules": {...}}`，31 项，项名与页面“判断规则”相同。由页面“导出规则 → 下载规则文件”生成，覆盖原文件即可。
+
+### 5.1 rerun_plan.json（与 classified.json 同目录）
 
 ```json
 {
   "run_id": "...",
+  "go":  ["test_12_TC_LAS_...", "..."],
+  "fix": ["test_27_TC_LAS_..."],
+  "items": [{"case_id": "test_27_TC_LAS_...", "category": "TEST_DATA", "advice": "fix", "reason": "先补数据或换数据，再重跑"}]
+}
+```
+
+`rerun_failed.py --plan` 默认只重跑 `go`，加 `--include-fix` 时连 `fix` 一起重跑。
+
+## 6. groups.json
+
+默认一个用例一个组（`one_case_per_ticket: true`），一个组对应一张 Jira 单；环境问题合并为一组。
+
+```json
+{
+  "run_id": "...",
+  "one_case_per_ticket": true,
   "environment": "Environment: NBS-SIT2\nBrowser: MicrosoftEdge 142...\n...",
   "groups": [
     {
       "group_id": "G01",
+      "attempt": 1,
       "category": "PRODUCT_DEFECT",
+      "category_cn": "产品缺陷",
       "owner": "开发",
+      "status": "confirmed",
       "system": "NBS",
       "market": "HK",
       "module": "BM",
       "signature": "PRODUCT_DEFECT|agent record not found|click submit on agent selection page",
       "root_cause_hint": "agent record not found",
-      "case_ids": ["Case7", "Case9", "Case12"],
+      "case_ids": ["Case7"],
+      "related_case_ids": ["Case9", "Case12"],
+      "rerun_results": {"Case7": "fail_same"},
+      "cases": [{"case_id": "Case7", "case_name": "...", "failed_step": "...", "reason": "...",
+                 "started_at": "...", "screenshots": ["..."], "rerun_result": "fail_same", "rerun_attempts": ["..."]}],
       "evidence": [{"id": "G01-E1", "case_id": "Case7", "ref": "E3", "kind": "popup_text", "content": "..."}],
-      "screenshots": ["screenshots/Case7_fail.png", "..."],
+      "screenshots": ["screenshots/Case7_fail.png"],
       "test_data": {"agent_code": ["40100"], "product_code": ["UR67"]},
       "suggested_priority": "High",
       "needs_jira": true
@@ -217,6 +303,10 @@
   ]
 }
 ```
+
+- `related_case_ids`：同一原因的其他失败用例（各自另有一张单），用于查重、汇报和在评论里互相引用。
+- `rerun_results`：组内用例的重跑结果。全部为 `pass` 时 `needs_jira = false`（偶发，不提单）。
+- `attempt = 2`：重跑报错与第一次不同（`fail_diff`）时，第 2 次单独成组，`group_id` 为 `G01-2`，`first_attempt_group` 指向第 1 次的组，分类先为 `NEEDS_HUMAN`（规则 `RERUN-DIFF`）。
 
 ## 7. drafts.json（AI 写）
 
@@ -226,8 +316,8 @@
   "drafts": [
     {
       "group_id": "G01",
-      "summary": "[NBS Regression] HK - BM cases failed due to agent record not found",
-      "description": "h3. 1. 现象\n...",
+      "summary": "[NBS Regression] HK - BM Case7 failed due to agent record not found",
+      "description": "SIT2 NBS - BM encounter \"agent record not found\" when selecting agent 40100. I checked the agent data in DB seems no data error, could you help to check? Thanks!\n\n*1st run* (2026-11-03 14:31): ...\n!Case7_fail.png|thumbnail!\n\n*2nd run (rerun)*: Failed again with the same error. The issue is reproducible.\n!Case7_rerun.png|thumbnail!\n\n*Test Data*: agent code 40100, product code UR67",
       "priority": "High",
       "labels": ["regression", "auto-triage", "run-2026-11-03_142142", "HK"],
       "claims": [

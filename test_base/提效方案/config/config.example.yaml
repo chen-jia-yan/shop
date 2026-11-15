@@ -8,7 +8,7 @@ jira:
     TEST_DATA: Task
     ENVIRONMENT: Task
     default: Bug
-  # 哪些类别需要建 Jira
+  # 哪些类别需要建 Jira（重跑已通过的偶发用例不建单；NEEDS_HUMAN 人工判断后可手动加入）
   create_for_categories: [PRODUCT_DEFECT, ENVIRONMENT, TEST_DATA]
   default_components: [SYSTEM-QA]
   default_labels: [regression, auto-triage]
@@ -52,9 +52,11 @@ classify:
   history_flaky_window: 10
 
 grouping:
-  # 合并时考虑的维度
+  # 一个用例一张单（默认）。改为 false 时，同一原因的用例合成一张单
+  one_case_per_ticket: true
+  # 合并时考虑的维度（one_case_per_ticket 为 false 时使用）
   keys: [category, signature, failed_step, market, module]
-  # 环境问题跨市场、跨模块合并为一组
+  # 环境问题跨市场、跨模块合并为一组，交给环境负责人（不受 one_case_per_ticket 影响）
   merge_environment_across_modules: true
 
 pii:

@@ -76,11 +76,11 @@ options.add_experimental_option("prefs", {
 
 - **公告、Cookie 提示**：请开发在测试环境提供关闭开关（例如配置项或 Cookie），或者在用例开始前统一关闭一次。
 - **会话超时提示**：用例时间过长导致。缩短单个用例的执行时间，或者在测试环境延长会话时间。
-- **业务报错框**：**不要自动关闭了事。** 它是系统返回的真实错误，要截图保存并按 `taxonomy.md` 第 4 类处理。
+- **业务报错框**：**不要自动关闭了事。** 它是系统返回的真实错误，要截图保存并按 `taxonomy.md` 第 3 节（业务报错：测试数据或产品缺陷）处理。
 
 ### 统一的弹窗处理函数（可选）
 
-对于确认属于干扰的网页弹框，可以在脚本里加一个统一的处理函数，在关键操作前调用。**只处理 `rules.yaml` 中 `noise_popups` 列出的弹框，其他弹框一律保留并让用例失败。**
+对于确认属于干扰的网页弹框，可以在脚本里加一个统一的处理函数，在关键操作前调用。**只处理 `config/rules.json` 中 `noise_popups` 列出的弹框，其他弹框一律保留并让用例失败。**
 
 ```python
 def dismiss_known_noise(driver, noise_patterns, close_selectors):
@@ -104,7 +104,7 @@ def dismiss_known_noise(driver, noise_patterns, close_selectors):
 
 ## 已知弹窗清单
 
-> 本清单需要测试团队根据实际情况持续补充。新增时同步更新 `config/rules.yaml`。下面的条目是首批示例，**上线前请逐条核实是否符合你们系统的实际文字**。
+> 本清单需要测试团队根据实际情况持续补充。新增时在页面“判断规则 → 弹窗清单”里补上，再“下载规则文件”覆盖 `config/rules.json`。下面的条目是首批示例，**上线前请逐条核实是否符合你们系统的实际文字**。
 
 | 编号 | 弹窗文字（关键字） | 类型 | 性质 | 来源 | 处理方式 |
 |---|---|---|---|---|---|
@@ -146,7 +146,7 @@ def dismiss_known_noise(driver, noise_patterns, close_selectors):
 
 ### 4.3 判定依据
 
-1. 有 `pop-up error:` 且后面有文字 → 用文字匹配 `rules.yaml`：`environment.patterns` → 环境；`system_messages.lock` → 测试数据；`system_messages.config` → 需人工（配置）；`system_messages.crash` → 疑似缺陷；`business_errors` → 业务报错流程（数据核查）；`noise_popups` → 弹窗干扰；都不匹配 → 需人工（未知弹窗），并把原文补进清单。
+1. 有 `pop-up error:` 且后面有文字 → 用文字匹配 `config/rules.json`：`env_patterns` → 环境；`lock_messages` → 数据被占用（再核查占用来源）；`config_messages` → 需人工（核查配置）；`crash_messages` → 疑似缺陷；`business_errors` → 业务报错流程（数据核查）；都不匹配 → 按异常类型继续判断，看截图确认，并把原文补进清单。（`noise_popups` 用于原生对话框、网页弹框和截图中抄下的弹窗文字。）
 2. 有 `pop-up error:` 但后面为空 → 需人工（未知弹窗），只能看截图。
 3. 没有 `pop-up error:`，但异常是 `ElementNotEnabled`、`ElementNotVisible`、`MatchError`、找不到窗口 → **可能**是意外对话框挡住或抢了焦点，但仅凭报错无法确认；要看窗口清单（`MatchError` 会列出）或截图。窗口清单里出现了不该有的对话框 → 弹窗干扰（suspected）；出现的是前面用例的窗口 → 残留窗口（脚本清理问题）。
 

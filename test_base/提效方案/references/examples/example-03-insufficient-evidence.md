@@ -10,7 +10,7 @@
   - E1：`TimeoutException: Message:`（报错信息为空）
   - 没有截图（截图文件不存在）
   - 没有弹窗证据（测试框架未接入证据收集）
-  - 重跑 1 次仍失败
+- 重跑建议：`fix`（证据不足，先看截图和日志判断原因，能判断后再决定是否重跑）
 
 ## 正确做法
 
@@ -18,16 +18,17 @@
 
 ```
 Case31：需人工判断（证据不足）
-- 已有证据：TimeoutException，报错信息为空；重跑 1 次仍失败
+- 已有证据：TimeoutException，报错信息为空
 - 缺少：失败截图、失败时的页面网址、弹窗证据
 - 建议：在本地手动运行 Case31，观察超时发生在哪一步；
-        或接入 scripts/popup_evidence.py 后重跑
+        或接入 scripts/popup_evidence.py 后再跑一次，带上截图和弹窗证据再判断
+- 重跑：暂不建议直接重跑。原因没判断清楚就重跑，即使通过也说明不了问题
 ```
 
 ## 错误做法（不要这样）
 
 ```
-[NBS Regression] HK - BM case failed due to page loading slowly
+[NBS Regression] HK - BM Case31 failed due to page loading slowly
 ```
 
 “页面加载慢”没有任何证据支持。超时也可能是元素定位错误、弹窗遮挡、或页面跳转到了别的地方。

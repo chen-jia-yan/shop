@@ -8,13 +8,12 @@
 
 网页版“测试分析助手”已用这 51 条日志验证：40 条失败的分类与 `labels.csv` **全部一致**（环境 27、测试数据 1、脚本 4、需人工判断 8），No.25 被标为“环境中断边界”，No.31 识别出 2 个残留的 Service Fee 窗口，No.7 识别出通过用例 No.15 中的同样报错。
 
-## Python 版评测（待在公司电脑上运行）
+## Python 版（skill）评测（待在公司电脑上运行）
 
-Python 版 `classify_rules.py` 的同等逻辑尚未在真实环境中运行过。运行方法：
+skill 的分类现在由 `scripts/ta_engine.py` 完成，它是页面 `engine.js` 的 Python 版。同一份日志（`evals/consistency/las_hk_20261030_raw.txt`）和页面算出的标准答案（`evals/consistency/expected.json`）已经放好，直接运行：
 
-1. 把 `raw_logs.md` 转成 `failures.json`（`--format normalized`，见 `references/data-contract.md` 1.3 节）：
-   每个失败用例一条，`case_id` 用 `No.<编号>`，日志原文放进 `error_message`；
-   另外加上 `execution_index`（执行序号，含成功用例，No.N 去掉缺失的第 21 条后的顺序）和顶层 `total_cases: 50`。
-   注意：汇总文件里的换行是复制时折行产生的，下一行以 `_` 或 `\` 开头时应直接拼接，否则用空格拼接。
-2. `python scripts/classify_rules.py --failures failures.json --rules config/rules.yaml --out classified.json`
-3. `python evals/eval_classify.py --classified classified.json --labels evals/las_hk_20261030/labels.csv`
+```bash
+python evals/check_consistency.py
+```
+
+输出“一致”就说明 skill 与页面结果完全相同（也就与 `labels.csv` 一致）。Python 在开发环境中无法运行，这一步还没有实际跑过；不一致时请把输出发给维护人。

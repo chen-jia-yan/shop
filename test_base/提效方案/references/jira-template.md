@@ -4,19 +4,23 @@
 
 ## 1. Summary（标题）
 
+**默认一个用例一张单。** 同一原因的其他用例各自另开一张单，在汇报中列为相关用例；只有环境问题合并为一张单。
+
 ### 格式
 
 ```
-[{system} Regression] {market} - {module} case(s) failed due to {root_cause}
+[{system} Regression] {market} - {module} {case_id} failed due to {root_cause}
 ```
 
 | 部分 | 来源 | 示例 |
 |---|---|---|
-| `system` | `groups.json` 中的 `system`（从用例标签或配置读取） | `NBS` |
+| `system` | `groups.json` 中的 `system`（从用例标签或配置读取） | `LAS`、`NBS` |
 | `market` | 用例的市场标签 | `HK` |
-| `module` | 用例的模块标签 | `BM` |
-| `case(s)` | 组内用例数为 1 时写 `case`，大于 1 时写 `cases` | `cases` |
+| `module` | 用例的模块标签；没有标签时用用例名里的功能名 | `Assurance`、`BM` |
+| `case_id` | 用例编号（序号） | `test_27_TC_LAS_PaidToDateAdvance_01` |
 | `root_cause` | 英文短语，≤ 12 个单词，必须来自证据 | `agent record not found` |
+
+环境问题合并的单：`{module}` 后写 `cases`，不写用例编号，例如 `[NBS Regression] HK - All cases failed due to NBS test environment returned 503`。
 
 ### root_cause 的写法
 
@@ -27,56 +31,65 @@
 
 ### 示例
 
-- `[NBS Regression] HK - BM cases failed due to agent record not found`
-- `[NBS Regression] MO - UW case failed due to premium amount mismatch on quotation page`
+- `[LAS Regression] HK - Assurance test_12_TC_LAS_Assurance_03 failed due to popup error when search policy`
+- `[NBS Regression] HK - BM test_05_TC_NBS_BM_01 failed due to agent record not found`
 - `[NBS Regression] HK - All cases failed due to NBS test environment returned 503`
 
 ## 2. Description（描述）
 
-使用 Jira 文本格式（wiki markup），按以下 8 个小节书写。**没有信息的小节写“待补充：<缺什么>”，不能删除小节，也不能编造内容。**
+**简洁，像同事之间说话一样。** 开发要一眼看懂“哪个环境、哪个功能、做什么时出了什么错、要我做什么”。不写长篇分析。使用 Jira 文本格式（wiki markup）。
+
+### 结构
 
 ```
-h3. 1. 现象
-{一到两句话，描述系统表现。引用报错原文，用 {{ }} 包起来。}
+{env} {system} - {module} encounter {problem} when {action}. Could you help to check? Thanks!
 
-h3. 2. 受影响的用例（共 {n} 个）
-|| 用例编号 || 用例名称 || 失败步骤 || 截图 ||
-| {case_id} | {case_name} | {failed_step} | !{screenshot_file}|thumbnail! |
+*1st run* ({started_at}): {第 1 次的报错原文或现象，一句话}
+!{第 1 次截图文件名}|thumbnail!
 
-h3. 3. 重现步骤
-# {步骤 1}
-# {步骤 2}
-# ...
+*2nd run (rerun)*: Failed again with the same error. The issue is reproducible.
+!{第 2 次截图文件名}|thumbnail!
 
-h3. 4. 预期结果
-{根据用例描述或断言中的期望值}
+*Test Data*: agent code {agent_code}, product code {product_code}, policy no. {policy_no}
+```
 
-h3. 5. 实际结果
-{报错原文 / 断言中的实际值}
+- 第一段：**一两句话**。做过的排查（例如已查数据库数据正常、换了 agent code 仍然报错）直接写进这一段，见下面的示例。
+- `*1st run*`：必须有。报错原文用引号或 `{{ }}` 包起来，不要改写。
+- `*2nd run*`：只有重跑过且仍然失败时才写。
+  - 报错相同（`fail_same`）：写在同一张单里，如上。
+  - 报错不同（`fail_diff`）：第 1 张单只写 1st run，并加一句 `The rerun failed with a different error, reported in a separate ticket.`；第 2 次单独成单（`attempt = 2`），这张单写 `*1st run* ... (handled separately)` 和 `*2nd run*` 的报错与截图。
+  - 重跑通过（`pass`）：不提单。
+- `*Test Data*`：只写业务编码（agent code、product code、保单号），不写姓名、证件号、手机号。没有就省略这一行。
+- 推测要写明是推测：`seems`、`Suspected`、`To be confirmed`。
+- 环境合并的单：第一段之后用一张小表列出受影响的用例；超过 20 个时只列前 20 个，后面写“其余 {n} 个用例见附件 affected_cases.csv”。
 
-h3. 6. 已做的排查
-* {例如：已在测试环境数据库查询 agent 40100，记录存在，状态为 Active（核查人：xxx，时间：xxx）}
-* {例如：已重跑 1 次，仍然失败}
-* {例如：同一时段其他模块用例正常，排除环境问题}
+### 示例（来自 ROTQA 已提的单，按这个口吻写）
 
-h3. 7. 测试数据
-* Agent code: {agent_code}
-* Product code: {product_code}
-* Policy no.: {policy_no}
+```
+U401 LAS - Assurance encounter the popup error when search policy. Could you help to check? Thanks!
 
-h3. 8. 推测与待确认
-* {所有推测写在这里，并标明“推测”}
-* {需要开发确认的问题}
+*1st run* (2026-10-30 10:12): Popup "Policy information cannot be retrieved" displayed after clicking Search.
+!test_12_fail.png|thumbnail!
+```
+
+```
+I tried to use agent code "50051" to run the BM cases, it still displays the "record not found" error. U401 NBS - BM case displays "agent record not found". I checked the agent data in DB and there seems to be no data error, could you help to check? Thanks!
+
+*1st run* (2026-11-03 14:31): "agent record not found" displayed after submitting agent 48100.
+!test_05_fail.png|thumbnail!
+
+*2nd run (rerun)*: Failed again with the same error. The issue is reproducible.
+!test_05_rerun.png|thumbnail!
+
+*Test Data*: agent code 48100, product code UFK1
 ```
 
 ### 书写要求
 
-- **现象、实际结果**：必须引用报错原文，不要改写。
-- **重现步骤**：来自用例步骤（`case_steps`），不要自己编。如果没有用例步骤，写“待补充：请从 BLN 平台复制用例步骤”。
-- **已做的排查**：只写真正做过的事，每条都要有对应证据（重跑记录、数据核查记录）。
-- **测试数据**：只写业务编码，不写姓名、证件号、手机号。
+- 报错原文不要改写；看不清的内容不要猜。
+- “已查过数据库”之类的排查只写真正做过的事，并在 `claims` 中引用证据（数据核查记录）。
 - **截图**：用 `!文件名|thumbnail!` 引用，文件会在建单后作为附件上传。文件名必须和实际上传的文件名一致。
-- 用例超过 20 个时，表格只列前 20 个，后面写“其余 {n} 个用例见附件 affected_cases.csv”，脚本会自动生成并上传这个附件。
+- `validate_drafts.py` 会检查：第一段存在且不太长、有 `*1st run*`、重跑同样失败时有 `*2nd run*`、截图文件存在、事实有证据、没有个人信息。
 
 ## 3. Environment（环境）
 
@@ -112,7 +125,7 @@ Executed at: {started_at} (UTC+8)
 | 条件 | 建议优先级 |
 |---|---|
 | 影响出单、核保、支付、金额计算的产品缺陷 | High |
-| 同一组影响用例 ≥ 10 个 | High |
+| 同一原因影响的用例 ≥ 10 个（含相关用例） | High |
 | 环境问题导致整批无法执行 | High |
 | 其他产品缺陷 | Medium |
 | 测试数据问题、脚本稳定性任务 | Low |
@@ -122,12 +135,10 @@ Executed at: {started_at} (UTC+8)
 ## 5. 追加到已有单时的评论格式
 
 ```
-h4. 自动回归 {run_id} 再次出现（{n} 个用例）
-* 执行时间：{started_at}
-* 环境：{env_name}
-* 受影响用例：{case_id 列表}
-* 报错原文：{{ {error_excerpt} }}
-* 与原单是否一致：{审核人确认}
+Found again in regression {run_id}: {case_id} encounter {problem} when {action}.
+
+*1st run* ({started_at}): {报错原文}
+!{截图文件名}|thumbnail!
 ```
 
-截图同样作为附件上传。
+重跑仍然失败时同样补一行 `*2nd run*` 和截图。截图作为附件上传。是否与原单是同一问题由审核人确认。

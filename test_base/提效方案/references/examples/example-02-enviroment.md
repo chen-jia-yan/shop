@@ -4,10 +4,10 @@
 
 - 分类：`ENVIRONMENT`，规则 `ENV2`（报错匹配 `503 Service Unavailable`）和 `ENV3`（同一特征 18 个用例，14:40–14:52）
 - 用例：18 个，覆盖 HK/BM、HK/UW、MO/BM
+- 重跑：重跑建议是“环境恢复后立即重跑”，但到 16:00 环境仍未恢复，未重跑
 - 证据：
   - G03-E1：页面内容 `503 Service Unavailable`
   - G03-E2：18 个用例的同一报错特征，时间范围 14:40–14:52
-  - G03-E3：重跑（15:20）全部通过
 
 ## 输出
 
@@ -20,38 +20,30 @@
 **Description**
 
 ```
-h3. 1. 现象
-2026-11-03 14:40 至 14:52 期间，18 个用例在打开页面时返回 {{503 Service Unavailable}}。
+SIT2 NBS returned "503 Service Unavailable" when opening pages from 14:40 to 14:52, 18 regression cases failed. The environment is still not available at 16:00, could you help to check? Thanks!
 
-h3. 2. 受影响的用例（共 18 个）
-（前 20 个列在表格中，此处 18 个全部列出）
-|| 用例编号 || 用例名称 || 失败步骤 || 截图 ||
-| ... | ... | ... | ... |
+*1st run* (2026-11-03 14:40–14:52): "503 Service Unavailable" on page open, same error for all 18 cases.
+!Case21_fail.png|thumbnail!
 
-h3. 3. 重现步骤
-待补充：环境问题无固定重现步骤，发生时间见上。
+|| Case || Module || Failed step ||
+| ... | ... | ... |
+```
 
-h3. 4. 预期结果
-页面正常打开。
+**claims**
 
-h3. 5. 实际结果
-返回 {{503 Service Unavailable}}。
-
-h3. 6. 已做的排查
-* 18 个用例报错特征相同，集中在 14:40–14:52 的 12 分钟内
-* 15:20 自动重跑，18 个用例全部通过
-
-h3. 7. 测试数据
-不适用。
-
-h3. 8. 推测与待确认
-* 待确认：该时段 SIT2 是否有部署、重启或维护
+```json
+[
+  {"text": "打开页面返回 503 Service Unavailable", "type": "fact", "evidence_ids": ["G03-E1"]},
+  {"text": "18 个用例报错相同，集中在 14:40–14:52", "type": "fact", "evidence_ids": ["G03-E2"]}
+]
 ```
 
 **其他字段**：Issue type = Task（按配置，环境问题建任务）；Priority = High（整批无法执行）。
 
 ## 为什么这样写
 
-- 18 个用例只建 1 张单，避免刷屏。
-- 重跑全部通过，说明是临时性问题。分类顺序中环境问题排在“重跑可过”之前，所以这些用例归为环境问题（标记 `passed_on_rerun: true`），而不是被当作普通的不稳定用例掩盖掉。是否建单由审核人决定。
-- 没有猜测“服务器负载过高”之类的原因，只提出需要确认的问题。
+- 环境问题是唯一合并成一张单的情况：18 个用例只建 1 张单，避免刷屏；用小表列出全部用例。
+- 先按报错判断为环境问题，再看重跑建议。环境恢复后重跑：
+  - 全部通过：说明是临时性问题。分类仍是环境问题（`rerun_result: pass`），默认不提单，在汇报中记录发生时间；
+  - 仍然失败：写 *2nd run*，说明环境问题持续。
+- 没有猜测“服务器负载过高”之类的原因，只写看到的现象和时间。

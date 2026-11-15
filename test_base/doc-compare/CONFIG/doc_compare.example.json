@@ -1,0 +1,56 @@
+{
+  "_说明": "文档对比的配置。复制为 doc_compare.json 后修改；只改需要改的项，没写的项用默认值。以 _ 开头的项是说明，程序不读。",
+
+  "_case_key": "从文件名里取 Case 编号的规则（正则，括号里是编号），两个文件夹里编号相同的文件配成一对",
+  "case_key": "^(Case\\d+)",
+
+  "_names_file": "测试数据人名名单（每行一个名字，或 csv 每格一个）。也可以在命令里用 --names 指定",
+  "names_file": null,
+
+  "_name_labels": "这些标签后面的值自动当作人名（两边文件都收集）",
+  "name_labels": ["被保人姓名", "投保人姓名", "受保人姓名", "保單持有人姓名", "保单持有人姓名"],
+
+  "_names": "其他人名，由同事A 维护",
+  "names": [],
+
+  "_not_names": "被误收集为人名的内容",
+  "not_names": [],
+
+  "_name_count_change": "两边人名个数不同（例如 baseline 1 个、新文件 3 个）怎么处理：ignore 忽略并在附录注明；unsure 列为不确定，交给人看",
+  "name_count_change": "ignore",
+
+  "_date_formats": "认作日期的写法（正则，必须有 y、m、d 三个分组）。默认只认 2026 11 20 和 2026-11-20、2026/11/20。要加 20/11/2026 这种写法，先确认文件里没有 日/月 和 月/日 混用",
+  "date_formats": [
+    "(?<![\\d.,])(?P<y>(?:19|20)\\d{2}) (?P<m>0[1-9]|1[0-2]) (?P<d>0[1-9]|[12]\\d|3[01])(?![\\d.,])",
+    "(?<![\\d.,/-])(?P<y>(?:19|20)\\d{2})[-/](?P<m>0[1-9]|1[0-2])[-/](?P<d>0[1-9]|[12]\\d|3[01])(?![\\d.,/-])"
+  ],
+
+  "_date_any_shift_labels": "含这些标签的行，日期不要求和其他日期平移同样天数（例如每次都是当天的列印日期）。确认后再加",
+  "date_any_shift_labels": [],
+
+  "_date_shift_must_match": "true：被忽略的日期必须整体平移同样天数，不一样的照常报出来（建议保持 true）",
+  "date_shift_must_match": true,
+
+  "_header_patterns": "另外要去掉的行（正则），例如每页都有的免责声明。页眉、页脚、页码会自动识别",
+  "header_patterns": [],
+
+  "_heading_patterns": "章节标题的写法（正则）。字号比正文大的短行会自动当作标题，认不准时在这里补充",
+  "heading_patterns": [],
+
+  "_owners": "按章节或内容分给负责人（正则），从上往下第一个匹配的生效；都不匹配的归“未分配”",
+  "owners": [
+    {"name": "示例：产品组", "match": ["^示例章节"]}
+  ],
+
+  "_mask_snapshots": "差异截图打码（人名清单、证件号、电话、邮箱、卡号）。发出去的包一律打码",
+  "mask_snapshots": true,
+
+  "_ocr_allow_ignore": "扫描页（识别得到的文字）上的日期、人名变化是否也自动忽略。默认 false：扫描页上的变化全部交给人看",
+  "ocr_allow_ignore": false,
+
+  "_min_chars_per_page": "少于这么多字的页当作没有文字层（扫描页）",
+  "min_chars_per_page": 20,
+
+  "_total_report": "是否生成 total.html（完整对比，文件较大）",
+  "total_report": true
+}

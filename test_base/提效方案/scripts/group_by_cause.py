@@ -1,19 +1,23 @@
-"""第 5 步：把同一根因的失败用例合并成组，一组对应一张 Jira 单。
+"""第 6 步：整理成“提单单元”。默认一个失败用例一张 Jira 单；同一原因的其他用例列在 related_case_ids 里，供分派和查重。
 
 用法：
     python scripts/group_by_cause.py --classified triage_runs/<run_id>/classified.json \
-        --config config/config.yaml --out triage_runs/<run_id>/groups.json
+        --config config/config.yaml --out triage_runs/<run_id>/groups.json \
+        [--rerun triage_runs/<run_id>/rerun.json]
 
-合并依据（全部是确定性计算）：
+规则（全部是确定性计算）：
 - 分类（AI 复核意见为 high 置信度时使用复核后的分类，并在组里标注）
-- 根因特征：有业务报错时用标准化后的业务报错文字；否则用“异常类型 + 标准化报错信息”
-- 失败步骤、市场、模块（可在 config.yaml 的 grouping.keys 中调整）
-- 环境问题默认跨市场、跨模块合并为一组
+- 原因特征：有业务报错时用标准化后的业务报错文字；否则用“异常类型 + 标准化报错信息”
+- grouping.one_case_per_ticket = true（默认）：一个用例一个组（一张单）；false：同一原因的用例合成一组
+- 环境问题默认跨市场、跨模块合并为一组（grouping.merge_environment_across_modules），交给环境负责人
+- 重跑结果：pass → 不提单（needs_jira = false）；fail_same → 同一张单写第 1 次和第 2 次；
+  fail_diff → 第 2 次单独成一组（group_id 以 -2 结尾），分类为需人工判断，单独分析、单独提单
 """
 from __future__ import annotations
 
 import argparse
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
+from pathlib import Path
 
 from common import (CATEGORIES, OWNERS, load_config, match_any, normalize_signature, now_iso,
                     parse_time, read_json, setup_logging, short_exception_name, write_json)
@@ -21,9 +25,10 @@ from common import (CATEGORIES, OWNERS, load_config, match_any, normalize_signat
 log = setup_logging()
 
 CATEGORY_ORDER = ["PRODUCT_DEFECT", "ENVIRONMENT", "TEST_DATA", "SCRIPT_ISSUE",
-                  "POPUP_INTERFERENCE", "RERUN_PASS", "NEEDS_HUMAN"]
-GROUP_EVIDENCE_KINDS = {"error_message", "alert_text", "popup_text", "business_error_text",
-                        "data_check", "rerun", "mass_failure", "intercepting_element"}
+                  "POPUP_INTERFERENCE", "NEEDS_HUMAN"]
+# 写进 Jira 的证据种类（classify_rules.py 输出的 evidence[].kind）；完整日志、截图路径等不进组证据
+GROUP_EVIDENCE_KINDS = {"error_message", "popup_text", "system_message", "root_exception", "step_log",
+                        "screenshot_observation", "screenshot_text", "data_check", "rerun"}
 
 
 def effective_category(case: dict) -> tuple[str, bool]:
@@ -63,11 +68,12 @@ def join_values(values: list) -> str:
     return vals[0] if len(vals) == 1 else "/".join(vals) if len(vals) <= 3 else "Multiple"
 
 
-def suggest_priority(category: str, cases: list, jcfg: dict) -> str:
+def suggest_priority(category: str, cases: list, jcfg: dict, same_cause: int = 0) -> str:
+    """same_cause：同一原因的失败用例总数（一个用例一张单时，看的是同原因用例有多少，而不是这张单里有几个）。"""
     pr = jcfg.get("priority_rules", {})
     if category in pr.get("low_categories", []):
         return "Low"
-    if len(cases) >= int(pr.get("high_if_cases_at_least", 10)):
+    if max(len(cases), same_cause) >= int(pr.get("high_if_cases_at_least", 10)):
         return "High"
     if category == "ENVIRONMENT":
         return "High"
@@ -97,29 +103,47 @@ def environment_block(env: dict, run_id: str, cases: list) -> str:
     return "\n".join(lines)
 
 
+def case_entry(c: dict, rerun: dict) -> dict:
+    rr = (rerun.get("results") or {}).get(c["case_id"]) or {}
+    return {"case_id": c["case_id"], "case_name": c.get("case_name"),
+            "failed_step": c.get("failed_step"), "case_steps": c.get("case_steps") or [],
+            "reason": c.get("reason"), "rule_id": c.get("rule_id"),
+            "screenshots": c.get("screenshots") or [], "page_url": c.get("page_url"),
+            "started_at": c.get("started_at"), "flags": c.get("flags", []),
+            "rerun_result": c.get("rerun_result"), "rerun_attempts": rr.get("attempts", []),
+            "ai_review": c.get("ai_review")}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--classified", required=True)
     ap.add_argument("--config", default="config/config.yaml")
+    ap.add_argument("--rerun", help="rerun.json（可选）：用于在单里写第 2 次执行的报错和截图")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
     data = read_json(args.classified)
     cfg = load_config(args.config)
+    rerun = read_json(args.rerun) if args.rerun and Path(args.rerun).exists() else {"results": {}}
     jcfg, gcfg = cfg.get("jira", {}), cfg.get("grouping", {})
     keys = gcfg.get("keys", ["category", "signature", "failed_step", "market", "module"])
     merge_env = gcfg.get("merge_environment_across_modules", True)
+    one_case = gcfg.get("one_case_per_ticket", True)
     create_for = set(jcfg.get("create_for_categories", ["PRODUCT_DEFECT", "ENVIRONMENT", "TEST_DATA"]))
 
     buckets: "OrderedDict[tuple, dict]" = OrderedDict()
+    cause_members = defaultdict(list)
     for case in data["cases"]:
         cat, used_ai = effective_category(case)
         sig, hint = signature(case)
         parts = {"category": cat, "signature": sig,
                  "failed_step": normalize_signature(case.get("failed_step"), 80),
                  "market": case.get("market"), "module": case.get("module")}
-        key = (cat,) if (cat == "ENVIRONMENT" and merge_env) else tuple(parts[k] for k in keys)
-        b = buckets.setdefault(key, {"category": cat, "signature": sig, "hint": hint,
+        env_merged = cat == "ENVIRONMENT" and merge_env
+        cause_key = (cat,) if env_merged else tuple(parts[k] for k in keys)
+        cause_members[cause_key].append(case["case_id"])
+        key = cause_key if (env_merged or not one_case) else cause_key + (case["case_id"],)
+        b = buckets.setdefault(key, {"category": cat, "signature": sig, "hint": hint, "cause_key": cause_key,
                                      "cases": [], "used_ai": [], "rules": set(), "statuses": set()})
         b["cases"].append(case)
         b["rules"].add(case["rule_id"])
@@ -139,7 +163,7 @@ def main() -> None:
                 if e["kind"] not in GROUP_EVIDENCE_KINDS:
                     continue
                 dedup = (e["kind"], e.get("content"))
-                if e["kind"] in ("data_check", "mass_failure") and dedup in seen:
+                if e["kind"] == "data_check" and dedup in seen:
                     continue
                 seen.add(dedup)
                 evidence.append({"id": f"{gid}-E{len(evidence) + 1}", "case_id": c["case_id"],
@@ -150,8 +174,12 @@ def main() -> None:
             for k, v in (c.get("test_data") or {}).items():
                 if v is not None and str(v) not in test_data.setdefault(k, []):
                     test_data[k].append(str(v))
-        groups.append({
+        ids = [c["case_id"] for c in cases]
+        # 重跑通过的用例是偶发，不提单
+        live = [c for c in cases if c.get("rerun_result") != "pass"]
+        group = {
             "group_id": gid,
+            "attempt": 1,
             "category": b["category"],
             "category_cn": CATEGORIES[b["category"]],
             "owner": OWNERS[b["category"]],
@@ -163,27 +191,48 @@ def main() -> None:
             "module": join_values([c.get("module") for c in cases]),
             "signature": b["signature"],
             "root_cause_hint": b["hint"],
-            "case_ids": [c["case_id"] for c in cases],
-            "cases": [{"case_id": c["case_id"], "case_name": c.get("case_name"),
-                       "failed_step": c.get("failed_step"), "case_steps": c.get("case_steps") or [],
-                       "reason": c.get("reason"), "rule_id": c.get("rule_id"),
-                       "screenshots": c.get("screenshots") or [], "page_url": c.get("page_url"),
-                       "started_at": c.get("started_at"), "flags": c.get("flags", {}),
-                       "ai_review": c.get("ai_review")} for c in cases],
+            "case_ids": ids,
+            "related_case_ids": [x for x in cause_members[b["cause_key"]] if x not in ids],
+            "rerun_results": {c["case_id"]: c.get("rerun_result") for c in cases if c.get("rerun_result")},
+            "cases": [case_entry(c, rerun) for c in cases],
             "evidence": evidence,
             "screenshots": screenshots,
             "test_data": test_data,
-            "suggested_priority": suggest_priority(b["category"], cases, jcfg),
-            "needs_jira": b["category"] in create_for,
+            "suggested_priority": suggest_priority(b["category"], cases, jcfg, len(cause_members[b["cause_key"]])),
+            "needs_jira": b["category"] in create_for and bool(live),
             "environment": environment_block(data.get("environment", {}), data["run_id"], cases),
-        })
+        }
+        groups.append(group)
+        # 重跑失败但报错与第一次不同：第 2 次单独成组，单独分析、单独提单
+        for c in cases:
+            if c.get("rerun_result") != "fail_diff":
+                continue
+            att = [a for a in ((rerun.get("results") or {}).get(c["case_id"]) or {}).get("attempts", []) if a.get("status") == "failed"]
+            last = att[-1] if att else {}
+            err = f"{last.get('error_type') or ''}: {last.get('error_message') or ''}".strip(": ")
+            g2 = f"{gid}-2" if len(cases) == 1 else f"{gid}-{c['case_id']}-2"
+            groups.append({
+                **{k: group[k] for k in ("system", "market", "module", "test_data", "environment")},
+                "group_id": g2, "attempt": 2, "first_attempt_group": gid,
+                "category": "NEEDS_HUMAN", "category_cn": CATEGORIES["NEEDS_HUMAN"], "owner": OWNERS["NEEDS_HUMAN"],
+                "status": "suspected", "rule_ids": ["RERUN-DIFF"], "ai_adjusted_cases": [],
+                "signature": "rerun2:" + normalize_signature(err, 120), "root_cause_hint": (err.splitlines() or [""])[0][:100],
+                "case_ids": [c["case_id"]], "related_case_ids": [], "rerun_results": {c["case_id"]: "fail_diff"},
+                "cases": [case_entry(c, rerun)],
+                "evidence": [{"id": f"{g2}-E1", "case_id": c["case_id"], "ref": "rerun", "kind": "rerun",
+                              "content": f"第 2 次（重跑，{last.get('started_at') or '时间未知'}）报错：{err[:1400]}"}],
+                "screenshots": [], "suggested_priority": jcfg.get("priority_rules", {}).get("default", "Medium"),
+                "needs_jira": True,
+            })
 
     out = {"run_id": data["run_id"], "generated_at": now_iso(), "groups": groups,
+           "one_case_per_ticket": one_case,
            "environment": environment_block(data.get("environment", {}), data["run_id"], data["cases"])}
     write_json(args.out, out)
     need = sum(1 for g in groups if g["needs_jira"])
-    log.info("%d 个失败用例合并为 %d 组，其中 %d 组需要建 Jira。写入 %s",
-             len(data["cases"]), len(groups), need, args.out)
+    skipped = sum(1 for c in data["cases"] if c.get("rerun_result") == "pass")
+    log.info("%d 个失败用例整理为 %d 个提单单元（%s），其中 %d 个需要建 Jira；重跑通过不提单 %d 个。写入 %s",
+             len(data["cases"]), len(groups), "一个用例一张单" if one_case else "同一原因合并", need, skipped, args.out)
     for g in groups:
         log.info("  %s %-6s %3d 个用例  %s", g["group_id"], g["category_cn"], len(g["case_ids"]),
                  g["root_cause_hint"][:60])

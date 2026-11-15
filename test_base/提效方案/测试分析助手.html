@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -291,6 +290,13 @@ table.ptbl { width: 100%; border-collapse: collapse; font-size: 12px; margin-bot
   .cmp, .jlay, .imp2 { grid-template-columns: minmax(0, 1fr); }
   .clist { max-height: 300px; }
 }
+/* 截图识别 */
+.ocrwrap { position: relative; display: inline-block; max-width: 100%; }
+.ocrwrap img { display: block; max-width: 100%; }
+.ocrwrap svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+.ocrwrap rect.l { fill: rgba(43, 125, 233, .08); stroke: #2b7de9; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.ocrwrap rect.p { fill: rgba(214, 40, 40, .28); stroke: #d62828; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+pre.ocrt { max-height: 150px; overflow: auto; margin: 0; padding: 5px 7px; background: #f7f9fc; border: 1px solid var(--line-2); border-radius: 3px; font-size: 11px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
@@ -366,6 +372,8 @@ window.ENG = (function () {
     assertion_exceptions: ["AssertionError", "AssertionFailedError", "ComparisonFailure"],
     expected_actual: ["re:expected[^\\n]{0,80}(actual|but (was|got)|but found)", "re:assert .+ == .+", "re:期望.{0,40}实际", "re:预期.{0,40}实际"],
     fail_words: ["failed", "fail", "failure", "error", "broken", "失败", "错误", "不通过", "未通过", "异常"],
+    // 截图打码：除证件号、手机号、邮箱、卡号外，这些人名在截图上也会被涂黑（每行一个）
+    pii_names: [],
   };
 
   // 分类只回答“失败的根本原因是什么”。重跑结果不是分类，是分析之后的处理结果（见 rerunPlan）
@@ -532,6 +540,43 @@ window.ENG = (function () {
     return s;
   }
 
+  /* ======================= 截图文字识别（OCR）结果 =======================
+     识别由「识别截图.bat」（Windows 自带 OCR）在本机完成，页面只读取它生成的 .ocr.json。
+     每张图：{sha256, name, w, h, langs:[{lang, lines:[{t, b:[x,y,w,h], w:[[text,x,y,w,h],...]}]}]} */
+  const CJK = /[㐀-鿿豈-﫿]/;
+  // 英文识别结果为主；中文识别结果只补充含中文的行（中文引擎读英文不如英文引擎准）
+  function ocrLines(o) {
+    if (!o || !o.langs) return [];
+    const en = o.langs.find(l => /^en/i.test(l.lang)), zh = o.langs.find(l => /^zh/i.test(l.lang));
+    const base = (en || o.langs[0] || { lines: [] }).lines.slice();
+    if (zh && zh !== en) zh.lines.filter(l => CJK.test(l.t)).forEach(l => base.push(l));
+    if (!en && !zh) o.langs.slice(1).forEach(x => x.lines.forEach(l => base.push(l)));
+    return base.sort((a, b) => a.b[1] - b.b[1] || a.b[0] - b.b[0]);
+  }
+  function ocrText(shots) {
+    const t = (shots || []).filter(s => s.ocr).map(s => ocrLines(s.ocr).map(l => l.t.replace(/(?<=[㐀-鿿]) (?=[㐀-鿿])/g, "")).join("\n")).filter(Boolean).join("\n");
+    return t.slice(0, 4000);
+  }
+  // 需要打码的位置：证件号、手机号、邮箱、卡号、人名清单。按词定位，返回 [[x,y,w,h], ...]
+  function piiBoxes(o, names) {
+    const boxes = [];
+    const nameRes = (names || []).map(n => String(n).trim()).filter(n => n.length >= 2)
+      .map(n => new RegExp(n.split("").map(ch => ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s*"), "gi"));
+    const res = PII.map(p => new RegExp(p[1].source, "g")).concat([
+      /(?<!\d)(?:\d[ -]?){15,18}\d(?!\d)/g,            // 卡号
+      /(?<![\d.])[2-9]\d{3}[\s-]?\d{4}(?![\d.])/g,       // 香港 8 位电话
+    ]).concat(nameRes);
+    ocrLines(o).forEach(l => {
+      const words = l.w && l.w.length ? l.w : [[l.t].concat(l.b)];
+      let s = "", pos = [];
+      words.forEach(w => { if (s) s += " "; pos.push([s.length, s.length + w[0].length]); s += w[0]; });
+      const hit = new Set();
+      res.forEach(re => { re.lastIndex = 0; let m; while ((m = re.exec(s))) { const a = m.index, z = a + m[0].length; pos.forEach((p, i) => { if (p[0] < z && p[1] > a) hit.add(i); }); if (!m[0].length) re.lastIndex++; } });
+      hit.forEach(i => boxes.push(words[i].slice(1, 5)));
+    });
+    return boxes;
+  }
+
   /* ======================= 分类 ======================= */
   function isFail(result, rules) {
     if (!result) return false;
@@ -563,6 +608,7 @@ window.ENG = (function () {
     if (c.shots && c.shots.length) c.shots.forEach(s => add("shot", "截图", s.name, { src: s.src }));
     else add("shot", "截图（路径）", c.screenshot);
     if (c.obs && (c.obs.kind || c.obs.text)) add("obs", "截图观察（人工记录）", (c.obs.kind ? OBS_KINDS[c.obs.kind] : "") + (c.obs.text ? (c.obs.kind ? "；" : "") + "截图中的文字：" + c.obs.text : ""));
+    if (c.ocrText) add("ocr", "截图文字（自动识别，可能有误）", c.ocrText);
     if (c.rerun) add("rerun", "重跑记录", (c.rerun === "pass" ? "重跑通过" : c.r2 && c.r2.same === false ? "重跑仍失败，但报错与第一次不同（第二次已作为单独一条记录）" : "重跑仍失败，报错与第一次相同") + (c.rerunNote ? "：" + c.rerunNote : ""));
     if (c.parent) add("rerun", "第一次执行", "这是重跑（第 2 次）的结果；第 1 次执行失败的报错与这次不同");
     if (c.dataCheck) add("data", "人工核查结果", (DATA_CHECK[c.dataCheck] || c.dataCheck) + (c.dataNote ? "：" + c.dataNote : ""));
@@ -585,7 +631,7 @@ window.ENG = (function () {
   const evId = (ev, kind) => (ev.find(e => e.kind === kind) || {}).id;
 
   // 返回 {cat, status: confirmed|suspected, rule, reason, why[], need[], hits[], flags[]}
-  function classifyCore(c, ctx, rules) {
+  function classifyCore(c, ctx, rules, useOcr) {
     const ev = evidenceOf(c);
     const E = k => evId(ev, k);
     const L = c.L;
@@ -597,7 +643,10 @@ window.ENG = (function () {
     const rootTxt = L && L.root ? L.root.type + ": " + L.root.msg : "";
     const where = L && L.rootAt ? "，位置 " + L.rootAt.func + " 第" + L.rootAt.line + "行（" + E("loc") + "）" : "";
     // 人工从截图里抄下的文字，和日志里的系统提示一样参与判断
-    const obsT = c.obs && c.obs.text ? c.obs.text.trim() : "";
+    // 没有人工记录时，可以用截图自动识别的文字（由 classify 决定是否采用）
+    const manualT = c.obs && c.obs.text ? c.obs.text.trim() : "";
+    const obsT = manualT || (useOcr && c.ocrText ? c.ocrText.trim() : "");
+    const EO = () => manualT ? E("obs") : E("ocr");
 
     // ---------- 环境 ----------
     let envHit = null;
@@ -623,7 +672,7 @@ window.ENG = (function () {
     // ---------- 系统提示（桌面端弹窗、校验提示）：按提示文字的含义分类，不按“是不是弹窗”分类 ----------
     if ((L && (L.popupText !== null || L.sysMsgs.length)) || obsT) {
       const sys = (L ? L.sysMsgs.filter(Boolean) : []).concat(obsT ? [obsT] : []).join("\n");
-      const sysEv = [L && (L.popupText !== null || L.sysMsgs.length) ? E("sys") : null, obsT ? E("obs") : null].filter(Boolean).join("、");
+      const sysEv = [L && (L.popupText !== null || L.sysMsgs.length) ? E("sys") : null, obsT ? EO() : null].filter(Boolean).join("、");
       if (L && L.popupText === "" && !sys) return out("NEEDS_HUMAN", "suspected", "SYS-EMPTY", ["提交后出现了弹窗，脚本报“pop-up error”，但没有读到弹窗文字（" + E("sys") + "）"], ["看截图" + (E("shot") ? "（" + E("shot") + "）" : "") + "，把弹窗文字抄到“截图观察”里，页面会重新判断；建议修改弹窗处理函数，读取对话框内全部文字后再关闭"], [], { reason: "unknown_popup" });
       const lock = findAny(sys, rules.lock_messages);
       if (lock) {
@@ -645,7 +694,7 @@ window.ENG = (function () {
       if (crash) return out("PRODUCT_DEFECT", "suspected", "SYS-CRASH", ["被测程序弹出未处理异常对话框“" + crash.hit + "”（" + sysEv + "）"], ["保存对话框中的异常详情，确认同样操作能否重现"], [crash.hit]);
       // 截图中的弹窗文字在干扰清单里
       const nz = obsT ? findAny(obsT, rules.noise_popups) : null;
-      if (nz) return out("POPUP_INTERFERENCE", "confirmed", "OBS-POPN", ["截图中有弹窗，文字“" + nz.hit + "”在干扰弹窗清单中（" + E("obs") + "）"], ["给脚本加上这个弹窗的处理（出现时关闭）"], [nz.hit]);
+      if (nz) return out("POPUP_INTERFERENCE", "confirmed", "OBS-POPN", ["截图中有弹窗，文字“" + nz.hit + "”在干扰弹窗清单中（" + EO() + "）"], ["给脚本加上这个弹窗的处理（出现时关闭）"], [nz.hit]);
     }
 
     // ---------- 原生对话框 ----------
@@ -662,7 +711,7 @@ window.ENG = (function () {
     // 报错信息里没有任何技术异常类型时，它多半就是系统返回的提示文字，也按业务报错处理
     const biz = bizInPage || ((isAssert || !exc) ? findAny(c.error, rules.business_errors) : null);
     if (biz) {
-      const src = bizInPage ? E("page") || E("sys") || E("obs") : E("msg") || E("root");
+      const src = bizInPage ? E("page") || E("sys") || EO() : E("msg") || E("root");
       const k = checkOf(c, "biz");
       if (k === "ok") return out("PRODUCT_DEFECT", "confirmed", "BIZ2", ["出现业务报错“" + biz.hit + "”（" + src + "）", "数据已核查且正常（" + E("data") + "），系统仍报错"], [], [biz.hit], { checkKind: "biz" });
       if (k) return out("TEST_DATA", "confirmed", "BIZ1", ["出现业务报错“" + biz.hit + "”（" + src + "）", "数据核查结果：" + DATA_CHECK[k] + "（" + E("data") + "）"], [], [biz.hit], { checkKind: "biz" });
@@ -744,7 +793,21 @@ window.ENG = (function () {
   // 只修正“待复核 / 需人工”的结论；规则已确认的结论、依赖数据核查的结论不受影响
   const OBS_SKIP = /^(BIZ|SYS-CFG|SYS-CRASH|DATA-LOCK|CHK|OBS-POPN|AST)/;
   function classify(c, ctx, rules) {
-    const r = classifyCore(c, ctx, rules);
+    let r = classifyCore(c, ctx, rules, false);
+    // 截图自动识别的文字：只在没有人工记录时使用；用了它而结论变了，一律降为“待复核”，等人看截图确认
+    if (c.ocrText && !(c.obs && c.obs.text)) {
+      const r2 = classifyCore(c, ctx, rules, true);
+      if (r2.cat !== r.cat || r2.rule !== r.rule) {
+        const idO = evId(r2.ev, "ocr"), was = RULE_NAMES[r.rule] || r.rule;
+        if (r.status === "confirmed" && r.cat !== "NEEDS_HUMAN") {
+          r.why = r.why.concat(["截图识别的文字提示可能是另一种情况：" + (RULE_NAMES[r2.rule] || r2.rule) + "（" + idO + "）。日志证据已能确认，保持原判断；如截图与日志矛盾请人工确认"]);
+        } else {
+          r = Object.assign(r2, { status: "suspected", ocr: true,
+            why: r2.why.concat(["这个判断用到了截图自动识别的文字（" + idO + "），识别可能有误；只看日志时判断为：" + was]),
+            need: ["打开截图核对识别出的文字；无误就点“采用识别文字”，结论会变为已确认"].concat(r2.need) });
+        }
+      }
+    }
     const o = c.obs;
     if (!o || !o.kind || o.kind === "unclear" || r.status === "confirmed" && r.cat !== "NEEDS_HUMAN" || OBS_SKIP.test(r.rule)) return r;
     const E = evId(r.ev, "obs"), was = "（规则原本判断：" + (RULE_NAMES[r.rule] || r.rule) + "）";
@@ -831,7 +894,7 @@ window.ENG = (function () {
       if (c.parent) c.auto.flags.push("重跑第2次");
     });
     crossCase(base, rules);
-    cases.filter(c => c.failed).forEach(c => { c.auto.brief = brief(c); c.plan = rerunPlan(c); });
+    cases.filter(c => c.failed).forEach(c => { c.auto.brief = brief(c) + (c.auto.ocr ? "（依据截图识别的文字，待确认）" : ""); c.plan = rerunPlan(c); });
   }
 
   /* ======================= 规则名称、判断依据摘要（中文）、英文说明（写 Jira 用） ======================= */
@@ -914,7 +977,7 @@ window.ENG = (function () {
     dtp_out: "the date is outside the allowed range", dtp_in: "the date is within range but still cannot be set" };
   function english(c) {
     const a = c.auto, L = c.L || {}, hit = a.hits[0] || "", m = (L.root && L.root.msg || "").split("\n")[0].slice(0, 160), fn = L.rootAt ? L.rootAt.func : "";
-    const sysT = ((c.obs && c.obs.text) || (L.sysMsgs || []).find(Boolean) || c.pageText || c.alertText || hit).replace(/\s+/g, " ").slice(0, 120);
+    const sysT = ((c.obs && c.obs.text) || (c.auto && c.auto.ocr && c.auto.hits[0]) || (L.sysMsgs || []).find(Boolean) || c.pageText || c.alertText || hit).replace(/\s+/g, " ").slice(0, 120);
     const chk = c.dataCheck ? " Manual check: " + (CHECK_EN[c.dataCheck] || c.dataCheck) + (c.dataNote ? " (" + c.dataNote + ")" : "") + "." : "";
     const T = {
       "ENV1": ["The browser/device session could not be created (" + c.exception + ").", "Check the execution machine and driver, then rerun."],
@@ -975,7 +1038,7 @@ window.ENG = (function () {
   function jiraPhrase(c) {
     const a = c.auto, L = c.L || {}, hit = (a.hits[0] || "").replace(/\s+/g, " ").trim();
     const cut = (s, n) => { s = String(s || "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
-    const sys = (c.obs && c.obs.text) || (L.sysMsgs || []).find(Boolean) || c.pageText || c.alertText || "";
+    const sys = (c.obs && c.obs.text) || (c.auto && c.auto.ocr && c.auto.hits[0]) || (L.sysMsgs || []).find(Boolean) || c.pageText || c.alertText || "";
     const first = ((L.root && L.root.msg) || c.error || c.stack || "").split("\n").find(x => x.trim()) || "";
     const P = {
       "SYS-EMPTY": "a popup whose text could not be captured", "ENV1": "browser/device session error", "ENV-DESK": 'the "no active desktop" error', "ENV2": 'the connection error "' + cut(hit, 80) + '"', "ENV3": "the same error in many cases",
@@ -1191,13 +1254,16 @@ window.ENG = (function () {
       trs.slice(h0 + 1).forEach(tr => {
         const cells = Array.from(tr.cells);
         // 只有一个单元格的行（通常是展开后的详细日志）并到上一行
-        if (cells.length === 1 && rows.length) {
-          const prev = rows[rows.length - 1], t = cellText(cells[0]), im = imgRefs(cells[0]);
+        if (rows.length && (cells.length === 1 || head.length >= 4 && cells.length <= 2)) {
+          const prev = rows[rows.length - 1], t = cells.map(cellText).filter(Boolean).join("\n"), im = [].concat(...cells.map(imgRefs));
           if (t) prev["详细日志"] = (prev["详细日志"] ? prev["详细日志"] + "\n" : "") + t;
           if (im.length) prev["截图"] = (prev["截图"] ? prev["截图"] + ";" : "") + im.join(";");
           return;
         }
         if (cells.length < 2) return;
+        // 表头在表格中间重复出现（分页、吸顶表头）时跳过
+        const same = cells.filter((c, i) => head[i] && cellText(c).split("\n")[0] === head[i]).length;
+        if (same >= Math.max(2, Math.ceil(cells.length / 2))) return;
         const o = {}, im = [];
         cells.forEach((c, i) => { o[head[i] || "列" + (i + 1)] = cellText(c); im.push(...imgRefs(c)); });
         if (im.length) o["截图"] = (o["截图"] ? o["截图"] + ";" : "") + im.join(";");
@@ -1227,8 +1293,8 @@ window.ENG = (function () {
 
   /* ======================= 字段映射 ======================= */
   const FIELDS = [
-    { key: "id", name: "用例编号", req: true, guess: ["caseid", "case_id", "case id", "标识", "用例编号", "用例id", "testcaseid", "编号", "id", "historyid"] },
-    { key: "name", name: "用例名称", req: true, guess: ["casename", "用例名称", "名称", "name", "title", "标题", "fullname"] },
+    { key: "id", name: "用例编号", req: true, guess: ["caseid", "case_id", "case id", "标识", "用例编号", "用例id", "案例编号", "案例id", "testcaseid", "编号", "id", "historyid"] },
+    { key: "name", name: "用例名称", guess: ["casename", "用例名称", "案例名称", "用例标题", "案例标题", "用例描述", "案例描述", "名称", "testname", "name", "title", "标题", "fullname", "scenario", "场景", "用例", "案例"] },
     { key: "result", name: "执行结果", req: true, guess: ["result", "结果", "status", "状态", "执行结果", "outcome"] },
     { key: "error", name: "报错信息", guess: ["message", "errormessage", "error", "失败原因", "错误信息", "报错", "异常信息", "reason", "statusdetails.message", "failure"] },
     { key: "stack", name: "堆栈/日志", guess: ["trace", "stacktrace", "stack", "堆栈", "详细日志", "日志", "log", "statusdetails.trace", "system-out", "detail"] },
@@ -1246,7 +1312,8 @@ window.ENG = (function () {
     FIELDS.forEach(f => {
       if (saved && saved[f.key] && cols.includes(saved[f.key])) { map[f.key] = saved[f.key]; return; }
       for (const g of f.guess) {
-        const hit = cols.find(c => norm(c) === norm(g)) || cols.find(c => norm(c).endsWith(norm(g)) && norm(g).length > 3) || cols.find(c => norm(c).includes(norm(g)) && norm(g).length > 4);
+        const cn = /^[\u4e00-\u9fff]{2,}$/.test(g), L = norm(g).length;
+        const hit = cols.find(c => norm(c) === norm(g)) || cols.find(c => norm(c).endsWith(norm(g)) && (L > 3 || cn && L >= 2 && norm(c).length <= 6)) || cols.find(c => norm(c).includes(norm(g)) && (L > 4 || cn && L >= 3));
         if (hit && !Object.values(map).includes(hit)) { map[f.key] = hit; return; }
       }
     });
@@ -1271,7 +1338,7 @@ window.ENG = (function () {
     });
   }
 
-  return { DEFAULT_RULES, CATS, REASONS, DATA_CHECK, CHECK_KINDS, OBS_KINDS, RULE_NAMES, PLAN, rerunPlan, ruleName, english, jiraPhrase, featureOf, testData, CAT_EN, CHECK_EN, FIELDS, classifyAll, evidenceOf, signature, mask, findAny, parseFile, guessMapping, toCases, isFail, analyzeLog, prepare };
+  return { DEFAULT_RULES, CATS, REASONS, DATA_CHECK, CHECK_KINDS, OBS_KINDS, RULE_NAMES, PLAN, rerunPlan, ruleName, english, jiraPhrase, featureOf, testData, CAT_EN, CHECK_EN, FIELDS, classifyAll, evidenceOf, signature, mask, ocrLines, ocrText, piiBoxes, findAny, parseFile, guessMapping, toCases, isFail, analyzeLog, prepare };
 })();
 </script>
 <script>
@@ -1299,7 +1366,7 @@ window.APP = (function () {
     catch (e) { if (!saveWarned) { toast("浏览器本地存储空间不足，刷新后数据会丢失。请先导出 CSV 保存结果", true); saveWarned = true; } }
   }
   function reclassify() {
-    S.cases.forEach(c => { c.shots = S.shots[c.uid] || null; c.shots2 = S.shots[c.uid + "@r2"] || null; });
+    S.cases.forEach(c => { c.shots = S.shots[c.uid] || null; c.shots2 = S.shots[c.uid + "@r2"] || null; c.ocrText = ENG.ocrText(c.shots) || ""; });
     ENG.classifyAll(S.cases, S.rules);
   }
 
@@ -1496,7 +1563,7 @@ window.APP = (function () {
   }
   function saveShots(key) {
     if (!db) return;
-    try { db.transaction("shots", "readwrite").objectStore("shots").put((S.shots[key] || []).map(s => ({ name: s.name, blob: s.blob || null, url: s.url || null })), key); } catch (e) {}
+    try { db.transaction("shots", "readwrite").objectStore("shots").put((S.shots[key] || []).map(s => ({ name: s.name, blob: s.blob || null, url: s.url || null, sha: s.sha || null, ocr: s.ocr || null })), key); } catch (e) {}
   }
   function deleteShots(uids) {
     if (!db) return;
@@ -1510,7 +1577,8 @@ window.APP = (function () {
         req.onsuccess = () => {
           const cur = req.result;
           if (!cur) return res();
-          S.shots[cur.key] = (cur.value || []).filter(x => x.blob || x.url).map(x => ({ name: x.name, blob: x.blob, url: x.url, src: x.blob ? URL.createObjectURL(x.blob) : x.url }));
+          if (cur.key === OCR_KEY) S.ocrIdx = cur.value || { bySha: {}, byName: {} };
+          else S.shots[cur.key] = (cur.value || []).filter(x => x.blob || x.url).map(x => ({ name: x.name, blob: x.blob, url: x.url, sha: x.sha || null, ocr: x.ocr || null, src: x.blob ? URL.createObjectURL(x.blob) : x.url }));
           cur.continue();
         };
         req.onerror = () => res();
@@ -1518,8 +1586,105 @@ window.APP = (function () {
     });
   }
   function addShot(key, file, name) {
-    (S.shots[key] = S.shots[key] || []).push({ name: name || file.name || "截图.png", blob: file, src: URL.createObjectURL(file) });
+    const s = { name: name || file.name || "截图.png", blob: file, src: URL.createObjectURL(file) };
+    (S.shots[key] = S.shots[key] || []).push(s);
     saveShots(key);
+    // 已经导入过识别结果时，新加的截图自动对上
+    if (S.ocrIdx && Object.keys(S.ocrIdx.bySha).length) shaOf(s).then(() => { if (matchOcr(s)) { saveShots(key); ocrRefresh(); } });
+  }
+
+  /* ---------- 截图识别结果（「识别截图.bat」生成的 .ocr.json） ----------
+     用图片内容的指纹（SHA-256）对应截图，和文件名无关；对不上时再按文件名对应 */
+  const OCR_KEY = "__ocr__";
+  S.ocrIdx = { bySha: {}, byName: {} };
+  const baseName = n => String(n || "").split(/[\\/?#]/).filter(Boolean).pop() || "";
+  function sha256Hex(buf) {
+    if (window.crypto && crypto.subtle) return crypto.subtle.digest("SHA-256", buf).then(h => Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, "0")).join(""));
+    return Promise.resolve(sha256Js(new Uint8Array(buf)));
+  }
+  // 浏览器不提供加密接口时（个别内网策略）用这个
+  function sha256Js(m) {
+    const K = [], H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    for (let n = 2, c = 0; c < 64; n++) { let p = true; for (let d = 2; d * d <= n; d++) if (n % d === 0) { p = false; break; } if (p) K[c++] = (Math.pow(n, 1 / 3) * 4294967296) | 0; }
+    const l = m.length, nb = ((l + 9 + 63) >> 6) << 6, b = new Uint8Array(nb); b.set(m); b[l] = 0x80;
+    const dv = new DataView(b.buffer); dv.setUint32(nb - 4, (l * 8) >>> 0); dv.setUint32(nb - 8, Math.floor(l / 536870912));
+    const w = new Int32Array(64), r = (x, n) => (x >>> n) | (x << (32 - n));
+    for (let o = 0; o < nb; o += 64) {
+      for (let i = 0; i < 16; i++) w[i] = dv.getInt32(o + i * 4);
+      for (let i = 16; i < 64; i++) { const s0 = r(w[i - 15], 7) ^ r(w[i - 15], 18) ^ (w[i - 15] >>> 3), s1 = r(w[i - 2], 17) ^ r(w[i - 2], 19) ^ (w[i - 2] >>> 10); w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0; }
+      let [a, bb, c, d, e, f, g, h] = H;
+      for (let i = 0; i < 64; i++) {
+        const t1 = (h + (r(e, 6) ^ r(e, 11) ^ r(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0, t2 = ((r(a, 2) ^ r(a, 13) ^ r(a, 22)) + ((a & bb) ^ (a & c) ^ (bb & c))) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = bb; bb = a; a = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + bb) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0; H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    return H.map(x => (x >>> 0).toString(16).padStart(8, "0")).join("");
+  }
+  function shaOf(s) {
+    if (s.sha || !s.blob) return Promise.resolve(s.sha);
+    return s.blob.arrayBuffer().then(sha256Hex).then(h => (s.sha = h)).catch(() => null);
+  }
+  function matchOcr(s) {
+    const ix = S.ocrIdx, o = (s.sha && ix.bySha[s.sha]) || ix.byName[baseName(s.url || s.name).toLowerCase()];
+    if (!o || o === s.ocr) return false;
+    s.ocr = o; return true;
+  }
+  let ocrTimer = null;
+  function ocrRefresh() { clearTimeout(ocrTimer); ocrTimer = setTimeout(() => { reclassify(); render(); }, 300); }
+  // 导入识别结果，返回 {images, matched, shots}
+  async function applyOcr(json) {
+    if (!json || json.tool !== "ta-ocr" || !Array.isArray(json.images)) throw new Error("不是「识别截图.bat」生成的识别结果文件");
+    const ix = S.ocrIdx, dup = {};
+    json.images.forEach(im => {
+      if (!im.langs) return;
+      const o = { name: im.name, w: im.w, h: im.h, langs: im.langs, at: json.created || "" };
+      if (im.sha256) ix.bySha[im.sha256.toLowerCase()] = o;
+      const n = baseName(im.name).toLowerCase();
+      if (n) { if (ix.byName[n] && ix.byName[n] !== o) dup[n] = 1; ix.byName[n] = o; }
+    });
+    Object.keys(dup).forEach(n => delete ix.byName[n]);   // 重名的文件不按文件名对应，避免张冠李戴
+    try { db && db.transaction("shots", "readwrite").objectStore("shots").put(ix, OCR_KEY); } catch (e) {}
+    let shots = 0; const used = new Set();
+    for (const key of Object.keys(S.shots)) {
+      let ch = false;
+      for (const s of S.shots[key] || []) { await shaOf(s); if (matchOcr(s)) ch = true; if (s.ocr) { shots++; used.add(s.ocr); } }
+      if (ch) saveShots(key);
+    }
+    reclassify();
+    return { images: json.images.filter(i => i.langs).length, failed: json.images.filter(i => !i.langs).length, matched: used.size, shots };
+  }
+  // 打码后的截图：证件号、手机号、邮箱、卡号、人名清单涂黑。返回 {blob, n（涂黑几处）}，失败返回 null
+  function maskedShot(s, type) {
+    return new Promise(res => {
+      const boxes = s.ocr ? ENG.piiBoxes(s.ocr, S.rules.pii_names) : [];
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const cv = document.createElement("canvas"); cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+          const g = cv.getContext("2d"); g.drawImage(img, 0, 0);
+          const k = s.ocr && s.ocr.w ? img.naturalWidth / s.ocr.w : 1;
+          g.fillStyle = "#000"; boxes.forEach(b => g.fillRect(b[0] * k - 3, b[1] * k - 3, b[2] * k + 6, b[3] * k + 6));
+          cv.toBlob(bl => res(bl ? { blob: bl, n: boxes.length } : null), type || "image/png", 0.92);
+        } catch (e) { res(null); }
+      };
+      img.onerror = () => res(null);
+      img.src = s.src;
+    });
+  }
+  // 下载一条用例的截图（已打码），文件名与 Jira 描述里引用的一致
+  async function downloadMasked(c) {
+    const list = c ? (c.shots || []).concat(c.shots2 || []) : [];
+    if (!list.length) { toast("这条用例没有截图", true); return; }
+    let ok = 0, boxes = 0, bad = 0; const noOcr = list.filter(s => !s.ocr).length;
+    for (const s of list) {
+      const n = baseName(s.name) || "screenshot.png", type = /\.jpe?g$/i.test(n) ? "image/jpeg" : "image/png";
+      const r = await maskedShot(s, type);
+      if (!r) { bad++; continue; }
+      download(/\.(png|jpe?g)$/i.test(n) ? n : n + ".png", r.blob, type); ok++; boxes += r.n;
+      await new Promise(z => setTimeout(z, 350));
+    }
+    toast("已下载 " + ok + " 张，涂黑 " + boxes + " 处" + (noOcr ? "；有 " + noOcr + " 张没有识别结果，没有自动打码，请人工检查" : "") + (bad ? "；" + bad + " 张是网络地址的图片，无法处理" : ""), !!(noOcr || bad));
   }
   function addShotUrl(key, url, name) {
     const list = S.shots[key] = S.shots[key] || [];
@@ -1548,8 +1713,221 @@ window.APP = (function () {
     render();
   }
 
-  return { S, KEY, save, reclassify, esc, $, $$, highlight, toast, copy, copyRich, showText, download, toCSV, readFile, catTag, statusTag, planTag, caseLabel, pager, emptyBlock, dialog, closeDialog, drawer, closeDrawer, go, back, render, refreshMenu, PAGES, composite, init, MENU, addShot, addShotUrl, dataToBlob, saveShots, deleteShots };
+  return { S, KEY, save, reclassify, esc, $, $$, highlight, toast, copy, copyRich, showText, download, toCSV, readFile, catTag, statusTag, planTag, caseLabel, pager, emptyBlock, dialog, closeDialog, drawer, closeDrawer, go, back, render, refreshMenu, PAGES, composite, init, MENU, addShot, addShotUrl, dataToBlob, applyOcr, maskedShot, downloadMasked, sha256Js, saveShots, deleteShots };
 })();
+</script>
+<script>
+/* 「识别截图.bat」全文：页面上点“下载识别工具”时原样保存（UTF-8，Windows 换行） */
+window.TA_OCR_BAT = "" +
+  "<# :\r\n" +
+  "@echo off\r\n" +
+  "setlocal\r\n" +
+  "set \"TA_SELF=%~f0\"\r\n" +
+  "set \"TA_ARGS=%*\"\r\n" +
+  "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"$s=[IO.File]::ReadAllText($env:TA_SELF,[Text.Encoding]::UTF8); Invoke-Expression ('& {' + $s + [char]10 + '}')\"\r\n" +
+  "echo.\r\n" +
+  "pause\r\n" +
+  "exit /b\r\n" +
+  "#>\r\n" +
+  "# =====================================================================\r\n" +
+  "#  识别截图（测试分析助手配套工具）\r\n" +
+  "#  用 Windows 自带的文字识别（OCR）读出截图上的文字，不用安装任何软件，截图不会离开本机。\r\n" +
+  "#  用法：把测试报告文件（.mhtml / .html）或截图文件夹拖到本文件上；\r\n" +
+  "#        也可以双击后把文件拖进窗口，按回车。\r\n" +
+  "#  结果：在报告旁边（或文件夹里）生成「截图识别结果.ocr.json」，在测试分析助手里导入即可。\r\n" +
+  "# =====================================================================\r\n" +
+  "$ErrorActionPreference = 'Stop'\r\n" +
+  "$Host.UI.RawUI.WindowTitle = '识别截图'\r\n" +
+  "Write-Host ''\r\n" +
+  "Write-Host '  识别截图：Windows 自带文字识别，截图不会离开本机' -ForegroundColor Cyan\r\n" +
+  "Write-Host ''\r\n" +
+  "\r\n" +
+  "function Split-Args([string]$s) {\r\n" +
+  "  $out = @()\r\n" +
+  "  foreach ($m in [regex]::Matches([string]$s, '\"([^\"]+)\"|(\\S+)')) {\r\n" +
+  "    $v = if ($m.Groups[1].Success) { $m.Groups[1].Value } else { $m.Groups[2].Value }\r\n" +
+  "    if ($v) { $out += $v.Trim() }\r\n" +
+  "  }\r\n" +
+  "  return $out\r\n" +
+  "}\r\n" +
+  "$paths = @(Split-Args $env:TA_ARGS)\r\n" +
+  "if (-not $paths.Count) {\r\n" +
+  "  Write-Host '  请把测试报告文件（.mhtml / .html）或截图文件夹拖到这个窗口里，然后按回车：'\r\n" +
+  "  $paths = @(Split-Args (Read-Host '  '))\r\n" +
+  "}\r\n" +
+  "$paths = @($paths | Where-Object { Test-Path -LiteralPath $_ })\r\n" +
+  "if (-not $paths.Count) { Write-Host '  没有找到文件或文件夹。' -ForegroundColor Red; return }\r\n" +
+  "\r\n" +
+  "# ---------- 准备 Windows 文字识别 ----------\r\n" +
+  "try {\r\n" +
+  "  Add-Type -AssemblyName System.Runtime.WindowsRuntime\r\n" +
+  "  $null = [Windows.Storage.StorageFile,Windows.Storage,ContentType=WindowsRuntime]\r\n" +
+  "  $null = [Windows.Storage.Streams.IRandomAccessStream,Windows.Storage.Streams,ContentType=WindowsRuntime]\r\n" +
+  "  $null = [Windows.Graphics.Imaging.BitmapDecoder,Windows.Graphics,ContentType=WindowsRuntime]\r\n" +
+  "  $null = [Windows.Media.Ocr.OcrEngine,Windows.Foundation,ContentType=WindowsRuntime]\r\n" +
+  "  $null = [Windows.Globalization.Language,Windows.Globalization,ContentType=WindowsRuntime]\r\n" +
+  "} catch {\r\n" +
+  "  Write-Host '  这台电脑无法使用 Windows 自带的文字识别（需要 Windows 10 / 11）。' -ForegroundColor Red\r\n" +
+  "  Write-Host ('  原因：' + $_.Exception.Message)\r\n" +
+  "  return\r\n" +
+  "}\r\n" +
+  "$asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {\r\n" +
+  "  $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]\r\n" +
+  "function Await($op, [Type]$t) { $task = $asTask.MakeGenericMethod($t).Invoke($null, @($op)); $null = $task.Wait(-1); return $task.Result }\r\n" +
+  "\r\n" +
+  "$all = @([Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages)\r\n" +
+  "$pick = @()\r\n" +
+  "$en = $all | Where-Object { $_.LanguageTag -like 'en*' } | Select-Object -First 1\r\n" +
+  "if ($en) { $pick += $en }\r\n" +
+  "$zh = $all | Where-Object { $_.LanguageTag -match '^zh-(Hant|TW|HK|MO)' } | Select-Object -First 1\r\n" +
+  "if (-not $zh) { $zh = $all | Where-Object { $_.LanguageTag -like 'zh*' } | Select-Object -First 1 }\r\n" +
+  "if ($zh) { $pick += $zh }\r\n" +
+  "if (-not $pick.Count -and $all.Count) { $pick += $all[0] }\r\n" +
+  "$engines = @($pick | ForEach-Object { $e = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($_); if ($e) { [pscustomobject]@{ tag = $_.LanguageTag; eng = $e } } })\r\n" +
+  "if (-not $engines.Count) { Write-Host '  系统里没有可用的识别语言，请在 设置 → 时间和语言 → 语言 里添加英文或中文。' -ForegroundColor Red; return }\r\n" +
+  "Write-Host ('  识别语言：' + (($engines | ForEach-Object { $_.tag }) -join '、'))\r\n" +
+  "if (-not $zh) { Write-Host '  （没有中文识别语言，截图上的中文会识别不出来；英文不受影响）' -ForegroundColor Yellow }\r\n" +
+  "$maxDim = [Windows.Media.Ocr.OcrEngine]::MaxImageDimension\r\n" +
+  "\r\n" +
+  "# ---------- 收集截图 ----------\r\n" +
+  "$tmp = Join-Path $env:TEMP ('ta_ocr_' + [guid]::NewGuid().ToString('N'))\r\n" +
+  "$null = New-Item -ItemType Directory -Path $tmp\r\n" +
+  "$imgs = New-Object System.Collections.ArrayList\r\n" +
+  "$seen = @{}\r\n" +
+  "$sha = [System.Security.Cryptography.SHA256]::Create()\r\n" +
+  "function Hex($bytes) { return (($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') }) -join '') }\r\n" +
+  "function Add-Img([string]$path, [string]$name, [byte[]]$bytes) {\r\n" +
+  "  if (-not $bytes) { $bytes = [IO.File]::ReadAllBytes($path) }\r\n" +
+  "  $h = Hex $bytes\r\n" +
+  "  if ($seen.ContainsKey($h)) { return }\r\n" +
+  "  $seen[$h] = 1\r\n" +
+  "  [void]$imgs.Add([pscustomobject]@{ path = $path; name = $name; sha = $h })\r\n" +
+  "}\r\n" +
+  "$imgExt = '\\.(png|jpe?g|bmp|gif)$'\r\n" +
+  "function Add-Mhtml([string]$p) {\r\n" +
+  "  $text = [IO.File]::ReadAllText($p)\r\n" +
+  "  $m = [regex]::Match($text, 'boundary=\"?([^\";\\r\\n]+)\"?', 'IgnoreCase')\r\n" +
+  "  if (-not $m.Success) { Write-Host ('  ' + [IO.Path]::GetFileName($p) + '：不是有效的 MHTML 文件') -ForegroundColor Yellow; return }\r\n" +
+  "  $n = 0\r\n" +
+  "  foreach ($part in $text.Split([string[]]@('--' + $m.Groups[1].Value), [StringSplitOptions]::None)) {\r\n" +
+  "    $sp = [regex]::Match($part, '\\r?\\n\\r?\\n')\r\n" +
+  "    if (-not $sp.Success) { continue }\r\n" +
+  "    $head = $part.Substring(0, $sp.Index)\r\n" +
+  "    if ($head -notmatch '(?im)^Content-Type:\\s*image/([a-z+]+)') { continue }\r\n" +
+  "    $ext = $Matches[1] -replace 'jpeg', 'jpg'\r\n" +
+  "    if ($ext -notmatch '^(png|jpg|gif|bmp)$') { continue }\r\n" +
+  "    if ($head -notmatch '(?im)^Content-Transfer-Encoding:\\s*base64') { continue }\r\n" +
+  "    $loc = if ($head -match '(?im)^Content-Location:\\s*(.+)$') { $Matches[1].Trim() } else { '' }\r\n" +
+  "    try { $bytes = [Convert]::FromBase64String(($part.Substring($sp.Index) -replace '\\s', '')) } catch { continue }\r\n" +
+  "    $n++\r\n" +
+  "    $name = ($loc -split '[\\\\/?#]' | Where-Object { $_ } | Select-Object -Last 1)\r\n" +
+  "    if (-not $name -or $name -notmatch $imgExt) { $name = 'image_' + $n + '.' + $ext }\r\n" +
+  "    $f = Join-Path $tmp ('m' + $n + '.' + $ext)\r\n" +
+  "    [IO.File]::WriteAllBytes($f, $bytes)\r\n" +
+  "    Add-Img $f $name $bytes\r\n" +
+  "  }\r\n" +
+  "}\r\n" +
+  "function Add-Html([string]$p) {\r\n" +
+  "  $dir = Split-Path -Parent $p\r\n" +
+  "  $base = [IO.Path]::GetFileNameWithoutExtension($p)\r\n" +
+  "  foreach ($d in @((Join-Path $dir ($base + '_files')), (Join-Path $dir ($base + '.files')))) {\r\n" +
+  "    if (Test-Path -LiteralPath $d) { Get-ChildItem -LiteralPath $d -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match $imgExt } | ForEach-Object { Add-Img $_.FullName $_.Name $null } }\r\n" +
+  "  }\r\n" +
+  "  $html = [IO.File]::ReadAllText($p)\r\n" +
+  "  foreach ($m in [regex]::Matches($html, '(?:src|href)\\s*=\\s*\"([^\"]+\\.(?:png|jpe?g|bmp|gif))\"', 'IgnoreCase')) {\r\n" +
+  "    $rel = [uri]::UnescapeDataString($m.Groups[1].Value)\r\n" +
+  "    if ($rel -match '^(https?|data):') { continue }\r\n" +
+  "    $rel = $rel -replace '^file:///', ''\r\n" +
+  "    $full = if ([IO.Path]::IsPathRooted($rel)) { $rel } else { Join-Path $dir $rel }\r\n" +
+  "    if (Test-Path -LiteralPath $full) { Add-Img (Resolve-Path -LiteralPath $full).Path ([IO.Path]::GetFileName($full)) $null }\r\n" +
+  "  }\r\n" +
+  "}\r\n" +
+  "foreach ($p in $paths) {\r\n" +
+  "  $item = Get-Item -LiteralPath $p\r\n" +
+  "  if ($item.PSIsContainer) {\r\n" +
+  "    Get-ChildItem -LiteralPath $item.FullName -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match $imgExt } | ForEach-Object { Add-Img $_.FullName $_.Name $null }\r\n" +
+  "    Get-ChildItem -LiteralPath $item.FullName -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '\\.(mhtml|mht)$' } | ForEach-Object { Add-Mhtml $_.FullName }\r\n" +
+  "  } elseif ($item.Name -match '\\.(mhtml|mht)$') { Add-Mhtml $item.FullName }\r\n" +
+  "  elseif ($item.Name -match '\\.html?$') { Add-Html $item.FullName }\r\n" +
+  "  elseif ($item.Name -match $imgExt) { Add-Img $item.FullName $item.Name $null }\r\n" +
+  "}\r\n" +
+  "if (-not $imgs.Count) {\r\n" +
+  "  Write-Host '  没有找到截图。' -ForegroundColor Red\r\n" +
+  "  Write-Host '  如果报告是 .htm 文件，截图通常在同名的“_files”文件夹里，请确认文件夹和报告放在一起；'\r\n" +
+  "  Write-Host '  或者在浏览器里重新保存为“网页，单个文件（.mhtml）”。'\r\n" +
+  "  return\r\n" +
+  "}\r\n" +
+  "Write-Host ('  找到 ' + $imgs.Count + ' 张截图，开始识别……')\r\n" +
+  "Write-Host ''\r\n" +
+  "\r\n" +
+  "# ---------- 逐张识别（结果直接写成 JSON 文本，避免 ConvertTo-Json 改变数组结构） ----------\r\n" +
+  "function JS([string]$s) {\r\n" +
+  "  $sb = New-Object System.Text.StringBuilder\r\n" +
+  "  [void]$sb.Append('\"')\r\n" +
+  "  foreach ($ch in $s.ToCharArray()) {\r\n" +
+  "    $c = [int]$ch\r\n" +
+  "    if ($ch -eq '\"') { [void]$sb.Append('\\\"') } elseif ($ch -eq '\\') { [void]$sb.Append('\\\\') }\r\n" +
+  "    elseif ($c -lt 32) { [void]$sb.Append('\\u' + $c.ToString('x4')) } else { [void]$sb.Append($ch) }\r\n" +
+  "  }\r\n" +
+  "  [void]$sb.Append('\"')\r\n" +
+  "  return $sb.ToString()\r\n" +
+  "}\r\n" +
+  "$parts = New-Object System.Collections.ArrayList\r\n" +
+  "$i = 0; $okN = 0\r\n" +
+  "foreach ($im in $imgs) {\r\n" +
+  "  $i++\r\n" +
+  "  $head = '{\"sha256\":' + (JS $im.sha) + ',\"name\":' + (JS $im.name)\r\n" +
+  "  try {\r\n" +
+  "    $file = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($im.path)) ([Windows.Storage.StorageFile])\r\n" +
+  "    $stream = Await ($file.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])\r\n" +
+  "    $dec = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])\r\n" +
+  "    $bmp = Await ($dec.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])\r\n" +
+  "    $stream.Dispose()\r\n" +
+  "    if ($bmp.BitmapPixelFormat -ne [Windows.Graphics.Imaging.BitmapPixelFormat]::Bgra8 -and $bmp.BitmapPixelFormat -ne [Windows.Graphics.Imaging.BitmapPixelFormat]::Gray8) { $bmp = [Windows.Graphics.Imaging.SoftwareBitmap]::Convert($bmp, [Windows.Graphics.Imaging.BitmapPixelFormat]::Bgra8) }\r\n" +
+  "    if ($bmp.PixelWidth -gt $maxDim -or $bmp.PixelHeight -gt $maxDim) { throw ('图片太大（' + $bmp.PixelWidth + '×' + $bmp.PixelHeight + '），超过系统识别上限 ' + $maxDim) }\r\n" +
+  "    $langJ = @(); $lineN = 0\r\n" +
+  "    foreach ($e in $engines) {\r\n" +
+  "      $res = Await ($e.eng.RecognizeAsync($bmp)) ([Windows.Media.Ocr.OcrResult])\r\n" +
+  "      $lineJ = @()\r\n" +
+  "      foreach ($ln in $res.Lines) {\r\n" +
+  "        $wJ = @(); $x1 = [double]::MaxValue; $y1 = [double]::MaxValue; $x2 = 0; $y2 = 0\r\n" +
+  "        foreach ($w in $ln.Words) {\r\n" +
+  "          $r = $w.BoundingRect\r\n" +
+  "          $wJ += '[' + (JS $w.Text) + ',' + [int]$r.X + ',' + [int]$r.Y + ',' + [int]$r.Width + ',' + [int]$r.Height + ']'\r\n" +
+  "          if ($r.X -lt $x1) { $x1 = $r.X }; if ($r.Y -lt $y1) { $y1 = $r.Y }\r\n" +
+  "          if ($r.X + $r.Width -gt $x2) { $x2 = $r.X + $r.Width }; if ($r.Y + $r.Height -gt $y2) { $y2 = $r.Y + $r.Height }\r\n" +
+  "        }\r\n" +
+  "        if (-not $wJ.Count) { continue }\r\n" +
+  "        $lineJ += '{\"t\":' + (JS $ln.Text) + ',\"b\":[' + [int]$x1 + ',' + [int]$y1 + ',' + [int]($x2 - $x1) + ',' + [int]($y2 - $y1) + '],\"w\":[' + ($wJ -join ',') + ']}'\r\n" +
+  "      }\r\n" +
+  "      if ($lineJ.Count -gt $lineN) { $lineN = $lineJ.Count }\r\n" +
+  "      $langJ += '{\"lang\":' + (JS $e.tag) + ',\"lines\":[' + ($lineJ -join ',') + ']}'\r\n" +
+  "    }\r\n" +
+  "    [void]$parts.Add($head + ',\"w\":' + $bmp.PixelWidth + ',\"h\":' + $bmp.PixelHeight + ',\"langs\":[' + ($langJ -join ',') + ']}')\r\n" +
+  "    $okN++\r\n" +
+  "    Write-Host ('  [' + $i + '/' + $imgs.Count + '] ' + $im.name + '：' + $lineN + ' 行文字')\r\n" +
+  "  } catch {\r\n" +
+  "    [void]$parts.Add($head + ',\"error\":' + (JS $_.Exception.Message) + '}')\r\n" +
+  "    Write-Host ('  [' + $i + '/' + $imgs.Count + '] ' + $im.name + '：识别失败（' + $_.Exception.Message + '）') -ForegroundColor Yellow\r\n" +
+  "  }\r\n" +
+  "}\r\n" +
+  "Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue\r\n" +
+  "\r\n" +
+  "# ---------- 保存结果 ----------\r\n" +
+  "$first = Get-Item -LiteralPath $paths[0]\r\n" +
+  "$dir = if ($first.PSIsContainer) { $first.FullName } else { $first.DirectoryName }\r\n" +
+  "$target = Join-Path $dir '截图识别结果.ocr.json'\r\n" +
+  "$json = '{\"tool\":\"ta-ocr\",\"v\":1,\"created\":' + (JS (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')) + ',\"engine\":\"Windows.Media.Ocr\",\"langs\":[' + ((@($engines | ForEach-Object { JS $_.tag })) -join ',') + '],\"source\":[' + ((@($paths | ForEach-Object { JS ([IO.Path]::GetFileName($_)) })) -join ',') + '],\"images\":[' + ($parts -join \",`n\") + ']}'\r\n" +
+  "try { [IO.File]::WriteAllText($target, $json, (New-Object System.Text.UTF8Encoding($false))) }\r\n" +
+  "catch {\r\n" +
+  "  $target = Join-Path ([Environment]::GetFolderPath('Desktop')) '截图识别结果.ocr.json'\r\n" +
+  "  [IO.File]::WriteAllText($target, $json, (New-Object System.Text.UTF8Encoding($false)))\r\n" +
+  "}\r\n" +
+  "Write-Host ''\r\n" +
+  "Write-Host ('  完成：识别 ' + $okN + ' / ' + $imgs.Count + ' 张。') -ForegroundColor Green\r\n" +
+  "Write-Host ('  结果文件：' + $target)\r\n" +
+  "Write-Host '  下一步：在测试分析助手的“导入”页，把这个文件和报告一起拖进去（或在“补充截图”里点“导入识别结果”）。'\r\n" +
+  "Write-Host '  注意：结果文件里有截图上的全部文字（可能含客户信息），只在本机使用，不要外发。'\r\n";
 </script>
 <script>
 /* 页面：工作台（概览 + 使用说明）、数据导入（含截图补充）、判断规则 */
@@ -1633,9 +2011,9 @@ window.APP = (function () {
   const GUIDE = {
     flow: () => legend + '<div class="flow">' +
       step(1, "导入执行结果", "“数据导入”里选择文件或粘贴表格：JSON、CSV、Excel 表格、JUnit XML、Allure，以及报告网页（HTML / MHTML）。第一次导入时对一下字段，之后会记住。", "you") +
-      step(2, "补充截图（可选）", "导入页的“补充截图”：点一条用例，按 Ctrl+V 粘贴，自动跳到下一条；也可以选截图文件夹按编号匹配。报告网页里内嵌的截图会自动带入。", "you") +
+      step(2, "补充截图（可选）", "导入页的“补充截图”：点一条用例，按 Ctrl+V 粘贴，自动跳到下一条；也可以选截图文件夹按编号匹配。报告网页里内嵌的截图会自动带入。<br>识别截图文字：把报告文件（或截图文件夹）拖到「识别截图.bat」上，等它显示“完成”，再把生成的「截图识别结果.ocr.json」和报告一起导入（或在“补充截图”里点“导入识别结果”）。", "you") +
       step(3, "分析根本原因", "先看整批（环境从哪个用例开始中断、通过的用例里有没有同样的报错），再逐条判断原因，写出中文判断依据和证据编号。", "auto") +
-      step(4, "复核", "“待复核”的用例打开证据看截图，在“截图观察”记下看到的现象和文字，页面会重新分析；需要查系统或数据库的，直接在用例上选核查结果。", "you") +
+      step(4, "复核", "“待复核”的用例打开证据看截图，在“截图观察”记下看到的现象和文字（已识别的可点“采用识别文字”），页面会重新分析；依据截图识别得出的结论一律是“待复核”；需要查系统或数据库的，直接在用例上选核查结果。", "you") +
       step(5, "判断是否重跑", "按根本原因给出：建议立即重跑（可能偶发）、处理后再重跑（不处理重跑也会失败）、不需要重跑。重跑不是分类。", "auto") +
       step(6, "重跑并导入结果", "确认名单后一键重跑，或复制用例编号到平台重跑。导入结果后：通过 → 偶发，不提单；失败且同一问题 → 问题必现；失败但报错不同 → 第 2 次单独分析。", "you") +
       step(7, "分派", "按处理方（测试、开发、环境、待判断）生成表格清单，复制后直接粘贴到邮件或 Teams。", "auto") +
@@ -1674,7 +2052,7 @@ window.APP = (function () {
       (v.info.mode === "rerun" ? '<label class="fi"><span>原批次</span><select class="sel" id="iRerunOf">' + S.runs.map(r => '<option value="' + r.id + '"' + (v.info.rerunOf === r.id ? " selected" : "") + ">" + esc(r.name) + "</option>").join("") + "</select></label>" : "") +
       inp("iName", "批次名称", v.info.name, "默认用文件名") + inp("iPlan", "测试计划", v.info.plan, "如 TestPlan000015") + inp("iDevice", "执行设备", v.info.device, "如 RGT_AVD_11") + inp("iEnv", "测试环境", v.info.env, "如 U401 / SIT") +
       "</div>" +
-      '<div class="imp2"><div class="drop" id="drop"><b>拖入文件，或 <a id="pick">选择文件</a></b><span class="hint">JSON、CSV、Excel 表格、JUnit XML、Allure、报告网页（.html / .mhtml）；可以多选</span><input type="file" id="file" multiple accept=".json,.csv,.tsv,.txt,.xml,.html,.htm,.mhtml,.mht" style="display:none"></div>' +
+      '<div class="imp2"><div class="drop" id="drop"><b>拖入文件，或 <a id="pick">选择文件</a></b><span class="hint">JSON、CSV、Excel 表格、JUnit XML、Allure、报告网页（.html / .mhtml）；可以多选。截图识别结果（.ocr.json）可以和报告一起拖进来（<a id="iOcrTool">下载识别工具</a>）</span><input type="file" id="file" multiple accept=".json,.csv,.tsv,.txt,.xml,.html,.htm,.mhtml,.mht" style="display:none"></div>' +
       '<div><textarea class="ta" id="paste" rows="4" placeholder="或者在这里粘贴：Excel / 报告页面上复制的表格（含表头），或接口返回的 JSON。从网页复制的表格会自动识别。"></textarea><div style="margin-top:6px;display:flex;gap:6px"><button class="btn sm pri" id="pasteGo">解析粘贴内容</button><button class="btn sm" id="pasteClr">清空</button></div></div></div></div>';
     if (v.parsed) html += mapCard(v);
     html += shotCard(v);
@@ -1687,6 +2065,7 @@ window.APP = (function () {
     if ($("#iRerunOf")) $("#iRerunOf").onchange = keep;
     const drop = $("#drop");
     $("#pick").onclick = () => $("#file").click();
+    $("#iOcrTool").onclick = e => { e.stopPropagation(); A.download("识别截图.bat", window.TA_OCR_BAT || "", "application/octet-stream"); A.toast("已下载「识别截图.bat」。浏览器提示“可能有害”时选“保留”"); };
     $("#file").onchange = e => handleFiles(Array.from(e.target.files), v);
     drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
     drop.ondragleave = () => drop.classList.remove("over");
@@ -1708,10 +2087,29 @@ window.APP = (function () {
 
   async function handleFiles(files, v) {
     if (!files.length) return;
+    // 「识别截图.bat」生成的识别结果可以和报告一起拖进来
+    const ocrF = files.filter(f => /\.ocr\.json$/i.test(f.name));
+    if (ocrF.length) { await importOcrFiles(ocrF); files = files.filter(f => !ocrF.includes(f)); if (!files.length) { A.render(); return; } }
     const list = [];
     for (const f of files) { try { list.push({ name: f.name, text: await A.readFile(f) }); } catch (e) { A.toast("读取失败：" + f.name, true); } }
     handleTexts(list, v);
   }
+  async function importOcrFiles(files) {
+    let msg = [], bad = 0;
+    for (const f of files) {
+      try {
+        const r = await A.applyOcr(JSON.parse(String(await A.readFile(f)).replace(/^\uFEFF/, "")));
+        msg.push(r.images + " 张图" + (r.failed ? "（另有 " + r.failed + " 张识别失败）" : "") + "，已对应 " + r.matched + " 张");
+      } catch (e) { bad++; A.toast(f.name + "：" + e.message, true); }
+    }
+    if (msg.length) {
+      const any = Object.values(S.shots).some(l => (l || []).some(s => s.ocr));
+      A.toast("识别结果已导入：" + msg.join("；") + (any ? "。页面已按截图文字重新分析" : "。导入报告或补充截图后会自动对应"));
+    }
+    A.save();
+    return !bad;
+  }
+  A.importOcrFiles = importOcrFiles;
   function handleTexts(list, v) {
     const tables = [], kinds = new Set(), errs = [], images = {};
     list.forEach(({ name, text }) => {
@@ -1747,8 +2145,10 @@ window.APP = (function () {
     html += '<div class="map">' + E.FIELDS.map(f => '<label><span>' + f.name + (f.req ? "<i>*</i>" : "") + '</span><select class="sel" data-f="' + f.key + '"><option value="">（不使用）</option>' + cols.map(c => '<option value="' + esc(c) + '"' + (v.map[f.key] === c ? " selected" : "") + ">" + esc(c) + "</option>").join("") + "</select></label>").join("") + "</div>";
     html += '<div style="margin:8px 0 6px;display:flex;gap:14px;flex-wrap:wrap" class="hint"><span>共 <b class="ink">' + cases.length + '</b> 行</span><span>判定为失败 <b class="red">' + nFail + "</b> 行</span>" + (nImg ? "<span>报告内嵌截图 <b class=\"ink\">" + nImg + "</b> 张，导入后自动挂到对应用例</span>" : "") + "<span>执行结果取值：" +
       Object.keys(resVals).slice(0, 10).map(k => esc(k) + " × " + resVals[k]).join("，") + '</span><a id="mFailWords">失败判断不对？</a></div>';
-    html += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>用例编号</th><th>用例名称</th><th>执行结果</th><th>判定</th><th>报错信息</th></tr></thead><tbody>' +
-      (cases.filter(c => c.failed).slice(0, 4).concat(cases.filter(c => !c.failed).slice(0, 2))).map(c => '<tr><td class="mono">' + esc(c.id) + "</td><td>" + esc(c.name) + "</td><td>" + esc(c.result) + "</td><td>" + (c.failed ? '<span class="tag red">失败</span>' : '<span class="tag gray">不分析</span>') + '</td><td class="clip">' + esc((c.error || c.stack || "-").split("\n")[0]) + "</td></tr>").join("") + "</tbody></table></div>";
+    const pv = cases.filter(c => c.failed).concat(cases.filter(c => !c.failed)).slice(0, 200);
+    html += '<div class="hint" style="margin-bottom:4px">预览：' + (pv.length < cases.length ? "前 " + pv.length + " 行（共 " + cases.length + " 行）" : "全部 " + cases.length + " 行") + "，失败的排在前面，可以上下滚动核对。" + (!v.map.name ? '没有找到“用例名称”列，可以不选，导入后用用例编号显示。' : "") + "</div>";
+    html += '<div class="tbl-wrap" style="max-height:300px"><table class="tbl"><thead><tr><th>#</th><th>用例编号</th><th>用例名称</th><th>执行结果</th><th>判定</th><th>报错信息 / 日志第一行</th></tr></thead><tbody>' +
+      pv.map(c => '<tr><td class="hint">' + c.seq + '</td><td class="mono nw">' + esc(c.id) + '</td><td class="nm">' + esc(c.name || "-") + "</td><td>" + esc(c.result) + "</td><td>" + (c.failed ? '<span class="tag red">失败</span>' : '<span class="tag gray">不分析</span>') + '</td><td class="clip">' + esc((c.error || c.stack || "-").split("\n")[0]) + "</td></tr>").join("") + "</tbody></table></div>";
     html += '<div style="margin-top:8px;display:flex;gap:6px;align-items:center">' + (miss.length ? '<span class="hint red">请先对应：' + miss.map(f => f.name).join("、") + "</span>" : "") +
       '<span class="sp"></span><button class="btn" id="mCancel">取消</button><button class="btn pri" id="mOk"' + (miss.length ? " disabled" : "") + ">" + (v.info.mode === "rerun" ? "导入重跑结果" : "确认导入") + "</button></div></div>";
     return html;
@@ -1818,13 +2218,13 @@ window.APP = (function () {
     const cs = failedOf(v.shotRun).sort((a, b) => a.seq - b.seq || (a.parent ? 1 : -1));
     const have = cs.filter(c => (S.shots[c.uid] || []).length).length;
     if (!cs.some(c => c.uid === v.shotAt)) v.shotAt = (cs.find(c => !(S.shots[c.uid] || []).length) || cs[0] || {}).uid;
-    return '<div class="card" id="shotCard"><div class="card-h"><b>补充截图</b><span class="hint">点一条用例（蓝色高亮），按 <b>Ctrl+V</b> 粘贴截图，会自动跳到下一条没有截图的用例；也可以把图片拖到某一行上。截图保存在本机，刷新后仍在。</span></div>' +
+    return '<div class="card" id="shotCard"><div class="card-h"><b>补充截图</b><span class="hint">点一条用例（蓝色高亮），按 <b>Ctrl+V</b> 粘贴截图，会自动跳到下一条没有截图的用例；也可以把图片拖到某一行上。截图保存在本机，刷新后仍在。<br>识别截图文字：把报告文件（或截图文件夹）拖到「识别截图.bat」上，生成「截图识别结果.ocr.json」后点“导入识别结果”。</span></div>' +
       '<div class="form" style="margin-bottom:6px"><label class="fi"><span>批次</span><select class="sel" id="sRun">' + S.runs.map(r => '<option value="' + r.id + '"' + (r.id === v.shotRun ? " selected" : "") + ">" + esc(r.name) + "</option>").join("") + '</select></label>' +
-      '<span class="hint">失败 ' + cs.length + " 条，已有截图 " + have + ' 条</span><span class="sp"></span><button class="btn sm" id="sFiles">选择截图文件</button><button class="btn sm" id="sDir">选择截图文件夹</button><input type="file" id="sFileIn" multiple accept="image/*" style="display:none"><input type="file" id="sDirIn" webkitdirectory multiple style="display:none"></div>' +
+      '<span class="hint">失败 ' + cs.length + " 条，已有截图 " + have + ' 条</span><span class="sp"></span><button class="btn sm" id="sFiles">选择截图文件</button><button class="btn sm" id="sDir">选择截图文件夹</button><button class="btn sm" id="sOcrTool" title="Windows 自带文字识别，不用安装软件。下载后放在任意位置，把报告文件拖到它上面即可">下载识别工具</button><button class="btn sm" id="sOcr" title="把报告文件或截图文件夹拖到「识别截图.bat」上，会生成「截图识别结果.ocr.json」">导入识别结果</button><input type="file" id="sOcrIn" multiple accept=".json" style="display:none"><input type="file" id="sFileIn" multiple accept="image/*" style="display:none"><input type="file" id="sDirIn" webkitdirectory multiple style="display:none"></div>' +
       '<div class="hint" id="sMsg"></div>' +
       '<div class="tbl-wrap" style="max-height:360px"><table class="tbl"><thead><tr><th>用例</th><th>名称</th><th>分类</th><th>截图</th><th>操作</th></tr></thead><tbody>' +
       cs.map(c => { const sh = S.shots[c.uid] || [];
-        return '<tr class="click' + (c.uid === v.shotAt ? " sel" : "") + '" data-sa="' + c.uid + '"><td class="mono nw">' + A.caseLabel(c) + '</td><td class="nm">' + esc(c.name) + "</td><td>" + A.catTag(c.final) + '</td><td><div class="thumbs">' + sh.slice(0, 4).map(s => '<img src="' + s.src + '" alt="">').join("") + (sh.length > 4 ? '<span class="hint">+' + (sh.length - 4) + "</span>" : "") + (!sh.length ? '<span class="hint">' + (c.uid === v.shotAt ? "← 按 Ctrl+V 粘贴" : "-") + "</span>" : "") + '</div></td><td class="ops nw"><a data-sp="' + c.uid + '">选图片</a>' + (sh.length ? '<a data-sx="' + c.uid + '" class="red">清除</a>' : "") + "</td></tr>"; }).join("") +
+        return '<tr class="click' + (c.uid === v.shotAt ? " sel" : "") + '" data-sa="' + c.uid + '"><td class="mono nw">' + A.caseLabel(c) + '</td><td class="nm">' + esc(c.name) + "</td><td>" + A.catTag(c.final) + '</td><td><div class="thumbs">' + sh.slice(0, 4).map(s => '<img src="' + s.src + '" alt="">').join("") + (sh.length > 4 ? '<span class="hint">+' + (sh.length - 4) + "</span>" : "") + (sh.some(s => s.ocr) ? '<span class="tag blue">已识别</span>' : "") + (!sh.length ? '<span class="hint">' + (c.uid === v.shotAt ? "← 按 Ctrl+V 粘贴" : "-") + "</span>" : "") + '</div></td><td class="ops nw"><a data-sp="' + c.uid + '">选图片</a>' + (sh.length ? '<a data-sx="' + c.uid + '" class="red">清除</a>' : "") + "</td></tr>"; }).join("") +
       '</tbody></table></div><input type="file" id="sOne" accept="image/*" multiple style="display:none"></div>';
   }
   let shotView = null;
@@ -1852,6 +2252,9 @@ window.APP = (function () {
     $("#sRun").onchange = e => { v.shotRun = e.target.value; v.shotAt = null; A.render(); };
     $("#sFiles").onclick = () => $("#sFileIn").click();
     $("#sDir").onclick = () => $("#sDirIn").click();
+    $("#sOcr").onclick = () => $("#sOcrIn").click();
+    $("#sOcrTool").onclick = () => { A.download("识别截图.bat", window.TA_OCR_BAT || "", "application/octet-stream"); A.toast("已下载「识别截图.bat」。浏览器提示“可能有害”时选“保留”"); };
+    $("#sOcrIn").onchange = async e => { await importOcrFiles(Array.from(e.target.files)); A.render(); };
     $("#sFileIn").onchange = e => matchShots(v.shotRun, Array.from(e.target.files));
     $("#sDirIn").onchange = e => matchShots(v.shotRun, Array.from(e.target.files));
     $$("[data-sa]", root).forEach(tr => {
@@ -1866,7 +2269,8 @@ window.APP = (function () {
     $$("[data-sx]", root).forEach(a => a.onclick = () => { const u = a.dataset.sx; S.shots[u] = []; A.saveShots(u); A.reclassify(); A.render(); });
     const sel = $("tr.sel", root); if (sel && v.scrollShot !== v.shotAt) { v.scrollShot = v.shotAt; sel.scrollIntoView({ block: "nearest" }); }
   }
-  function matchShots(runId, files) {
+  async function matchShots(runId, files) {
+    const ocrF = files.filter(f => /\.ocr\.json$/i.test(f.name));
     const imgs = files.filter(f => /\.(png|jpe?g|gif|bmp|webp)$/i.test(f.name));
     const cs = S.cases.filter(c => c.run === runId && c.failed && !c.parent).sort((a, b) => b.id.length - a.id.length);
     let matched = 0; const un = [];
@@ -1879,7 +2283,8 @@ window.APP = (function () {
       matched++;
     });
     A.reclassify(); A.render();
-    $("#sMsg").innerHTML = "共 " + imgs.length + " 张图片，已匹配 " + matched + " 张。" + (un.length ? "未匹配 " + un.length + " 张（文件名里没有失败用例的编号），例如：" + un.slice(0, 5).map(esc).join("、") + "。可以选中用例后手动粘贴。" : "");
+    if (ocrF.length) { await importOcrFiles(ocrF); A.render(); }
+    $("#sMsg").innerHTML = (ocrF.length ? "已读取文件夹里的识别结果。" : "") + "共 " + imgs.length + " 张图片，已匹配 " + matched + " 张。" + (un.length ? "未匹配 " + un.length + " 张（文件名里没有失败用例的编号），例如：" + un.slice(0, 5).map(esc).join("、") + "。可以选中用例后手动粘贴。" : "");
   }
 
   /* ============================== 配置 · 判断规则 ============================== */
@@ -1888,6 +2293,7 @@ window.APP = (function () {
     ["大面积相同报错", [["mass_min_cases", "至少几个用例", "num"], ["mass_ratio", "占失败数比例（%）", "num"], ["mass_window_min", "时间窗口（分钟）", "num"]], "同一种报错同时满足这三个条件（并且在执行顺序上连续，或集中在时间窗口内），判为“环境问题（待复核）”。"],
     ["弹窗清单", [["noise_popups", "干扰弹窗文字（与被测功能无关）"], ["business_errors", "业务报错文字（系统返回的真实错误）"], ["overlay_keywords", "遮挡元素特征（class / id 关键字）"]], "弹窗文字（包括“截图观察”里抄下的文字）在“干扰”清单中 → 弹窗干扰；在“业务报错”清单中 → 需要核查数据；都不在 → 需人工判断。新出现的弹窗请补充到这里。"],
     ["系统提示的含义", [["lock_messages", "数据被其他会话占用 → 测试数据问题"], ["config_messages", "缺少配置 → 需核查"], ["crash_messages", "程序未处理异常 → 疑似产品缺陷"]], "系统提示来自弹窗文字（pop-up error: …）、校验提示（Validation Error）和“截图观察”里抄下的文字。"],
+    ["截图打码", [["pii_names", "需要打码的人名（每行一个，中文名、英文名都可以，例如测试数据里的客户名）"]], "下载截图（准备提 Jira 或发给别人）时，会把截图上识别到的证件号、手机号、邮箱、卡号和这些人名涂黑。需要先导入截图识别结果。"],
   ];
   const RULE_ADV = [
     ["异常类型", [["alert_exceptions", "原生对话框"], ["intercept_exceptions", "点击被遮挡"], ["locator_exceptions", "找不到元素 / 超时"], ["invalid_selector", "定位表达式错误"], ["code_errors", "测试代码运行错误"], ["assertion_exceptions", "断言失败"]], "程序输出的英文异常名称，不能翻译。"],
@@ -2102,7 +2508,15 @@ window.APP = (function () {
     items.forEach((it, i) => A.addShot(uid, it.getAsFile(), c.id + "_" + (n + i + 1) + ".png"));
     A.reclassify(); openCase(uid); A.toast("截图已保存。看完截图后，在“截图观察”记录看到的现象，页面会重新分析");
   });
-  const shotsHtml = (list, del) => (list || []).map((s, i) => '<div class="shot"><img src="' + s.src + '" alt="" data-big title="' + esc(s.name) + '"><div class="hint">' + esc(s.name) + (del ? ' <a data-delshot="' + i + '" class="red">删除</a>' : "") + "</div></div>").join("");
+  const shotsHtml = (list, del, pre) => (list || []).map((s, i) => '<div class="shot"><img src="' + s.src + '" alt="" data-big="' + (pre || "a") + i + '" title="' + esc(s.name) + '"><div class="hint">' + (s.ocr ? '<span class="tag blue">已识别</span>' : "") + esc(s.name) + (del ? ' <a data-delshot="' + i + '" class="red">删除</a>' : "") + "</div></div>").join("");
+  // 放大查看：蓝框 = 识别到的文字，红框 = 下载时会被涂黑的内容
+  function bigShot(s) {
+    if (!s.ocr || !s.ocr.w) return '<img src="' + s.src + '" style="max-width:100%">';
+    const pii = E.piiBoxes(s.ocr, S.rules.pii_names);
+    const r = (b, cls) => '<rect class="' + cls + '" x="' + b[0] + '" y="' + b[1] + '" width="' + b[2] + '" height="' + b[3] + '"/>';
+    return '<div class="ocrwrap"><img src="' + s.src + '"><svg viewBox="0 0 ' + s.ocr.w + " " + s.ocr.h + '" preserveAspectRatio="none">' + E.ocrLines(s.ocr).map(l => r(l.b, "l")).join("") + pii.map(b => r(b, "p")).join("") + "</svg></div>" +
+      '<p class="hint">蓝框：识别到的文字；红框：下载打码截图时会涂黑（' + pii.length + " 处）。识别可能有误，请对照原图。</p>";
+  }
   function openCase(uid) {
     const c = S.cases.find(x => x.uid === uid); if (!c) return;
     pasteUid = uid;
@@ -2118,7 +2532,8 @@ window.APP = (function () {
     b += '<div class="sec"><h5>截图' + (c.shots2 ? "（第 1 次）" : "") + ' <span class="hint n">在这里按 Ctrl+V 可直接粘贴；保存在本机</span></h5><div class="shots">' + shotsHtml(c.shots, true) +
       '<label class="shot add"><input type="file" accept="image/*" multiple id="dShotF" hidden><span>＋ 选择图片<br><small>或按 Ctrl+V 粘贴</small></span></label></div>' +
       (!(c.shots || []).length && c.screenshot ? '<p class="hint">报告里的截图路径：' + esc(c.screenshot) + "（把图片粘贴或选择进来才能显示）</p>" : "") +
-      (c.shots2 ? '<h5 style="margin-top:8px">截图（第 2 次 · 重跑）</h5><div class="shots">' + shotsHtml(c.shots2) + "</div>" : "") + "</div>";
+      (c.shots2 ? '<h5 style="margin-top:8px">截图（第 2 次 · 重跑）</h5><div class="shots">' + shotsHtml(c.shots2, false, "b") + "</div>" : "") + "</div>";
+    if (c.ocrText) b += '<div class="sec"><h5>截图文字（自动识别） <span class="hint n">可能有误，点截图放大核对</span></h5><pre class="ocrt">' + A.highlight(c.ocrText, hits) + '</pre><div style="display:flex;gap:6px;align-items:center;margin-top:4px"><button class="btn sm" id="ocrUse">采用识别文字</button><button class="btn sm" id="ocrDl">下载打码截图</button><span class="hint">“采用”会填到下面的“截图中的文字”，删掉无关文字后点保存</span></div></div>';
     b += '<div class="sec obs"><h5>截图观察 <span class="hint n">看完截图记下看到的现象；抄下弹窗或页面上的文字。保存后重新分析</span></h5><div class="obs-k">' +
       Object.entries(E.OBS_KINDS).map(([k, n]) => '<label><input type="radio" name="obsK" value="' + k + '"' + (o.kind === k ? " checked" : "") + ">" + esc(n) + "</label>").join("") + "</div>" +
       '<input class="inp" id="obsT" style="width:100%;margin-top:6px" placeholder="截图中弹窗或页面上的文字（照抄原文，例如：Contract is currently used by other user）" value="' + esc(o.text || "") + '">' +
@@ -2138,7 +2553,9 @@ window.APP = (function () {
     $("#dOver").onclick = () => batchDialog([c.uid]);
     $("#dShotF").onchange = e => { Array.from(e.target.files).forEach(f => A.addShot(uid, f)); reopen("截图已保存"); };
     $$("[data-delshot]").forEach(x => x.onclick = () => { S.shots[uid].splice(+x.dataset.delshot, 1); A.saveShots(uid); reopen(); });
-    $$("[data-big]").forEach(img => img.onclick = () => { A.dialog("截图", '<img src="' + img.src + '" style="max-width:100%">', [{ t: "关闭" }]); $("#dlg").style.width = "90vw"; });
+    $$("[data-big]").forEach(img => img.onclick = () => { const k = img.dataset.big, s = /^[ab]\d+$/.test(k) ? ((k[0] === "a" ? c.shots : c.shots2) || [])[+k.slice(1)] : null; A.dialog("截图", s ? bigShot(s) : '<img src="' + img.src + '" style="max-width:100%">', [{ t: "关闭" }]); $("#dlg").style.width = "90vw"; });
+    if ($("#ocrUse")) $("#ocrUse").onclick = () => { $("#obsT").value = c.ocrText.replace(/\s*\n\s*/g, " / ").slice(0, 500); $("#obsT").focus(); A.toast("已填入，请删掉与失败无关的文字后点“保存并重新分析”"); };
+    if ($("#ocrDl")) $("#ocrDl").onclick = () => A.downloadMasked(c);
     $("#obsGo").onclick = () => {
       const k = ($$('input[name="obsK"]').find(r => r.checked) || {}).value || "", t = $("#obsT").value.trim();
       if (!k && !t) { A.toast("请选择看到的现象，或填写截图中的文字", true); return; }
@@ -2729,7 +3146,7 @@ window.APP = (function () {
     v.tab = v.tab || "preview";
     const c = caseOf(d), val = validate(d), lock = d.status === "submitted";
     let h = '<div class="bar"><span class="tag ' + ST[d.status][1] + '">' + ST[d.status][0] + "</span>" + (d.issueKey ? '<span class="tag green">' + esc(d.issueKey) + "</span>" : "") + '<span class="hint">' + esc(runOf(d.run).name) + " · 起草于 " + esc(d.created) + (d.reviewer ? " · 审核：" + esc(d.reviewer) + " " + esc(d.reviewedAt || "") : "") + '</span><span class="sp"></span>' +
-      '<div class="seg"><button data-jt="preview" class="' + (v.tab === "preview" ? "on" : "") + '">① 预览</button><button data-jt="edit" class="' + (v.tab === "edit" ? "on" : "") + '"' + (lock || d.v !== 2 ? " disabled" : "") + ">② 编辑</button></div></div>";
+      '<div class="seg"><button data-jt="preview" class="' + (v.tab === "preview" ? "on" : "") + '">① 预览</button><button data-jt="edit" class="' + (v.tab === "edit" ? "on" : "") + '"' + (lock || d.v !== 2 ? " disabled" : "") + ">② 编辑</button></div>" + '<button class="btn sm" id="jShotDl" title="下载这条用例的截图，证件号、手机号、邮箱、卡号和人名已涂黑；文件名与描述里引用的一致，可直接作为 Jira 附件">下载打码截图</button></div>';
     if (c) h += '<div class="verdict info"><b class="mono">' + esc(c.id) + "</b>" + (c.parent ? '<span class="tag orange">重跑第2次的新问题</span>' : c.rerun === "fail" ? '<span class="tag orange">重跑仍失败·同一问题</span>' : "") + " " + esc(c.name || "") + " · " + A.catTag(c.final) + " " + esc(c.auto.brief) + ' <a data-jopen="' + c.uid + '">看证据</a></div>';
     if (v.tab !== "edit" || lock || d.v !== 2) return h + preview(d) + checksBlock(d, val, lock) + actions(d, val, lock);
     const C = cfg(), dis = lock ? " disabled" : "";
@@ -2777,6 +3194,7 @@ window.APP = (function () {
     if ($("#jAI")) $("#jAI").onclick = () => A.showText("给 AI 润色的材料（已脱敏，复制给公司批准的 AI 工具）", aiPrompt(d));
     if ($("#jPaste")) $("#jPaste").onclick = () => pasteDialog(d);
     $("#jCopy").onclick = () => A.copy(wiki(d));
+    if ($("#jShotDl")) $("#jShotDl").onclick = () => A.downloadMasked(caseOf(d));
     if ($("#jRefresh")) $("#jRefresh").onclick = () => { applyScript(d); touch("按最新分诊刷新"); A.render(); A.toast("已刷新；你和 AI 改过的字段没有变"); };
     if ($("#jDiscard")) $("#jDiscard").onclick = () => { d.status = d.status === "discarded" ? "draft" : "discarded"; d.history.push(now() + (d.status === "discarded" ? " 放弃" : " 恢复")); A.save(); A.render(); };
     if ($("#jUnapprove")) $("#jUnapprove").onclick = () => { d.status = "draft"; d.history.push(now() + " 撤回审核"); A.save(); A.render(); };

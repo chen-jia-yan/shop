@@ -11,7 +11,7 @@
     class LasTestBase(unittest.TestCase):
         def setUp(self):
             # 桌面不可用时在用例一开始就以明确的原因失败，而不是做到一半报 SetCursorPos。
-            # 报错文字 DESKTOP_UNAVAILABLE 已加入 config/rules.yaml 的环境规则。
+            # 报错文字 DESKTOP_UNAVAILABLE 已加入 config/rules.json 的环境规则。
             # 要真正“停止本次运行”，需要在运行器或平台里判断：连续 N 个用例出现 DESKTOP_UNAVAILABLE 就终止并报警
             # （unittest 的 failfast 会在任何失败时停止，范围太大，不建议直接用）。
             if not desktop_available():

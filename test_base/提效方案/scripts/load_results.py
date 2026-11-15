@@ -1,13 +1,15 @@
 """第 1 步：读取一次回归的失败用例，统一成 failures.json。
 
 用法：
-    python scripts/load_results.py --input <结果目录或文件> --format allure|junit|normalized \
+    python scripts/load_results.py --input <结果目录或文件> --format allure|junit|normalized|workspace \
         --run-id <run_id> --config config/config.yaml --out triage_runs/<run_id>/failures.json
 
 说明：
 - allure：读取 allure-results 目录中的 *-result.json，只取 status 为 failed / broken 的用例。
 - junit：读取一个 XML 文件或目录下全部 *.xml，<failure> 和 <error> 视为失败。
 - normalized：读取已经符合 data-contract.md 第 2 节格式的 JSON（cases 列表）。
+- workspace：读取“测试分析助手”页面“保存工作文件”得到的 JSON（页面导入过的数据直接交给 skill）。
+  之后运行 classify_rules.py 时加 --workspace 同一个文件，页面上记录的截图观察、核查结果、人工改判会一起带上。
 - 所有文本在写出前都会脱敏。
 - 截图等路径会转换为绝对路径，并检查文件是否存在。
 """
@@ -227,6 +229,40 @@ def load_normalized(path: Path) -> tuple[list, dict]:
     return cases, data.get("environment", {})
 
 
+# ---------------------------------------------------------------- workspace（页面保存的工作文件）
+
+def load_workspace(path: Path) -> tuple[list, dict]:
+    """读取页面“保存工作文件”得到的 JSON。取用例最多的批次（或 --ws-run 指定的批次）里的失败用例。
+
+    重跑产生的第 2 次记录（有 parent 的）不读取：重跑结果已经记在第 1 次的用例上。
+    """
+    import ta_engine as T
+    data = T.read_workspace(path)
+    runs = [r["id"] for r in data.get("runs") or []]
+    run = WS_RUN or max(runs, key=lambda r: sum(1 for c in data["cases"] if c.get("run") == r), default=None)
+    base = sorted((c for c in data["cases"] if c.get("run") == run and not c.get("parent")), key=lambda c: c.get("seq") or 0)
+    cases = []
+    for w in base:
+        if not w.get("failed"):
+            continue
+        c = empty_case()
+        shot = [s for s in re.split(r"[;\n]", w.get("screenshot") or "") if s.strip()]
+        c.update({"case_id": w["id"], "case_name": w.get("name") or None, "module": w.get("module") or None,
+                  "started_at": w.get("start") or None, "error_type": w.get("exceptionRaw") or None,
+                  "error_message": w.get("error") or None, "stack_trace": w.get("stack") or None,
+                  "business_error_text": w.get("pageText") or None,
+                  "screenshots": [str((path.parent / s).resolve()) if not Path(s).is_absolute() else s for s in shot],
+                  "execution_index": w.get("seq"), "ws_uid": w.get("uid"), "ws_run": run})
+        cases.append(c)
+    WS_INFO.update(total_cases=len(base), workspace=str(path.resolve()), ws_run=run)
+    log.info("工作文件：批次 %s，共 %d 个用例，其中失败 %d 个", run, len(base), len(cases))
+    return cases, {}
+
+
+WS_RUN = None
+WS_INFO: dict = {}
+
+
 # ---------------------------------------------------------------- 统一处理
 
 def finalize(cases: list, env: dict, cfg: dict) -> dict:
@@ -293,17 +329,21 @@ def finalize(cases: list, env: dict, cfg: dict) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--input", required=True)
-    ap.add_argument("--format", required=True, choices=["allure", "junit", "normalized"])
+    ap.add_argument("--format", required=True, choices=["allure", "junit", "normalized", "workspace"])
+    ap.add_argument("--ws-run", help="workspace 格式：要读取的批次编号（默认用例最多的批次）")
     ap.add_argument("--run-id", required=True)
     ap.add_argument("--config", default="config/config.yaml")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
+    global WS_RUN
+    WS_RUN = args.ws_run
     cfg = load_config(args.config)
     src = Path(args.input)
-    loader = {"allure": load_allure, "junit": load_junit, "normalized": load_normalized}[args.format]
+    loader = {"allure": load_allure, "junit": load_junit, "normalized": load_normalized, "workspace": load_workspace}[args.format]
     cases, env = loader(src)
     data = finalize(cases, env, cfg)
+    data.update(WS_INFO)
     data.update({"run_id": args.run_id, "source_format": args.format,
                  "source_path": str(src.resolve()), "loaded_at": now_iso()})
     write_json(args.out, data)

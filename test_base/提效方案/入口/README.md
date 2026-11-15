@@ -11,28 +11,34 @@ regression-triage-jira/
 ├── requirements.txt
 ├── config/
 │   ├── config.example.yaml       # 复制为 config.yaml 后填写
-│   └── rules.yaml                # 分类用的异常类型、报错关键字、弹窗清单
+│   ├── rules.json                # 判断规则（与页面共用；页面“下载规则文件”生成）
+│   └── vision.example.yaml       # 模型识图（可选，默认关闭）
 ├── references/
-│   ├── taxonomy.md               # 七类失败的判定规则（唯一标准）
+│   ├── taxonomy.md               # 六类失败的判定规则（唯一标准）+ 重跑标准
 │   ├── popup-catalog.md          # 三种弹窗的识别、处理、已知清单
-│   ├── jira-template.md          # ROTQA 标题格式、描述 8 小节、字段规则
+│   ├── jira-template.md          # ROTQA 标题格式、简洁描述（1st / 2nd run）、字段规则
 │   ├── data-contract.md          # 所有中间文件的字段定义
 │   └── examples/                 # 3 个起草范例（含“不该起草”的反例）
+├── tools/
+│   └── 识别截图.bat              # Windows 截图文字识别（页面和 skill 共用结果文件）；用一键安装脚本安装时没有这个文件，请在页面“数据导入 → 下载识别工具”获取后放进来
 ├── scripts/
+│   ├── ta_engine.py              # 分析核心：页面 engine.js 的 Python 版；截图识别结果、工作文件读写
 │   ├── common.py                 # 公共函数：脱敏、匹配、报错特征标准化
 │   ├── popup_evidence.py         # 放进测试仓库：失败时收集弹窗证据（pytest 插件）
-│   ├── load_results.py           # 1 读取 Allure / JUnit / 标准化 JSON
-│   ├── rerun_failed.py           # 2 自动重跑失败用例
-│   ├── classify_rules.py         # 3 规则分类（确定性，不调用模型）
-│   ├── group_by_cause.py         # 5 按根因合并
+│   ├── load_results.py           # 1 读取 Allure / JUnit / 标准化 JSON / 页面工作文件
+│   ├── rerun_failed.py           # 4 按重跑建议重跑（分类之后、人工确认后）
+│   ├── classify_rules.py         # 2 分类 + 重跑建议（调用 ta_engine，写出 workspace.json）；5 带重跑结果再跑一次
+│   ├── group_by_cause.py         # 6 整理成单（默认一个用例一张）
 │   ├── jira_client.py            # Jira Cloud REST API 封装
-│   ├── check_duplicates.py       # 6 Jira 查重
-│   ├── validate_drafts.py        # 7 校验 AI 起草的内容
-│   ├── build_review_sheet.py     # 8 生成审核表 review.xlsx + 预览 review.html
-│   └── submit_jira.py            # 9 演练 / 提交，查询字段 ID
+│   ├── check_duplicates.py       # 7 Jira 查重
+│   ├── validate_drafts.py        # 8 校验 AI 起草的内容
+│   ├── build_review_sheet.py     # 9 生成审核表 review.xlsx + 预览 review.html
+│   └── submit_jira.py            # 10 演练 / 提交，查询字段 ID
 └── evals/
+    ├── check_consistency.py      # 检查与页面结果是否一致（必须输出“一致”）
+    ├── consistency/              # 一致性样本：51 条日志 + 页面算出的标准答案
     ├── eval_classify.py          # 分类准确率评测
-    └── sample_run/               # 8 个虚构用例，覆盖七类主要路径
+    └── sample_run/               # 8 个虚构用例，覆盖六类主要路径和重跑结果
 ```
 
 ## 一、安装
@@ -48,17 +54,26 @@ cp config/config.example.yaml config/config.yaml     # Windows: copy
 mkdir -p triage_runs/sample
 python scripts/load_results.py --input evals/sample_run/results.json --format normalized \
     --run-id sample --config config/config.example.yaml --out triage_runs/sample/failures.json
+# 示例里已经有重跑结果，所以直接带上 --rerun；真实使用时先不带 --rerun 分类，按 rerun_plan.json 重跑后再带上
 python scripts/classify_rules.py --failures triage_runs/sample/failures.json \
-    --rerun evals/sample_run/rerun.json --rules config/rules.yaml \
-    --data-checks evals/sample_run/data_checks.yaml --config config/config.example.yaml \
+    --rerun evals/sample_run/rerun.json \
+    --data-checks evals/sample_run/data_checks.yaml \
     --out triage_runs/sample/classified.json
 python evals/eval_classify.py --classified triage_runs/sample/classified.json \
     --labels evals/sample_run/labels.csv
-python scripts/group_by_cause.py --classified triage_runs/sample/classified.json \
+python scripts/group_by_cause.py --classified triage_runs/sample/classified.json --rerun evals/sample_run/rerun.json \
     --config config/config.example.yaml --out triage_runs/sample/groups.json
 ```
 
-预期分类：S01 产品缺陷（BIZ2）、S02 测试数据（BIZ1）、S03 环境问题（ENV2，虽然重跑通过）、S04 弹窗干扰（POP2）、S05 重跑可过（R1）、S06 脚本问题（SCR2）、S07 需人工判断（BIZ3，待核查 agent 40200）、S08 弹窗干扰（POP1）。评测应输出“达标”。同时会生成 `triage_runs/sample/data_checks.todo.yaml`，里面只有 `agent_code=40200`。
+预期分类：S01 产品缺陷（BIZ2）、S02 测试数据（BIZ1）、S03 环境问题（ENV2，重跑通过只标记为偶发）、S04 弹窗干扰（POP2）、S05 脚本问题（SCR1 疑似，重跑通过、不提单）、S06 脚本问题（SCR2）、S07 需人工判断（BIZ3，待核查 agent 40200）、S08 弹窗干扰（POP1）。评测应输出“达标”。同时会生成 `triage_runs/sample/data_checks.todo.yaml`，里面只有 `agent_code=40200`；以及 `triage_runs/sample/workspace.json`，可以在“测试分析助手”页面“打开工作文件”查看，分类应与上面相同。
+
+**检查与页面一致（必做）：**
+
+```bash
+python evals/check_consistency.py
+```
+
+用 2026-10-30 LAS HK 的 51 条日志，对比 skill 和页面的结果（40 个失败用例 + 12 个人工记录场景：截图观察、截图识别文字、重跑结果、核查结果、人工改判）。应输出“一致：40 个失败用例 + 12 个人工记录场景，与页面结果完全相同”。不一致时会逐条列出差异，请把输出发给维护人。
 
 ## 三、接入真实环境
 
@@ -74,14 +89,14 @@ python scripts/group_by_cause.py --classified triage_runs/sample/classified.json
    ```
    把输出中 System 字段的 fieldId 填入 `jira.fields.system`，并核对问题类型名称、必填字段。
 5. **核对模板**：请同事B对照真实建单页面，核对 `references/jira-template.md`，并把 3–5 张写得好的真实 Jira 单替换到 `references/examples/`。
-6. **补充规则**：把团队实际遇到的弹窗文字、业务报错写入 `config/rules.yaml` 和 `popup-catalog.md`。
+6. **补充规则**：在页面“配置 → 判断规则”里补上团队实际遇到的弹窗文字、业务报错，“导出规则 → 下载规则文件”覆盖 `config/rules.json`；同时更新 `popup-catalog.md`。
 
 ## 四、上线前评测
 
 1. 取最近 1–3 次回归中已经人工分析过的失败用例（建议 ≥ 100 个），整理成 `evals/labeled_cases.csv`。
 2. 跑第 1、3 步得到 `classified.json`，再运行 `evals/eval_classify.py`。
 3. 达标标准（可调整）：confirmed 用例准确率 ≥ 80%；真实缺陷被分到其他类的比例 ≤ 5%。
-4. 每次修改 `rules.yaml` 后重新评测。
+4. 每次修改 `config/rules.json` 后重新评测；改了判断逻辑还要运行 `python evals/check_consistency.py`。
 
 ## 五、安全说明
 

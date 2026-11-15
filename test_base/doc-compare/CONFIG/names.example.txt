@@ -1,0 +1,7 @@
+# 测试数据人名名单：每行一个名字（英文名、中文名都可以）。# 开头的行是注释。
+# 也可以直接用测试数据表格另存的 csv，每格一个名字。
+# 来源：每个 Case 生成保单时使用的测试数据（请同事A 确认能否导出）。
+NICHOLSPUN
+ELIZABETHACP
+GARCIAYRW
+KATHRYNOOS

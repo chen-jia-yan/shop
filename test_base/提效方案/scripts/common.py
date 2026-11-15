@@ -17,7 +17,6 @@ import yaml
 TZ_HK = timezone(timedelta(hours=8))
 
 CATEGORIES = {
-    "RERUN_PASS": "重跑可过",
     "ENVIRONMENT": "环境问题",
     "POPUP_INTERFERENCE": "弹窗干扰",
     "SCRIPT_ISSUE": "脚本问题",
@@ -27,7 +26,6 @@ CATEGORIES = {
 }
 
 OWNERS = {
-    "RERUN_PASS": "测试",
     "ENVIRONMENT": "环境负责人",
     "POPUP_INTERFERENCE": "测试",
     "SCRIPT_ISSUE": "测试",
@@ -37,6 +35,9 @@ OWNERS = {
 }
 
 REVIEW_STATUSES = ["待审核", "通过", "驳回", "追加到已有单"]
+
+# 重跑建议（分类之后判断；重跑结果不是分类）
+RERUN_ADVICE = {"go": "建议立即重跑", "fix": "处理后再重跑", "no": "不需要重跑", "done": "已重跑"}
 
 
 # ---------------------------------------------------------------- 基础 IO
