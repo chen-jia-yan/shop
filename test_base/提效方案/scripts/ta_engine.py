@@ -1,12 +1,12 @@
-"""分析核心（Python 版）：与“测试分析助手”页面里的 engine.js 逐条对应，规则编号、判断顺序、结论文字都相同。
+"""分析核心：判断每个失败用例的根本原因、证据和重跑建议。页面和命令行都只调用这里，没有第二套判断。
 
-两边必须保持一致：
-- 规则内容只有一份：config/rules.json（页面“配置 → 判断规则 → 导出规则”得到的就是这个文件）。
-- 修改判断逻辑时，engine.js 和本文件要一起改，并运行 evals/check_consistency.py 确认两边结果相同。
+- 判断规则（关键字、弹窗清单等）在 config/rules.json 的 "rules"；
+- 团队自己加的规则在 config/rules.json 的 "custom"（自定义规则，优先于内置规则，见 references/maintenance.md）；
+- 改了本文件的判断逻辑，运行 python scripts/ta.py check：内置样本和全部纠错样本都要通过。
 
-输入的用例字段与页面相同：
+输入的用例字段：
     uid, run, seq, id, name, result, error, stack, exceptionRaw, pageText, screenshot, start, module, device,
-    以及人工记录：obs {kind, text}, ocrText, dataCheck, dataNote, override {cat, reason}, rerun (pass|fail), r2 {same}, parent
+    shots [{name, src}], 以及人工记录：obs {kind, text}, ocrText, dataCheck, dataNote, override {cat, reason}, rerun (pass|fail), r2 {same}, parent
 classify_all() 会给每个失败用例写入 auto（判断结果）、final（最终分类）、plan（重跑建议）。
 """
 from __future__ import annotations
@@ -17,15 +17,17 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-RULES_FILE = Path(__file__).resolve().parent.parent / "config" / "rules.json"
+ROOT = Path(__file__).resolve().parent.parent
+RULES_FILE = ROOT / "config" / "rules.json"
+DEFAULT_RULES_FILE = ROOT / "config" / "rules.default.json"
 
 CATS = {
-    "ENVIRONMENT": {"name": "环境问题", "owner": "环境/运维"},
-    "POPUP_INTERFERENCE": {"name": "弹窗干扰", "owner": "测试"},
-    "SCRIPT_ISSUE": {"name": "脚本问题", "owner": "测试"},
-    "TEST_DATA": {"name": "测试数据问题", "owner": "测试"},
-    "PRODUCT_DEFECT": {"name": "疑似产品缺陷", "owner": "开发"},
-    "NEEDS_HUMAN": {"name": "需人工判断", "owner": "待定"},
+    "ENVIRONMENT": {"name": "环境问题", "owner": "环境/运维", "color": "purple"},
+    "POPUP_INTERFERENCE": {"name": "弹窗干扰", "owner": "测试", "color": "orange"},
+    "SCRIPT_ISSUE": {"name": "脚本问题", "owner": "测试", "color": "blue"},
+    "TEST_DATA": {"name": "测试数据问题", "owner": "测试", "color": "blue"},
+    "PRODUCT_DEFECT": {"name": "疑似产品缺陷", "owner": "开发", "color": "red"},
+    "NEEDS_HUMAN": {"name": "需人工判断", "owner": "待定", "color": "gray"},
 }
 REASONS = {
     "pending_data_check": "有业务报错，等待数据核查",
@@ -39,6 +41,7 @@ REASONS = {
     "control_state": "控件不可用，原因待确认",
     "generic_error": "报错过于笼统，真实原因在别处",
     "env_boundary": "处在环境中断的边界",
+    "custom_rule": "自定义规则判为需人工判断",
 }
 OBS_KINDS = {
     "normal": "页面正常，要操作的控件在屏幕上",
@@ -50,27 +53,48 @@ OBS_KINDS = {
     "unclear": "截图看不出原因",
 }
 CHECK_KINDS = {
-    "biz": {"name": "业务报错 → 核查测试数据",
+    "biz": {"name": "业务报错 → 核查测试数据", "what": "到数据库或系统里查这条用例用到的数据（保单号、代理人编号、产品代码等）是否存在、状态是否符合用例前提",
             "options": {"ok": ["数据存在且状态正确", "PRODUCT_DEFECT"], "missing": ["数据不存在", "TEST_DATA"],
                         "used": ["数据已被使用", "TEST_DATA"], "invalid": ["数据状态不符合用例前提", "TEST_DATA"]}},
-    "lock": {"name": "数据被占用 → 查占用来源",
+    "lock": {"name": "数据被占用 → 查占用来源", "what": "查这张保单/合同是被谁占用的：本批次前面失败的用例没关窗口，还是其他人、其他批次正在使用",
              "options": {"lock_prev": ["被本批次前面的用例占用（失败后没有释放）", "SCRIPT_ISSUE"],
                          "lock_other": ["被其他人或其他批次占用", "TEST_DATA"], "lock_unknown": ["查不到占用来源", "TEST_DATA"]}},
-    "cfg": {"name": "缺少配置 → 核查系统配置",
+    "cfg": {"name": "缺少配置 → 核查系统配置", "what": "请开发或配置负责人确认：报错提到的配置在测试环境里是否应该存在",
             "options": {"cfg_missing": ["应该存在，但测试环境缺失", "ENVIRONMENT"], "cfg_ok": ["配置正确，系统仍然报错", "PRODUCT_DEFECT"],
                         "cfg_unsupported": ["本来就不支持（用例前提不成立）", "SCRIPT_ISSUE"]}},
-    "dtp": {"name": "日期设置失败 → 核查日期值",
+    "dtp": {"name": "日期设置失败 → 核查日期值", "what": "查脚本要设置的日期（看测试数据或脚本），以及控件允许的日期范围（例如不能早于保单生效日、不能晚于系统日期）",
             "options": {"dtp_out": ["日期超出允许范围", "TEST_DATA"], "dtp_in": ["日期在范围内，仍然设置失败", "SCRIPT_ISSUE"]}},
 }
 DATA_CHECK = {v: o[0] for k in CHECK_KINDS.values() for v, o in k["options"].items()}
 PLAN = {"go": "建议立即重跑", "fix": "处理后再重跑", "no": "不需要重跑", "done": "已重跑"}
+PLAN_COLOR = {"go": "blue", "fix": "orange", "no": "gray", "done": "green"}
+
+
+def _read_json(p: Path) -> dict:
+    return json.loads(Path(p).read_text(encoding="utf-8-sig"))
+
+
+def default_rules() -> dict:
+    return _read_json(DEFAULT_RULES_FILE).get("rules", {})
+
+
+def load_rule_doc(path: str | Path | None = None) -> dict:
+    """读取规则文件 → {"rules": 内置规则的关键字和数值, "custom": 自定义规则, "changelog": 修改记录}。
+
+    rules.json 不存在时用 rules.default.json；缺少的项用默认值补上（升级后新增的规则项会自动出现）。
+    """
+    p = Path(path) if path else RULES_FILE
+    data = _read_json(p if p.exists() else DEFAULT_RULES_FILE)
+    rules = data.get("rules", data) if isinstance(data, dict) else {}
+    if not isinstance(rules, dict) or "env_patterns" not in rules:
+        raise ValueError(f"{p} 不是规则文件（缺少 rules）")
+    base = default_rules() if DEFAULT_RULES_FILE.exists() else {}
+    return {"rules": {**base, **rules}, "custom": list(data.get("custom") or []), "changelog": list(data.get("changelog") or [])}
 
 
 def load_rules(path: str | Path | None = None) -> dict:
-    """读取规则文件。页面导出的文件是 {"tool": "ta-rules", "rules": {...}}，也接受直接的 {...}。"""
-    p = Path(path) if path else RULES_FILE
-    data = json.loads(p.read_text(encoding="utf-8-sig"))
-    return data.get("rules", data) if isinstance(data, dict) else {}
+    """只取内置规则的关键字和数值（兼容旧的调用）。"""
+    return load_rule_doc(path)["rules"]
 
 
 # ======================= 文本工具 =======================
@@ -299,7 +323,7 @@ def evidence_of(c):
     shots = c.get("shots") or []
     if shots:
         for s in shots:
-            add("shot", "截图", s.get("name"))
+            add("shot", "截图", s.get("name"), src=s.get("src"))
     else:
         add("shot", "截图（路径）", c.get("screenshot"))
     o = c.get("obs") or {}
@@ -529,11 +553,135 @@ def classify_core(c, ctx, rules, use_ocr):
 OBS_SKIP = re.compile(r"^(BIZ|SYS-CFG|SYS-CRASH|DATA-LOCK|CHK|OBS-POPN|AST)")
 
 
-def classify(c, ctx, rules):
+# ======================= 自定义规则（团队自己维护，优先于内置规则） =======================
+# rules.json 的 "custom" 里每一条：
+#   {"id": "U1", "enabled": true, "name": "规则名称",
+#    "when": {"in": ["log", "popup", "screenshot"],   在哪些文字里找（默认 log + popup）
+#             "any": [...], "all": [...], "none": [...],   任一出现 / 全部出现 / 都不能出现（写法同其他规则，re: 开头是模糊匹配）
+#             "exceptions": [...]},                      异常类型（可选）
+#    "then": {"category": "TEST_DATA", "status": "confirmed" | "suspected", "brief": "一句话结论", "need": "下一步", "rerun": "go|fix|no"},
+#    "note": "为什么加这条", "by": "维护人", "at": "日期"}
+CUSTOM_SOURCES = {"log": "日志和报错", "popup": "弹窗和系统提示（含人工抄下的截图文字）", "screenshot": "截图文字（自动识别）"}
+
+
+def _custom_texts(c, use_ocr):
+    L = c.get("L") or {}
+    o = c.get("obs") or {}
+    return {
+        "log": "\n".join(x for x in [c.get("error"), c.get("stack"), c.get("exceptionRaw")] if x),
+        "popup": "\n".join(x for x in [c.get("pageText"), c.get("alertText")] + list(L.get("sysMsgs") or []) + [o.get("text")] if x),
+        "screenshot": (c.get("ocrText") or "") if use_ocr else "",
+    }
+
+
+def custom_match(c, custom, use_ocr):
+    """返回第一条命中的自定义规则 (rule, hits, sources)，没有命中返回 None。"""
+    if not custom:
+        return None
+    T = _custom_texts(c, use_ocr)
+    L = c.get("L") or {}
+    excs = [x for x in [c.get("exception")] + [short_type(t) for t in L.get("types") or []] if x]
+    for u in custom:
+        if not u.get("enabled", True):
+            continue
+        w = u.get("when") or {}
+        src = [s for s in (w.get("in") or ["log", "popup"]) if s in T]
+        if use_ocr and "screenshot" not in src:
+            continue
+        text = "\n".join(T[s] for s in src if T[s])
+        any_l, all_l, none_l, exc_l = w.get("any") or [], w.get("all") or [], w.get("none") or [], w.get("exceptions") or []
+        if not (any_l or all_l or exc_l):
+            continue
+        hits = []
+        if any_l:
+            h = find_any(text, any_l)
+            if not h:
+                continue
+            hits.append(h["hit"])
+        miss = False
+        for p in all_l:
+            h = find_any(text, [p])
+            if not h:
+                miss = True
+                break
+            hits.append(h["hit"])
+        if miss or (none_l and find_any(text, none_l)):
+            continue
+        if exc_l:
+            e = next((x for x in excs if has_exc(x, exc_l)), None)
+            if not e:
+                continue
+            hits.append(e)
+        return u, hits, [s for s in src if T[s]]
+    return None
+
+
+def custom_result(c, u, hits, srcs, from_ocr):
+    ev = evidence_of(c)
+    E = lambda k: ev_id(ev, k)
+    th = u.get("then") or {}
+    cat = th.get("category") if th.get("category") in CATS else "NEEDS_HUMAN"
+    status = "suspected" if from_ocr else ("confirmed" if th.get("status") == "confirmed" else "suspected")
+    name = u.get("name") or u.get("id")
+    where = {"log": E("step") or E("root") or E("msg") or E("stack"), "popup": E("sys") or E("page") or E("obs"), "screenshot": E("ocr")}
+    ids = "、".join(dict.fromkeys(x for x in (where.get(s) for s in srcs) if x))
+    why = ["命中自定义规则 " + _s(u.get("id")) + "“" + _s(name) + "”：出现“" + "”、“".join(_s(h) for h in hits[:3]) + "”" + ("（" + ids + "）" if ids else "")]
+    if u.get("note"):
+        why.append("规则说明：" + _s(u["note"]) + ("（" + _s(u.get("by")) + "）" if u.get("by") else ""))
+    if from_ocr:
+        why.append("命中的文字来自截图自动识别（" + _s(E("ocr")) + "），识别可能有误")
+    need = ([th["need"]] if th.get("need") else []) + (["打开截图核对识别出的文字"] if from_ocr else [])
+    return {"cat": cat, "status": status, "rule": _s(u.get("id")), "why": why, "need": need, "hits": hits, "flags": [], "ev": ev,
+            "custom": True, "ruleName": _s(name), "customBrief": _s(th.get("brief")), "customRerun": th.get("rerun"),
+            "reason": "custom_rule" if cat == "NEEDS_HUMAN" else None, "ocr": from_ocr}
+
+
+def validate_custom(items) -> list[str]:
+    """检查自定义规则的写法，返回问题清单（空表示没有问题）。"""
+    errs, ids = [], set()
+    for i, u in enumerate(items or [], 1):
+        tag = "第 " + str(i) + " 条（" + _s(u.get("id") or "无编号") + "）"
+        uid = _s(u.get("id"))
+        if not re.fullmatch(r"U\d+", uid):
+            errs.append(tag + "：编号要写成 U 加数字，例如 U3")
+        elif uid in ids:
+            errs.append(tag + "：编号重复")
+        ids.add(uid)
+        w, th = u.get("when") or {}, u.get("then") or {}
+        if not (w.get("any") or w.get("all") or w.get("exceptions")):
+            errs.append(tag + "：至少要填一个条件（任一出现 / 全部出现 / 异常类型）")
+        for k in ("any", "all", "none", "exceptions"):
+            for p in w.get(k) or []:
+                if not isinstance(p, str) or not p.strip():
+                    errs.append(tag + "：条件里有空白项")
+                elif p.startswith("re:"):
+                    try:
+                        re.compile(p[3:])
+                    except re.error as e:
+                        errs.append(tag + "：模糊匹配写法有误“" + p + "”（" + str(e) + "）")
+                elif len(p.strip()) < 3:
+                    errs.append(tag + "：条件“" + p + "”太短，容易误命中，至少写 3 个字")
+        if any(s not in CUSTOM_SOURCES for s in w.get("in") or []):
+            errs.append(tag + "：查找范围只能是 " + "、".join(CUSTOM_SOURCES))
+        if th.get("category") not in CATS:
+            errs.append(tag + "：分类不正确")
+        if th.get("rerun") and th["rerun"] not in ("go", "fix", "no"):
+            errs.append(tag + "：重跑建议只能是 go / fix / no")
+    return errs
+
+
+def classify(c, ctx, rules, custom=None):
+    # 自定义规则优先：先只看日志和弹窗文字；人工记录（截图观察）也在弹窗文字里
+    m = custom_match(c, custom, False)
+    if m:
+        return custom_result(c, *m, False)
     r = classify_core(c, ctx, rules, False)
     o = c.get("obs") or {}
     # 截图自动识别的文字：只在没有人工记录时使用；结论变了就降为“待复核”
     if c.get("ocrText") and not o.get("text"):
+        m2 = custom_match(c, custom, True)
+        if m2 and not (r["status"] == "confirmed" and r["cat"] != "NEEDS_HUMAN"):
+            return custom_result(c, *m2, True)
         r2 = classify_core(c, ctx, rules, True)
         if r2["cat"] != r["cat"] or r2["rule"] != r["rule"]:
             id_o, was = ev_id(r2["ev"], "ocr"), RULE_NAMES.get(r["rule"], r["rule"])
@@ -586,6 +734,8 @@ def rerun_plan(c):
     if c.get("rerun"):
         r2 = c.get("r2") or {}
         return {"b": "done", "why": "重跑已通过：偶发失败，不提单" if c["rerun"] == "pass" else "重跑失败，报错与第一次不同（第2次单独成一条）" if r2.get("same") is False else "重跑失败，报错与第一次相同：问题必现"}
+    if a.get("custom") and a.get("customRerun") in ("go", "fix", "no") and not c.get("override"):
+        return {"b": a["customRerun"], "why": "按自定义规则 " + a["rule"] + " 的设置：" + PLAN[a["customRerun"]]}
     if a.get("checkKind") and not c.get("dataCheck") and not c.get("override"):
         return {"b": "fix", "why": "先做人工核查（" + CHECK_KINDS[a["checkKind"]]["name"].split(" → ")[0] + "），不核查直接重跑结果不会变"}
     if "环境中断边界" in a["flags"]:
@@ -657,7 +807,7 @@ def to_cases(rows, mapping, rules, run_id, start_idx=0):
     return out
 
 
-def classify_all(cases, rules):
+def classify_all(cases, rules, custom=None):
     for c in cases:
         prepare(c, rules)
     base = [c for c in cases if not c.get("parent")]
@@ -685,7 +835,7 @@ def classify_all(cases, rules):
     for c in cases:
         if not c.get("failed"):
             continue
-        c["auto"] = classify(c, {"mass": {} if c.get("parent") else mass}, rules)
+        c["auto"] = classify(c, {"mass": {} if c.get("parent") else mass}, rules, custom)
         c["sig"] = c["auto"].get("groupKey") or c["sig0"]
         c["final"] = c["override"]["cat"] if c.get("override") else c["auto"]["cat"]
         if c.get("rerun") == "fail":
@@ -720,7 +870,10 @@ RULE_NAMES = {
 
 
 def rule_name(c):
-    return "人工判定" if c.get("override") else RULE_NAMES.get(c["auto"]["rule"], c["auto"]["rule"])
+    if c.get("override"):
+        return "人工判定"
+    a = c["auto"]
+    return a.get("ruleName") or RULE_NAMES.get(a["rule"], a["rule"])
 
 
 def _q(s):
@@ -737,6 +890,7 @@ def brief(c):
     fn = L["rootAt"]["func"] if L.get("rootAt") else ""
     ew = L.get("expectWin") or ""
     obs_text = (c.get("obs") or {}).get("text")
+    custom_b = (a.get("customBrief") or "自定义规则“" + _s(a.get("ruleName")) + "”命中" + _q(hit) + " → " + CATS[a["cat"]]["name"]) if a.get("custom") else ""
     B = {
         "ENV1": lambda: "异常 " + _s(c.get("exception")) + " 表示浏览器/设备会话无法创建 → 执行环境问题",
         "ENV-DESK": lambda: "报错" + _q(hit) + "：执行机没有可交互的桌面，无法操作鼠标键盘 → 环境问题，与用例本身无关",
@@ -780,7 +934,7 @@ def brief(c):
         "OBS-DIS": lambda: "截图中控件是灰色不可用 → 需判断是数据、步骤还是系统问题",
         "OBS-DESK": lambda: "截图是锁屏/黑屏/断开画面 → 执行机桌面不可用，环境问题",
     }
-    s = B[a["rule"]]() if a["rule"] in B else (a["why"][0] if a["why"] else "")
+    s = custom_b or (B[a["rule"]]() if a["rule"] in B else (a["why"][0] if a["why"] else ""))
     if a.get("phase") == "verify":
         s += "（业务已提交成功，失败发生在结果校验）"
     fl = a["flags"]
@@ -867,94 +1021,6 @@ def ocr_text(ocrs) -> str:
     return "\n".join(p for p in parts if p)[:4000]
 
 
-def load_ocr_index(paths) -> dict:
-    """读取一个或多个 .ocr.json，按截图指纹（sha256）和文件名建索引；重名的文件不按文件名对应。"""
-    by_sha, by_name, dup = {}, {}, set()
-    for p in paths or []:
-        data = json.loads(Path(p).read_text(encoding="utf-8-sig"))
-        if data.get("tool") != "ta-ocr":
-            raise ValueError(f"{p} 不是「识别截图.bat」生成的识别结果文件")
-        for im in data.get("images") or []:
-            if not im.get("langs"):
-                continue
-            if im.get("sha256"):
-                by_sha[im["sha256"].lower()] = im
-            n = re.split(r"[\\/]", im.get("name") or "")[-1].lower()
-            if n:
-                if n in by_name and by_name[n] is not im:
-                    dup.add(n)
-                by_name[n] = im
-    for n in dup:
-        by_name.pop(n, None)
-    return {"bySha": by_sha, "byName": by_name}
-
-
-def ocr_for_files(files, index) -> str:
-    """按截图文件找识别结果：先按指纹，再按文件名。"""
-    import hashlib
-    found = []
-    for f in files or []:
-        o = None
-        try:
-            o = index["bySha"].get(hashlib.sha256(Path(f).read_bytes()).hexdigest())
-        except OSError:
-            pass
-        o = o or index["byName"].get(re.split(r"[\\/]", str(f))[-1].lower())
-        if o and o not in found:
-            found.append(o)
-    return ocr_text(found)
-
-
-# ======================= 工作文件（页面“保存工作文件 / 打开工作文件”与 skill 共用） =======================
-# {"tool": "ta-workspace", "v": 1, "saved_at", "saved_by": "page" | "skill", "masked": true,
-#  "rules": {...}, "runs": [{id, name, total, at}], "cases": [页面用例字段 + 人工记录 + analysis]}
-WS_INPUT_FIELDS = ("uid", "run", "seq", "id", "name", "result", "failed", "error", "stack", "exceptionRaw", "pageText",
-                   "screenshot", "start", "duration", "module", "device", "parent", "attempt")
-WS_HUMAN_FIELDS = ("obs", "ocrText", "dataCheck", "dataNote", "override", "rerun", "rerunNote", "r2")
-WS_TEXT_FIELDS = ("name", "error", "stack", "pageText", "ocrText", "dataNote", "rerunNote")
-
-
-def read_workspace(path) -> dict:
-    data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
-    if data.get("tool") != "ta-workspace":
-        raise ValueError(f"{path} 不是工作文件（页面“保存工作文件”或 skill 生成的 workspace.json）")
-    return data
-
-
-def write_workspace(path, runs, cases, rules, mask=None):
-    """写工作文件。mask：脱敏函数，写出前对所有文字字段脱敏（必须打码后才能交给模型）。"""
-    from datetime import datetime as _dt
-    m = mask or (lambda s: s)
-    out = []
-    for c in cases:
-        o = {k: c[k] for k in WS_INPUT_FIELDS + WS_HUMAN_FIELDS if c.get(k) not in (None, "")}
-        for k in WS_TEXT_FIELDS:
-            if o.get(k):
-                o[k] = m(o[k])
-        if (o.get("obs") or {}).get("text"):
-            o["obs"] = dict(o["obs"], text=m(o["obs"]["text"]))
-        if (o.get("r2") or {}).get("error"):
-            o["r2"] = dict(o["r2"], error=m(o["r2"]["error"]))
-        if c.get("failed") and c.get("auto"):
-            o["analysis"] = mask_deep(result_of(c), m)
-        out.append(o)
-    doc = {"tool": "ta-workspace", "v": 1, "saved_at": _dt.now().isoformat(timespec="seconds"), "saved_by": "skill",
-           "masked": mask is not None, "rules": rules, "runs": runs, "cases": out}
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
-    return doc
-
-
-def mask_deep(x, m):
-    if isinstance(x, str):
-        return m(x)
-    if isinstance(x, list):
-        return [mask_deep(v, m) for v in x]
-    if isinstance(x, dict):
-        return {k: mask_deep(v, m) for k, v in x.items()}
-    return x
-
-
 def result_of(c) -> dict:
     """一个失败用例的判断结果（写进文件用；与页面“导出工作文件”里的 result 字段相同）。"""
     a = c["auto"]
@@ -963,3 +1029,30 @@ def result_of(c) -> dict:
             "check_kind": a.get("checkKind"), "phase": a.get("phase"), "from_ocr": bool(a.get("ocr")),
             "evidence": [{k: e[k] for k in ("id", "kind", "label", "text")} for e in a["ev"]],
             "rerun_plan": {"advice": c["plan"]["b"], "reason": c["plan"]["why"]}, "signature": c.get("sig")}
+
+
+# ======================= 纠错样本（config/corrections.json） =======================
+# 人工改判过的用例存成样本：{"id": "C001", "expect": {"category": ..., "rule": 可选}, "reason": 为什么, "by", "at",
+#                          "from": {"run", "case_id"}, "case": {error, stack, exceptionRaw, pageText, name, obs, ocrText, dataCheck, ...}}
+# 每次改规则后把全部样本重新分析一遍：没通过的样本说明规则还判不对，改规则之后原来通过、现在不通过的，说明改坏了。
+SAMPLE_FIELDS = ("id", "name", "result", "error", "stack", "exceptionRaw", "pageText", "screenshot", "module", "device",
+                 "start", "obs", "ocrText", "dataCheck", "dataNote")
+
+
+def sample_of(c) -> dict:
+    """从用例取出存样本需要的字段（不含人工改判、重跑结果：样本检验的是规则自己能不能判对）。"""
+    return {k: c[k] for k in SAMPLE_FIELDS if c.get(k) not in (None, "")}
+
+
+def test_corrections(items, rules, custom=None) -> list[dict]:
+    """逐条单独分析纠错样本（不含整批规律，例如“环境中断后一直没恢复”）。"""
+    out = []
+    for it in items or []:
+        sid = _s(it.get("id"))
+        c = make_case(dict(it.get("case") or {}, uid="sample#" + sid, run="sample:" + sid, seq=1, failed=True), rules)
+        classify_all([c], rules, custom)
+        exp = it.get("expect") or {}
+        ok = c["final"] == exp.get("category") and (not exp.get("rule") or c["auto"]["rule"] == exp["rule"])
+        out.append({"id": sid, "ok": ok, "expect": exp,
+                    "got": {"category": c["final"], "rule": c["auto"]["rule"], "rule_name": rule_name(c), "status": c["auto"]["status"], "brief": c["auto"]["brief"]}})
+    return out

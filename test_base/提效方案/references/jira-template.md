@@ -89,7 +89,7 @@ I tried to use agent code "50051" to run the BM cases, it still displays the "re
 - 报错原文不要改写；看不清的内容不要猜。
 - “已查过数据库”之类的排查只写真正做过的事，并在 `claims` 中引用证据（数据核查记录）。
 - **截图**：用 `!文件名|thumbnail!` 引用，文件会在建单后作为附件上传。文件名必须和实际上传的文件名一致。
-- `validate_drafts.py` 会检查：第一段存在且不太长、有 `*1st run*`、重跑同样失败时有 `*2nd run*`、截图文件存在、事实有证据、没有个人信息。
+- 页面“提交前检查”（`ta_jira.validate`）会检查：第一段存在且不太长、有 `*1st run*`、重跑同样失败时有 `*2nd run*`、截图文件存在、事实有证据、没有个人信息。
 
 ## 3. Environment（环境）
 
@@ -105,7 +105,7 @@ Build: {build}
 Executed at: {started_at} (UTC+8)
 ```
 
-> 如果 ROTQA 项目没有单独的 Environment 字段，`submit_jira.py` 会把这段内容放在 Description 最前面（由 `config.yaml` 的 `jira.environment_mode` 控制）。
+> 如果 ROTQA 项目没有单独的 Environment 字段，会把这段内容放在 Description 最前面（页面“配置 → Jira 与接口”的“Environment 放在”）。
 
 ## 4. 其他字段
 
@@ -130,7 +130,7 @@ Executed at: {started_at} (UTC+8)
 | 其他产品缺陷 | Medium |
 | 测试数据问题、脚本稳定性任务 | Low |
 
-“影响出单、核保、支付、金额计算”通过模块标签和关键字判断，关键字在 `config.yaml` 的 `jira.priority_rules.high_impact_keywords` 中配置。这只是建议值，审核人有最终决定权。
+“影响出单、核保、支付、金额计算”通过模块标签和关键字判断，关键字在页面“配置 → Jira 与接口”的“高优先级关键字”（`config/jira.json` 的 `highKeywords`） 中配置。这只是建议值，审核人有最终决定权。
 
 ## 5. 追加到已有单时的评论格式
 

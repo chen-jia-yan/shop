@@ -1,7 +1,7 @@
 {
+  "_说明": "团队共用的判断规则。在测试分析助手“配置 → 判断规则 / 自定义规则”里修改会自动保存到这里；直接改文件后运行 python scripts/ta.py check。恢复默认用 rules.default.json。",
   "tool": "ta-rules",
-  "v": 1,
-  "note": "规则只有这一份：页面“配置 → 判断规则 → 导出规则”得到的就是这个文件；skill 的脚本直接读取它。改规则后两边都用同一个文件。",
+  "v": 2,
   "rules": {
     "env_exceptions": ["SessionNotCreatedException"],
     "env_patterns": [
@@ -41,7 +41,8 @@
     "test_code_paths": ["tests/", "testcases/", "test_", "pages/", "test_case", "system_view", "base_view"],
     "assertion_exceptions": ["AssertionError", "AssertionFailedError", "ComparisonFailure"],
     "expected_actual": ["re:expected[^\\n]{0,80}(actual|but (was|got)|but found)", "re:assert .+ == .+", "re:期望.{0,40}实际", "re:预期.{0,40}实际"],
-    "fail_words": ["failed", "fail", "failure", "error", "broken", "失败", "错误", "不通过", "未通过", "异常"],
-    "pii_names": []
-  }
+    "fail_words": ["failed", "fail", "failure", "error", "broken", "失败", "错误", "不通过", "未通过", "异常"]
+  },
+  "custom": [],
+  "changelog": [{"at": "2026-11-16 21:00", "by": "初始版本", "what": "从默认规则创建", "note": ""}]
 }

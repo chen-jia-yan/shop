@@ -1,0 +1,207 @@
+"""测试分析助手（命令行入口）。页面和命令行用的是同一套分析，结果相同。
+
+    python scripts/ta.py open                      打开页面（本机服务，只监听 127.0.0.1）
+    python scripts/ta.py analyze 报告.mhtml [...]   导入执行结果、识别截图文字、分析，打印结果
+          --name 批次名 --plan 测试计划 --device 设备 --env 环境；--rerun-of <批次编号> 导入重跑结果
+    python scripts/ta.py list                      已导入的批次
+    python scripts/ta.py show [批次编号] [--json]   失败用例的分析结果（--json 给 AI 或其他程序读取）
+    python scripts/ta.py export [批次编号] --out 失败分诊.csv
+    python scripts/ta.py ocr [--import 结果.ocr.json]   识别还没识别的截图 / 导入手动识别的结果
+    python scripts/ta.py check                     改规则或代码后运行：规则写法、纠错样本、基准样本
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+import threading
+import webbrowser
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # Windows 命令行显示中文
+
+import ta_engine as E  # noqa: E402
+import ta_store as T  # noqa: E402
+
+
+def _run(st, rid):
+    if not st.runs:
+        raise T.UserError("还没有导入任何批次")
+    r = st.run_of(rid) if rid else st.runs[-1]
+    if not r:
+        raise T.UserError("没有批次 " + str(rid) + "，用 list 查看")
+    return r
+
+
+def cmd_open(a):
+    import ta_server
+    st = T.Store()
+    srv, port = ta_server.serve(st, a.port)
+    url = "http://127.0.0.1:" + str(port) + "/"
+    print("测试分析助手已启动：" + url)
+    print("数据只在这台电脑上。关闭这个窗口即退出。")
+    if not a.no_browser:
+        threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+    st.ocr_async()  # 上次没识别完的截图
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+
+def cmd_analyze(a):
+    st = T.Store(auto_ocr=False)
+    info = {"name": a.name or "", "plan": a.plan or "", "device": a.device or "", "env": a.env or ""}
+    if a.rerun_of:
+        info.update(mode="rerun", rerunOf=a.rerun_of)
+    res = st.import_paths([Path(p) for p in a.files], info)
+    print(res["msg"])
+    print(st.ocr_sync())
+    if not a.rerun_of:
+        a.run, a.json = res["run"], False
+        cmd_show(a, st)
+
+
+def cmd_list(a):
+    st = T.Store(auto_ocr=False)
+    cs = st.analyzed()
+    for r in st.runs:
+        f = [c for c in cs if c["run"] == r["id"] and c.get("failed") and not c.get("parent")]
+        print(r["id"], r["at"], r["name"], "总数", r["total"], "失败", len(f))
+    if not st.runs:
+        print("还没有导入任何批次")
+
+
+def cmd_show(a, st=None):
+    st = st or T.Store(auto_ocr=False)
+    r = _run(st, a.run)
+    cs = [c for c in st.analyzed() if c["run"] == r["id"] and c.get("failed")]
+    if a.json:
+        print(json.dumps({"run": {k: v for k, v in r.items() if k != "cases"},
+                          "cases": [dict({"uid": c["uid"], "case_id": c["id"], "name": c.get("name"), "attempt": 2 if c.get("parent") else 1}, **E.result_of(c)) for c in cs]},
+                         ensure_ascii=False, indent=1))
+        return
+    by = {}
+    for c in cs:
+        by.setdefault(c["final"], []).append(c)
+    print("批次", r["id"], r["name"], "失败", len([c for c in cs if not c.get("parent")]))
+    for k in E.CATS:
+        if k not in by:
+            continue
+        print("\n【" + E.CATS[k]["name"] + "】" + str(len(by[k])) + " 条 · 处理方：" + E.CATS[k]["owner"])
+        for c in by[k]:
+            a_ = c["auto"]
+            st_ = "人工已改" if c.get("override") else "规则确认" if a_["status"] == "confirmed" else "待复核"
+            print("  " + str(c["id"]) + ("（第2次）" if c.get("parent") else "") + " [" + st_ + " · " + E.rule_name(c) + " · " + E.PLAN[c["plan"]["b"]] + "] " + a_["brief"])
+
+
+def cmd_export(a):
+    st = T.Store(auto_ocr=False)
+    r = _run(st, a.run)
+    out = Path(a.out or "失败分诊_" + re.sub(r"[^\w\-]+", "_", r["name"]) + ".csv")
+    out.write_text(st.cases_csv(r["id"]), encoding="utf-8")
+    print("已导出", out)
+
+
+def cmd_ocr(a):
+    st = T.Store(auto_ocr=False)
+    if a.import_file:
+        n = st.import_ocr_doc(json.loads(Path(a.import_file).read_text(encoding="utf-8-sig")))
+        print("已导入识别结果，新增 " + str(n) + " 张")
+        return
+    print(st.ocr_sync())
+
+
+def cmd_check(a) -> int:
+    """规则写法 → 自定义规则 → 纠错样本 → 基准样本。全部通过返回 0。"""
+    bad = 0
+    try:
+        doc = E.load_rule_doc()
+    except (ValueError, OSError) as e:
+        print("✗ 规则文件读不出来：" + str(e))
+        return 1
+    base = E.default_rules()
+    unknown = [k for k in doc["rules"] if k not in base]
+    errs = []
+    for k, v in doc["rules"].items():
+        if k in base and isinstance(base[k], list):
+            if not isinstance(v, list):
+                errs.append(k + " 应该是清单")
+                continue
+            for x in v:
+                if isinstance(x, str) and x.startswith("re:"):
+                    try:
+                        re.compile(x[3:])
+                    except re.error as e:
+                        errs.append(k + "：模糊匹配写法有误“" + x + "”（" + str(e) + "）")
+    errs += ["不认识的规则项 " + k for k in unknown] + E.validate_custom(doc["custom"])
+    if errs:
+        bad = 1
+        print("✗ 规则写法有问题：")
+        for e in errs:
+            print("   -", e)
+    else:
+        print("✓ 规则写法正确（" + str(len(doc["rules"])) + " 项规则，" + str(len(doc["custom"])) + " 条自定义规则，最近修改："
+              + ((doc["changelog"][-1]["at"] + " " + doc["changelog"][-1].get("by", "")) if doc["changelog"] else "无记录") + "）")
+    corr = T.read_json(T.CORR_FILE, {"items": []}).get("items") or []
+    res = E.test_corrections(corr, doc["rules"], doc["custom"])
+    fail = [r for r in res if not r["ok"]]
+    if fail:
+        bad = 1
+        print("✗ 纠错样本：" + str(len(res)) + " 条中 " + str(len(fail)) + " 条没有判对")
+        for r in fail:
+            print("   - " + r["id"] + "：应为 " + E.CATS.get(r["expect"].get("category"), {}).get("name", "?") + (" / " + r["expect"]["rule"] if r["expect"].get("rule") else "")
+                  + "，现在判为 " + E.CATS[r["got"]["category"]]["name"] + " / " + r["got"]["rule"] + "（" + r["got"]["brief"] + "）")
+    else:
+        print("✓ 纠错样本：" + str(len(res)) + " 条全部判对")
+    sys.path.insert(0, str(E.ROOT / "evals"))
+    import check_consistency
+    n, errs = check_consistency.run()
+    if errs:
+        bad = 1
+        print("✗ 基准样本：" + str(len(errs)) + " 处和标准答案不同（判断逻辑被改动了）：")
+        for e in errs[:20]:
+            print("   -", e)
+        print("   确认是有意的改进后运行 python evals/check_consistency.py --update")
+    else:
+        print("✓ 基准样本：" + str(n) + " 项与标准答案相同")
+    print("全部通过" if not bad else "有问题，请先处理再使用")
+    return bad
+
+
+def main():
+    ap = argparse.ArgumentParser(description="测试分析助手")
+    sp = ap.add_subparsers(dest="cmd")
+    p = sp.add_parser("open")
+    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--no-browser", action="store_true")
+    p = sp.add_parser("analyze")
+    p.add_argument("files", nargs="+")
+    for k in ("name", "plan", "device", "env", "rerun-of"):
+        p.add_argument("--" + k)
+    sp.add_parser("list")
+    p = sp.add_parser("show")
+    p.add_argument("run", nargs="?")
+    p.add_argument("--json", action="store_true")
+    p = sp.add_parser("export")
+    p.add_argument("run", nargs="?")
+    p.add_argument("--out")
+    p = sp.add_parser("ocr")
+    p.add_argument("--import", dest="import_file")
+    sp.add_parser("check")
+    a = ap.parse_args()
+    fn = {"open": cmd_open, "analyze": cmd_analyze, "list": cmd_list, "show": cmd_show, "export": cmd_export, "ocr": cmd_ocr, "check": cmd_check}.get(a.cmd or "open")
+    if not a.cmd:
+        a.port, a.no_browser = 8765, False
+    try:
+        return fn(a) or 0
+    except T.UserError as e:
+        print("✗ " + str(e))
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,20 @@
+{
+  "title": "示例服务方案",
+  "subtitle": "用于测试 build_docx.py 的示例内容",
+  "meta": {"编制部门": "示例部门", "日期": "2026-11-16", "版本": "V0.1"},
+  "toc": true,
+  "blocks": [
+    {"type": "heading", "text": "一、背景与目标", "level": 1},
+    {"type": "paragraph", "text": "这是一段示例正文，其中 **这几个字会加粗**。"},
+    {"type": "heading", "text": "二、方案内容", "level": 1},
+    {"type": "heading", "text": "2.1 服务范围", "level": 2},
+    {"type": "bullets", "items": ["范围一", "范围二", "**重点**范围三"]},
+    {"type": "heading", "text": "2.2 实施步骤", "level": 2},
+    {"type": "numbered", "items": ["需求确认", "方案实施", "验收交付"]},
+    {"type": "heading", "text": "三、实施计划", "level": 1},
+    {"type": "table", "header": ["阶段", "时间", "负责人"], "rows": [["需求确认", "第 1 周", "张三"], ["方案实施", "第 2-4 周", "李四"]]},
+    {"type": "note", "text": "以上时间为示例。"},
+    {"type": "heading", "text": "四、费用说明", "level": 1},
+    {"type": "paragraph", "text": "【待补充：知识库中未检索到 2026 年收费标准】"}
+  ]
+}

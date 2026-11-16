@@ -28,7 +28,7 @@
 
 ## 接入证据收集（一次性改造）
 
-把 `scripts/popup_evidence.py` 接入测试框架（方法见该文件顶部说明）。接入后，每个失败用例会自动保存：
+（需要改测试框架，目前框架不能改，这一节暂不适用；以后能改时再接入。）接入后，每个失败用例会自动保存：
 
 - 原生对话框的文字；
 - 页面内所有可见弹框的文字、class、id；
@@ -118,7 +118,7 @@ def dismiss_known_noise(driver, noise_patterns, close_selectors):
 
 ## 弹窗统计
 
-`classify_rules.py` 会在 `classified.json` 的 `summary.popups` 中输出本次运行所有弹窗的文字、出现次数、所在页面。连续多次出现的同一弹窗，应该从源头解决，而不是每次在脚本里关闭。
+页面“失败分诊”按原因分组，同一弹窗的用例排在一起，可以看到出现次数。连续多次出现的同一弹窗，应该从源头解决，而不是每次在脚本里关闭。
 
 ---
 
@@ -153,5 +153,5 @@ def dismiss_known_noise(driver, noise_patterns, close_selectors):
 ### 4.4 建议改进 `handle_popups`
 
 - 读取对话框里**所有**文字控件（`Static` 等）的文字，而不是只读一个；读不到时记录对话框标题、类名和按钮文字。
-- 关闭弹窗**之前**先截图，并保存窗口清单（见 `evidence-and-screenshots.md` 第 5 节、`scripts/desktop_evidence.py`）。
+- 关闭弹窗**之前**先截图，并保存窗口清单（见 `evidence-and-screenshots.md` 第 5 节；需要改测试框架，目前暂不适用）。
 - 把弹窗按“预期提示 / 系统报错 / 未知”分别记录，预期提示（如 `Record Submitted`）不要当作失败。

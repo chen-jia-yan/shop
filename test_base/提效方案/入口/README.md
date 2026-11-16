@@ -1,112 +1,49 @@
-# regression-triage-jira
+# 测试分析助手（regression-triage-jira）
 
-回归测试失败分诊 + Jira 批量起草 Skill。按开放的 Agent Skills 规范编写（`SKILL.md` + `references/` + `scripts/`），可在 Claude Code、GitHub Copilot、Codex、Cursor 等支持 Skills 的 AI 工具中使用；所有脚本也可以脱离 AI 单独运行。
+分析自动化回归的失败用例：判断原因、给出重跑建议、分派、起草 Jira。页面和分析都在本机，数据不出这台电脑。
 
-## 目录
+## 第一次使用
 
-```
-regression-triage-jira/
-├── SKILL.md                      # AI 执行的步骤、铁律、汇报格式
-├── README.md                     # 本文件：安装、配置、验证
-├── requirements.txt
-├── config/
-│   ├── config.example.yaml       # 复制为 config.yaml 后填写
-│   ├── rules.json                # 判断规则（与页面共用；页面“下载规则文件”生成）
-│   └── vision.example.yaml       # 模型识图（可选，默认关闭）
-├── references/
-│   ├── taxonomy.md               # 六类失败的判定规则（唯一标准）+ 重跑标准
-│   ├── popup-catalog.md          # 三种弹窗的识别、处理、已知清单
-│   ├── jira-template.md          # ROTQA 标题格式、简洁描述（1st / 2nd run）、字段规则
-│   ├── data-contract.md          # 所有中间文件的字段定义
-│   └── examples/                 # 3 个起草范例（含“不该起草”的反例）
-├── tools/
-│   └── 识别截图.bat              # Windows 截图文字识别（页面和 skill 共用结果文件）；用一键安装脚本安装时没有这个文件，请在页面“数据导入 → 下载识别工具”获取后放进来
-├── scripts/
-│   ├── ta_engine.py              # 分析核心：页面 engine.js 的 Python 版；截图识别结果、工作文件读写
-│   ├── common.py                 # 公共函数：脱敏、匹配、报错特征标准化
-│   ├── popup_evidence.py         # 放进测试仓库：失败时收集弹窗证据（pytest 插件）
-│   ├── load_results.py           # 1 读取 Allure / JUnit / 标准化 JSON / 页面工作文件
-│   ├── rerun_failed.py           # 4 按重跑建议重跑（分类之后、人工确认后）
-│   ├── classify_rules.py         # 2 分类 + 重跑建议（调用 ta_engine，写出 workspace.json）；5 带重跑结果再跑一次
-│   ├── group_by_cause.py         # 6 整理成单（默认一个用例一张）
-│   ├── jira_client.py            # Jira Cloud REST API 封装
-│   ├── check_duplicates.py       # 7 Jira 查重
-│   ├── validate_drafts.py        # 8 校验 AI 起草的内容
-│   ├── build_review_sheet.py     # 9 生成审核表 review.xlsx + 预览 review.html
-│   └── submit_jira.py            # 10 演练 / 提交，查询字段 ID
-└── evals/
-    ├── check_consistency.py      # 检查与页面结果是否一致（必须输出“一致”）
-    ├── consistency/              # 一致性样本：51 条日志 + 页面算出的标准答案
-    ├── eval_classify.py          # 分类准确率评测
-    └── sample_run/               # 8 个虚构用例，覆盖六类主要路径和重跑结果
-```
-
-## 一、安装
-
-```bash
-pip install -r requirements.txt
-cp config/config.example.yaml config/config.yaml     # Windows: copy
-```
-
-## 二、用示例数据验证（不需要 Jira，不需要测试环境）
-
-```bash
-mkdir -p triage_runs/sample
-python scripts/load_results.py --input evals/sample_run/results.json --format normalized \
-    --run-id sample --config config/config.example.yaml --out triage_runs/sample/failures.json
-# 示例里已经有重跑结果，所以直接带上 --rerun；真实使用时先不带 --rerun 分类，按 rerun_plan.json 重跑后再带上
-python scripts/classify_rules.py --failures triage_runs/sample/failures.json \
-    --rerun evals/sample_run/rerun.json \
-    --data-checks evals/sample_run/data_checks.yaml \
-    --out triage_runs/sample/classified.json
-python evals/eval_classify.py --classified triage_runs/sample/classified.json \
-    --labels evals/sample_run/labels.csv
-python scripts/group_by_cause.py --classified triage_runs/sample/classified.json --rerun evals/sample_run/rerun.json \
-    --config config/config.example.yaml --out triage_runs/sample/groups.json
-```
-
-预期分类：S01 产品缺陷（BIZ2）、S02 测试数据（BIZ1）、S03 环境问题（ENV2，重跑通过只标记为偶发）、S04 弹窗干扰（POP2）、S05 脚本问题（SCR1 疑似，重跑通过、不提单）、S06 脚本问题（SCR2）、S07 需人工判断（BIZ3，待核查 agent 40200）、S08 弹窗干扰（POP1）。评测应输出“达标”。同时会生成 `triage_runs/sample/data_checks.todo.yaml`，里面只有 `agent_code=40200`；以及 `triage_runs/sample/workspace.json`，可以在“测试分析助手”页面“打开工作文件”查看，分类应与上面相同。
-
-**检查与页面一致（必做）：**
-
-```bash
-python evals/check_consistency.py
-```
-
-用 2026-10-30 LAS HK 的 51 条日志，对比 skill 和页面的结果（40 个失败用例 + 12 个人工记录场景：截图观察、截图识别文字、重跑结果、核查结果、人工改判）。应输出“一致：40 个失败用例 + 12 个人工记录场景，与页面结果完全相同”。不一致时会逐条列出差异，请把输出发给维护人。
-
-## 三、接入真实环境
-
-1. **接入弹窗证据收集**：把 `scripts/popup_evidence.py` 复制到测试仓库，在 `conftest.py` 加 `pytest_plugins = ["popup_evidence"]`。说明见文件顶部。不接入也能用，但弹窗类问题大多会落入“需人工判断”。
-2. **给用例打标签**：至少提供 `case_id`、`market`、`module`、`system`（Allure 用 `allure.label`，JUnit 用 `record_property`）。标题里的市场和模块来自这里。
-3. **配置重跑命令**：填写 `config.yaml` 的 `rerun.command` 和 `rerun.workdir`。
-4. **配置 Jira**：
-   ```bash
-   set JIRA_BASE_URL=https://<公司>.atlassian.net
-   set JIRA_EMAIL=<你的邮箱>
-   set JIRA_API_TOKEN=<API Token>
-   python scripts/submit_jira.py --discover-fields --config config/config.yaml
+1. 安装 Python 3.10 或更新版本（安装时勾选 “Add python.exe to PATH”）。不需要 pip 安装任何包。
+2. 把整个 `regression-triage-jira` 文件夹放到本机或共享盘。
+3. 双击 `打开测试分析助手.bat`。浏览器会打开 `http://127.0.0.1:8765/`。用的时候不要关掉那个黑色窗口。
+4. 运行一次检查：在文件夹里打开命令行，执行
    ```
-   把输出中 System 字段的 fieldId 填入 `jira.fields.system`，并核对问题类型名称、必填字段。
-5. **核对模板**：请同事B对照真实建单页面，核对 `references/jira-template.md`，并把 3–5 张写得好的真实 Jira 单替换到 `references/examples/`。
-6. **补充规则**：在页面“配置 → 判断规则”里补上团队实际遇到的弹窗文字、业务报错，“导出规则 → 下载规则文件”覆盖 `config/rules.json`；同时更新 `popup-catalog.md`。
+   python scripts\ta.py check
+   python evals\selftest.py
+   ```
+   两个都显示“通过”就可以用了。
 
-## 四、上线前评测
+## 日常使用
 
-1. 取最近 1–3 次回归中已经人工分析过的失败用例（建议 ≥ 100 个），整理成 `evals/labeled_cases.csv`。
-2. 跑第 1、3 步得到 `classified.json`，再运行 `evals/eval_classify.py`。
-3. 达标标准（可调整）：confirmed 用例准确率 ≥ 80%；真实缺陷被分到其他类的比例 ≤ 5%。
-4. 每次修改 `config/rules.json` 后重新评测；改了判断逻辑还要运行 `python evals/check_consistency.py`。
+1. **数据导入**：把报告网页另存的 `.mhtml`（或 `.html`）、JSON、CSV、JUnit、Allure 拖进来，确认字段对应。报告里的截图会自动取出来，并在后台识别截图上的文字（右上角显示进度），识别完自动重新分析。
+2. **失败分诊 → ① 分诊**：按分类、原因查看。“待复核”的打开看截图，记录截图观察；需要查数据的选核查结果；判错的改分类，勾选“同时加入纠错样本”。
+3. **② 重跑**：勾选后一键重跑（或复制用例编号到平台），跑完导入“重跑结果”。
+4. **③ 分派**：按处理方复制成表格，贴到邮件或 Teams。
+5. **Jira 提报**：一个用例一张单，审核通过后提交（需要环境变量）或导出 CSV。
 
-## 五、安全说明
+报告平台只有分享链接、日志要一条条点开时：在 Edge 打开报告，把需要的用例展开后按 Ctrl+S，保存类型选“网页，单个文件 (*.mhtml)”。以后接平台 SDK 后可以直接取数据。
 
-- 只连接测试环境；数据核查必须由人或公司批准的只读脚本完成。
-- 写入 Jira 前必须人工审核；`submit_jira.py` 默认演练，加 `--confirm` 才写入；每张单带 `triage-<run>-<group>` 标签防止重复。
-- 文本在进入模型和写入 Jira 前都会脱敏（证件号、电话、邮箱、通过 Luhn 校验的卡号，以及测试数据中的姓名字段）。正则无法覆盖所有姓名，测试数据中的姓名字段请写入 `pii.sensitive_fields`。
-- API Token 只放在环境变量中，不要写进配置文件或提交到代码仓库。
+## 提交 Jira 需要的环境变量
 
-## 六、已知限制
+在 Windows“编辑账户的环境变量”里添加，然后重新打开助手：
 
-- 本 Skill 中的脚本尚未在富卫的真实测试环境中运行过。首次使用请先跑第二节的示例验证，再用一次真实回归结果试运行，确认读取和分类无误后再提交 Jira。
-- “BLN 平台”的结果格式未知。如果它能导出结果，写一个转换脚本输出 `data-contract.md` 第 2 节的格式，用 `--format normalized` 读取即可。
-- 重跑命令默认按 pytest 编写；使用其他框架需要修改 `rerun.command`，并保证生成 JUnit XML。
+| 变量 | 值 |
+|---|---|
+| `JIRA_BASE_URL` | 例如 `https://xxx.atlassian.net` |
+| `JIRA_EMAIL` | Jira Cloud 登录邮箱（Data Center 不需要） |
+| `JIRA_API_TOKEN` | API Token（Data Center 用个人访问令牌） |
+
+## 规则维护
+
+见 `references/maintenance.md`。简单说：判错了先加纠错样本，再在“配置”里补关键字或自定义规则，保存后看纠错样本是否全部判对。
+
+## 截图识别
+
+`tools/识别截图.bat` 用 Windows 自带的文字识别，不用安装软件。助手会自动调用，平时不用管。自动识别失败时，可以手动把报告文件或截图文件夹拖到这个 bat 上，生成的 `截图识别结果.ocr.json` 拖进导入页即可。
+
+## 注意
+
+- 服务只监听 127.0.0.1，别的电脑访问不到。
+- `workspace/` 是你自己的数据（导入的批次、截图、草稿），不要放进代码库或发给别人。
+- `config/` 是团队共用的规则和配置，跟着 skill 一起同步。

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>测试分析助手</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="logo"><i>TA</i>测试分析助手</div>
+    <div class="proj" id="projInfo"></div>
+    <ul class="menu" id="menu"></ul>
+  </aside>
+  <div class="body">
+    <div class="head"><span class="crumb" id="crumb"></span><span class="right"><span class="ocrbar" id="ocrBar"></span><span>本机运行 · 数据不出本机</span></span></div>
+    <div class="tabs" id="tabs"></div>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+<div class="mask" id="mask"></div>
+<div class="drawer" id="drawer"><header><h4 id="drwT"></h4><button class="x" id="drwX">×</button></header><div class="db" id="drwB"></div><footer id="drwF"></footer></div>
+<div class="dlg" id="dlg"><header><h4 id="dlgT"></h4><button class="x" id="dlgX">×</button></header><div class="db" id="dlgB"></div><footer id="dlgF"></footer></div>
+<div id="toast"></div>
+<script src="core.js"></script>
+<script src="home.js"></script>
+<script src="triage.js"></script>
+<script src="jira.js"></script>
+<script src="config.js"></script>
+<script>APP.init();</script>
+</body>
+</html>
