@@ -155,6 +155,7 @@ def t_server(st, rid):
         check("服务：读取数据", len(s["runs"]) == 1)
         html = urllib.request.urlopen(base + "/", timeout=10).read().decode("utf-8")
         check("服务：页面", "测试分析助手" in html)
+        check("服务：心跳", json.loads(urllib.request.urlopen(base + "/api/ping", timeout=10).read()).get("tool") == "ta-server")
         req = urllib.request.Request(base + "/api/case", data=b'{"uids":[],"set":{}}', method="POST", headers={"Content-Type": "application/json"})
         try:
             urllib.request.urlopen(req, timeout=10)

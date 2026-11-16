@@ -7,7 +7,7 @@ window.APP = (function () {
   async function api(path, body) {
     let r;
     try { r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-TA": "1" }, body: JSON.stringify(body || {}) }); }
-    catch (e) { throw new Error("连不上测试分析助手的本机服务，请确认命令行窗口没有关闭"); }
+    catch (e) { throw new Error("测试分析助手已退出，请双击桌面的“测试分析助手”重新打开"); }
     const j = await r.json().catch(() => ({ error: "服务返回的内容不对（HTTP " + r.status + "）" }));
     if (!r.ok) throw new Error(j.error || "HTTP " + r.status);
     return j;
@@ -15,7 +15,7 @@ window.APP = (function () {
   async function refresh(noRender) {
     let st;
     try { st = await (await fetch("/api/state", { cache: "no-store" })).json(); }
-    catch (e) { toast("连不上本机服务，请确认命令行窗口没有关闭", true); return; }
+    catch (e) { toast("测试分析助手已退出，请双击桌面的“测试分析助手”重新打开", true); return; }
     const view = S.view;
     Object.keys(M).forEach(k => delete M[k]); Object.assign(M, st.meta); delete st.meta;
     Object.assign(S, st); S.view = view;
@@ -197,6 +197,14 @@ window.APP = (function () {
 
   async function init() {
     $("#mask").onclick = closeDrawer; $("#drwX").onclick = closeDrawer; $("#dlgX").onclick = closeDialog;
+    // 告诉本机服务页面还开着；页面全关掉 30 分钟后服务自动退出
+    const offline = msg => { if (!$(".offline")) document.body.insertAdjacentHTML("beforeend", '<div class="offline"><div>' + msg + "</div></div>"); };
+    const ping = () => fetch("/api/ping", { cache: "no-store" }).then(r => { if (r.ok) { const o = $(".offline"); if (o) { o.remove(); refresh(); } } })
+      .catch(() => offline("测试分析助手已退出<br>双击桌面的“测试分析助手”重新打开，然后刷新这个页面"));
+    setInterval(ping, 30000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) ping(); });
+    $("#quitBtn").onclick = () => dialog("退出助手", "关闭本机服务？数据都已保存，下次打开还在。" + (S.ocr.running ? "<br><b>截图文字还在识别，退出后下次打开会接着识别。</b>" : ""),
+      [{ t: "取消" }, { t: "退出", pri: true, fn: async () => { await api("/api/quit").catch(() => {}); offline("已退出，可以关闭这个页面"); } }]);
     document.addEventListener("keydown", e => {
       if (e.key === "Escape") closeDrawer();
       if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); if (drawerOpen()) closeDrawer(); else back(); }

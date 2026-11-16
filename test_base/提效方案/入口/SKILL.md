@@ -16,7 +16,7 @@ metadata:
 
 | 场景 | 做法 |
 |---|---|
-| 测试同事日常使用 | 双击 `打开测试分析助手.bat`（或 `python scripts/ta.py open`），浏览器自动打开页面。导入报告 → 失败分诊 → 重跑 → 分派 → Jira 提报 |
+| 测试同事日常使用 | 双击桌面的“测试分析助手”（第一次运行 `python scripts/ta.py shortcut` 创建；没有命令行窗口），或双击 `打开测试分析助手.bat`。不要让 AI 运行 `ta.py open`（服务会一直运行，AI 会卡住）。导入报告 → 失败分诊 → 重跑 → 分派 → Jira 提报 |
 | 用户让 AI 分析一份报告 | `python scripts/ta.py analyze <报告文件> --name 批次名 --env U401`，读取输出；需要细节用 `python scripts/ta.py show <批次> --json` |
 | 导入重跑结果 | 页面“数据导入”选“重跑结果”；或 `ta.py analyze <文件> --rerun-of <批次编号>` |
 | 改规则、改代码之后 | `python scripts/ta.py check`；改了 scripts/ 代码再跑 `python evals/selftest.py` |

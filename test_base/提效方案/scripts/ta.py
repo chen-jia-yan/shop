@@ -1,6 +1,7 @@
 """测试分析助手（命令行入口）。页面和命令行用的是同一套分析，结果相同。
 
-    python scripts/ta.py open                      打开页面（本机服务，只监听 127.0.0.1）
+    python scripts/ta.py open                      打开页面（本机服务，只监听 127.0.0.1；已开着时直接打开页面）
+    python scripts/ta.py shortcut                  在桌面创建快捷方式（双击打开，不出现命令行窗口）
     python scripts/ta.py analyze 报告.mhtml [...]   导入执行结果、识别截图文字、分析，打印结果
           --name 批次名 --plan 测试计划 --device 设备 --env 环境；--rerun-of <批次编号> 导入重跑结果
     python scripts/ta.py list                      已导入的批次
@@ -12,14 +13,25 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
+import os
 import re
+import subprocess
 import sys
 import threading
+import time
+import urllib.request
 import webbrowser
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+if sys.stdout is None or sys.stderr is None:
+    # 用 pythonw 启动（没有窗口）时，输出写到 workspace/server.log
+    _ws = Path(__file__).resolve().parent.parent / "workspace"
+    _ws.mkdir(exist_ok=True)
+    _log = open(_ws / "server.log", "a", encoding="utf-8", buffering=1)
+    sys.stdout, sys.stderr = sys.stdout or _log, sys.stderr or _log
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # Windows 命令行显示中文
 
@@ -36,13 +48,46 @@ def _run(st, rid):
     return r
 
 
+IDLE_MIN = 30  # 页面关掉这么多分钟后自动退出（正在识别截图时不退出）
+
+
+def _running(port):
+    """已经开着的助手的端口（再次双击时直接打开页面，不重复启动）。"""
+    for p in range(port, port + 20):
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:" + str(p) + "/api/ping", timeout=0.5) as r:
+                if json.loads(r.read()).get("tool") == "ta-server":
+                    return p
+        except (OSError, ValueError):
+            continue
+    return None
+
+
 def cmd_open(a):
     import ta_server
+    p = _running(a.port)
+    if p:
+        url = "http://127.0.0.1:" + str(p) + "/"
+        print("测试分析助手已经在运行：" + url)
+        if not a.no_browser:
+            webbrowser.open(url)
+        return
     st = T.Store()
     srv, port = ta_server.serve(st, a.port)
     url = "http://127.0.0.1:" + str(port) + "/"
-    print("测试分析助手已启动：" + url)
-    print("数据只在这台电脑上。关闭这个窗口即退出。")
+    print(time.strftime("%Y-%m-%d %H:%M:%S") + " 测试分析助手已启动：" + url)
+    st.last_seen = time.time()
+
+    def watchdog():
+        while True:
+            time.sleep(30)
+            if a.keep or st.ocr_state.get("running"):
+                continue
+            if time.time() - st.last_seen > IDLE_MIN * 60:
+                print(time.strftime("%Y-%m-%d %H:%M:%S") + " 页面已关闭 " + str(IDLE_MIN) + " 分钟，自动退出")
+                srv.shutdown()
+                return
+    threading.Thread(target=watchdog, daemon=True).start()
     if not a.no_browser:
         threading.Timer(0.6, lambda: webbrowser.open(url)).start()
     st.ocr_async()  # 上次没识别完的截图
@@ -50,6 +95,22 @@ def cmd_open(a):
         srv.serve_forever()
     except KeyboardInterrupt:
         pass
+
+
+def cmd_shortcut(a):
+    """在桌面创建“测试分析助手”快捷方式：用 pythonw 启动，不出现命令行窗口。"""
+    if os.name != "nt":
+        raise T.UserError("只有 Windows 能创建快捷方式")
+    pyw = Path(sys.executable).with_name("pythonw.exe")
+    if not pyw.exists():
+        raise T.UserError("找不到 pythonw.exe（" + str(pyw) + "）")
+    ps = ("$d=[Environment]::GetFolderPath('Desktop'); $s=(New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $d '测试分析助手.lnk')); "
+          "$s.TargetPath=$env:TA_PYW; $s.Arguments='\"'+$env:TA_SCRIPT+'\" open'; $s.WorkingDirectory=$env:TA_ROOT; $s.Description='测试分析助手'; $s.Save()")
+    env = dict(os.environ, TA_PYW=str(pyw), TA_SCRIPT=str(Path(__file__).resolve()), TA_ROOT=str(E.ROOT))
+    r = subprocess.run(["powershell.exe", "-NoProfile", "-EncodedCommand", base64.b64encode(ps.encode("utf-16-le")).decode()], env=env, capture_output=True)
+    if r.returncode:
+        raise T.UserError("创建失败：" + (r.stderr or b"").decode("gbk", "replace")[-300:])
+    print("已在桌面创建“测试分析助手”，以后双击它即可（不会出现命令行窗口）")
 
 
 def cmd_analyze(a):
@@ -178,6 +239,8 @@ def main():
     p = sp.add_parser("open")
     p.add_argument("--port", type=int, default=8765)
     p.add_argument("--no-browser", action="store_true")
+    p.add_argument("--keep", action="store_true", help="页面关闭后也不自动退出")
+    sp.add_parser("shortcut")
     p = sp.add_parser("analyze")
     p.add_argument("files", nargs="+")
     for k in ("name", "plan", "device", "env", "rerun-of"):
@@ -193,9 +256,9 @@ def main():
     p.add_argument("--import", dest="import_file")
     sp.add_parser("check")
     a = ap.parse_args()
-    fn = {"open": cmd_open, "analyze": cmd_analyze, "list": cmd_list, "show": cmd_show, "export": cmd_export, "ocr": cmd_ocr, "check": cmd_check}.get(a.cmd or "open")
+    fn = {"open": cmd_open, "shortcut": cmd_shortcut, "analyze": cmd_analyze, "list": cmd_list, "show": cmd_show, "export": cmd_export, "ocr": cmd_ocr, "check": cmd_check}.get(a.cmd or "open")
     if not a.cmd:
-        a.port, a.no_browser = 8765, False
+        a.port, a.no_browser, a.keep = 8765, False, False
     try:
         return fn(a) or 0
     except T.UserError as e:

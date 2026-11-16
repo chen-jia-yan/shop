@@ -1,7 +1,7 @@
 """测试分析助手的本机服务：页面（assets/）和接口都在这里，只监听 127.0.0.1，别的电脑访问不到。
 
 页面只负责显示和收集操作，分析、导入、截图识别、Jira 起草和提交都由 Python 完成（ta_store / ta_engine / ta_jira）。
-启动：python scripts/ta.py open（或双击「打开测试分析助手.bat」）。
+启动：双击桌面的“测试分析助手”（python scripts/ta.py shortcut 创建），或「打开测试分析助手.bat」，或 python scripts/ta.py open。
 """
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ import json
 import mimetypes
 import os
 import re
+import threading
+import time
 import traceback
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -97,6 +99,10 @@ def make_handler(st: T.Store, port: int):
             q = urllib.parse.parse_qs(u.query)
             p = urllib.parse.unquote(u.path)
             try:
+                if p == "/api/ping":
+                    # 页面每 30 秒报一次“还开着”；页面都关了一段时间后自动退出（见 ta.py open）
+                    st.last_seen = time.time()
+                    return self._json(200, {"tool": "ta-server"})
                 if p == "/api/state":
                     return self._json(200, st.state())
                 if p == "/api/ocr":
@@ -140,6 +146,10 @@ def make_handler(st: T.Store, port: int):
             except ValueError:
                 return self._json(400, {"error": "请求格式不对"})
             fn = R.get(urllib.parse.urlparse(self.path).path)
+            if urllib.parse.urlparse(self.path).path == "/api/quit":
+                self._json(200, {"ok": True})
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+                return
             if not fn:
                 return self._json(404, {"error": "没有这个接口"})
             try:
