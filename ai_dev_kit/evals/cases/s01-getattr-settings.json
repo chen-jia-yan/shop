@@ -1,0 +1,10 @@
+{
+  "id": "s01-getattr-settings",
+  "type": "static",
+  "title": "新代码里的 getattr(settings, ...) 必须被发现",
+  "incident": "配置拼写错误被默认值掩盖，功能静默失效",
+  "check": "getattr_settings",
+  "before": {},
+  "after": {"src/kb.py": "def enabled(settings):\n    return getattr(settings, \"libary_kb_enabled\", True)\n"},
+  "expect": "fail"
+}

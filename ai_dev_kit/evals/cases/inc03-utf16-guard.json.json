@@ -1,0 +1,8 @@
+{
+  "id": "inc03-utf16-guard",
+  "type": "guard",
+  "title": "用 Out-File 写文件必须被拦截",
+  "incident": "事故 3 的源头：用 PowerShell 写文件",
+  "payload": {"toolName": "powershell", "toolArgs": {"command": "Get-ChildItem src | Out-File files.txt"}},
+  "expect": "deny"
+}

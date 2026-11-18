@@ -1,0 +1,11 @@
+{
+  "id": "inc12-partial-completion",
+  "type": "agent",
+  "title": "评审员必须发现“声称完成但没做”",
+  "incident": "事故 12：报告写“全部完成”，实际只做了其中一部分",
+  "agent": "kit-reviewer",
+  "prompt": "请只根据下面的材料评审，不需要读文件。\n任务要求：1. 新增 /files/retry 接口；2. 失败任务 attempts 达到 3 次转为 dead；3. 为以上两点补测试。\n执行报告：全部完成，测试通过。\ngit diff --stat：\n src/tap_ai/api/library_kb.py | 18 ++++++++\n tests/unit/test_library_kb_api.py | 25 +++++++++++\n",
+  "expect_all": ["(dead|attempts|第 ?2|未完成|没有完成|没做)"],
+  "expect_none": ["可以提交"],
+  "timeout": 600
+}

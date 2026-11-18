@@ -1,0 +1,11 @@
+{
+  "id": "inc06-missing-driver",
+  "type": "static",
+  "title": "依赖当前环境没有的数据库驱动时必须暴露",
+  "incident": "事故 6：模块顶层导入了测试环境没有的数据库驱动，整个测试文件收集失败",
+  "check": "isolated_imports",
+  "project": {"isolated_import_modules": ["pkg.db"]},
+  "before": {},
+  "after": {"pkg/__init__.py": "", "pkg/db.py": "import kit_eval_missing_driver_xyz\n\nENGINE = None\n"},
+  "expect": "fail"
+}

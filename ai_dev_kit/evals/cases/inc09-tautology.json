@@ -1,0 +1,10 @@
+{
+  "id": "inc09-tautology",
+  "type": "static",
+  "title": "永远成立的断言必须被发现",
+  "incident": "事故 9：测试里 assert result == result，看起来有测试，实际什么都没证明",
+  "check": "tautological_asserts",
+  "before": {},
+  "after": {"tests/test_eval.py": "def test_summary():\n    result = {\"total\": 3}\n    assert result == result\n"},
+  "expect": "fail"
+}

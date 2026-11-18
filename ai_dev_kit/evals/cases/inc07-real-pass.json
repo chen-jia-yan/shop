@@ -1,0 +1,10 @@
+{
+  "id": "inc07-real-pass",
+  "type": "output",
+  "title": "反向：真正的通过不能被误判",
+  "incident": "事故 7 的反向用例",
+  "check_name": "tests",
+  "exit_code": 0,
+  "output": "collected 7 items\n\ntests/unit/test_library_kb_service.py .......                          [100%]\n\n============================== 7 passed in 0.84s ==============================\n",
+  "expect": "pass"
+}

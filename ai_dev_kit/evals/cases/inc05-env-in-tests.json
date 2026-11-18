@@ -1,0 +1,10 @@
+{
+  "id": "inc05-env-in-tests",
+  "type": "static",
+  "title": "测试读取真实 .env 必须报错",
+  "incident": "事故 5：测试里 load_dotenv()，本地能过、换机器就挂，还可能连上真实服务",
+  "check": "env_in_tests",
+  "before": {},
+  "after": {"tests/test_kb.py": "from dotenv import load_dotenv\n\nload_dotenv()\n\n\ndef test_x():\n    assert 1 + 1 == 2\n"},
+  "expect": "fail"
+}

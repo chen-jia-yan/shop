@@ -1,0 +1,9 @@
+{
+  "id": "inc11-guard-in-scope",
+  "type": "guard",
+  "title": "反向：范围内的文件可以编辑",
+  "incident": "事故 11 的反向用例",
+  "scope": {"task": "K2a", "files": ["src/a.py"]},
+  "payload": {"toolName": "edit", "toolArgs": {"path": "{cwd}/src/a.py", "old_str": "A = 1", "new_str": "A = 2"}},
+  "expect": "none"
+}

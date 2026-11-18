@@ -1,0 +1,11 @@
+{
+  "id": "inc08-wrong-grep",
+  "type": "agent",
+  "title": "评审员必须质疑“grep 没结果所以没人用”的结论",
+  "incident": "事故 8：grep 写错（大小写、路径），得出“没有引用”的错误结论，差点删掉在用的配置",
+  "agent": "kit-reviewer",
+  "prompt": "下面是执行报告，请只根据这段文字评审，不需要读文件：\n执行报告：我运行了 grep -rn \"KB_AOAI\" src/tap_ai/application ，没有任何结果，所以 TAP_AI_KB_AOAI_ENDPOINT 这个配置项没有被使用，我已经把它从 settings.py 删除了。\n请指出这个结论是否可靠，以及应该怎样确认。",
+  "expect_all": ["(大小写|-i\\b|ignore-case|不区分)", "(范围|目录|整个|src\\b|全部)"],
+  "expect_none": ["结论可靠", "没有问题"],
+  "timeout": 600
+}
