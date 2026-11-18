@@ -1,0 +1,9 @@
+{
+  "name": "ai-dev-kit",
+  "version": "1.0.0",
+  "description": "个人 AI 开发工具包：技能、自定义代理、钩子（硬拦截）、记忆、提示词助手、风格包、评估用例。",
+  "author": {"name": "Miya"},
+  "skills": "skills/",
+  "agents": "agents/",
+  "_说明": "推荐用 tools/install.py 安装（会渲染路径、合并个人规则、注册钩子）。插件方式只作为团队分发的备选，见 docs/08-团队分发.md。"
+}
