@@ -1,0 +1,89 @@
+{
+  "meta": {
+    "title": "医疗险及重疾险理赔服务指引",
+    "short_title": "理赔服务指引",
+    "subtitle": "客户自助理赔版",
+    "category": "客户服务",
+    "doc_type": "claims",
+    "style": "minimal",
+    "department": "理赔部",
+    "audience": "已投保医疗险、重疾险的客户",
+    "version": "V2.1",
+    "doc_no": "FWD-CL-2026-007",
+    "date": "2026年11月",
+    "confidentiality": "公开",
+    "toc": false,
+    "cover_note": "示例文档，时效与材料要求为演示数据，以知识库现行规则为准",
+    "end_note": "本指引仅供参考，理赔结果以保险合同条款及理赔审核结论为准。"
+  },
+  "blocks": [
+    {"type": "heading", "level": 1, "text": "出险后先做这三件事"},
+    {"type": "callout", "kind": "key", "title": "第一步就要做的", "items": [
+      "**尽快报案**：确诊或住院后，通过客服热线或线上渠道报案",
+      "**保留原件**：病历、发票、检查报告等原件不要丢失或涂改",
+      "**确认保单**：记下保单号和被保险人身份信息，报案时需要提供"
+    ]},
+    {"type": "flow", "caption": "理赔办理流程（材料齐全时）", "highlight": [3], "steps": [
+      {"title": "报案", "desc": "电话或线上报案"},
+      {"title": "准备材料", "desc": "按险种准备，见第二章"},
+      {"title": "提交申请", "desc": "线上上传或柜面递交"},
+      {"title": "审核", "desc": "5 个工作日内作出核定"},
+      {"title": "给付", "desc": "达成协议后 10 日内到账"}
+    ]},
+
+    {"type": "heading", "level": 1, "text": "按险种准备理赔材料"},
+    {"type": "lead", "text": "材料不全是理赔延误最常见的原因。请按险种对照清单准备，标注“必备”的缺一项都无法受理。"},
+    {"type": "heading", "level": 2, "text": "医疗险"},
+    {"type": "checklist", "items": [
+      {"text": "理赔申请书", "required": true, "note": "需申请人签字"},
+      {"text": "被保险人身份证明", "required": true},
+      {"text": "医疗费用发票原件", "required": true, "note": "电子发票需打印并加盖医院章"},
+      {"text": "费用明细清单", "required": true},
+      {"text": "出院小结或门急诊病历", "required": true},
+      {"text": "第三方已报销的分割单", "required": false, "note": "已通过社保或其他保险报销时提供"}
+    ]},
+    {"type": "heading", "level": 2, "text": "重疾险"},
+    {"type": "checklist", "items": [
+      {"text": "理赔申请书", "required": true},
+      {"text": "被保险人身份证明", "required": true},
+      {"text": "病理报告或相关检查报告", "required": true, "note": "恶性肿瘤须提供病理报告"},
+      {"text": "专科医生出具的诊断证明", "required": true},
+      {"text": "受益人银行账户信息", "required": true},
+      {"text": "委托授权书", "required": false, "note": "委托他人办理时提供"}
+    ]},
+
+    {"type": "heading", "level": 1, "text": "办理时效"},
+    {"type": "timeline", "caption": "从提交材料到保险金到账", "current": 1, "nodes": [
+      {"time": "第 0 天", "title": "提交申请", "desc": "材料齐全即受理"},
+      {"time": "1-3 个工作日", "title": "材料审核", "desc": "不全会一次性告知补充"},
+      {"time": "5 个工作日内", "title": "作出核定", "desc": "复杂情形 30 日内"},
+      {"time": "协议后 10 日内", "title": "保险金到账", "desc": "转入指定账户"}
+    ]},
+    {"type": "table", "caption": "常见情形的处理时效", "columns": ["情形", "时效", "说明"], "rows": [
+      ["材料齐全、事实清楚", "5 个工作日内", "作出核定并通知"],
+      ["需要调查核实", "30 日内", "会提前告知调查原因"],
+      ["材料不全", "一次性告知", "补齐后重新计算时效"],
+      ["核定给付", "达成协议后 10 日内", "保险金到账"]
+    ], "widths": [4.6, 3.8, 8.0], "source": "示例数据，以理赔部现行规则为准"},
+
+    {"type": "heading", "level": 1, "text": "这些情况容易导致理赔受阻"},
+    {"type": "callout", "kind": "warning", "title": "请特别注意", "items": [
+      "投保前已患疾病但未如实告知",
+      "等待期内确诊或出现症状",
+      "发票、病历等材料信息不一致（如姓名、日期）",
+      "超出合同约定的保障范围，如非指定医院、自费药品（以合同约定为准）"
+    ]},
+
+    {"type": "heading", "level": 1, "text": "常见问题"},
+    {"type": "faq", "items": [
+      {"q": "报案有时间限制吗？", "a": "请在知道保险事故发生后尽快报案。延迟报案导致事故性质、原因难以确定的，可能影响理赔。"},
+      {"q": "材料可以线上提交吗？", "a": "可以。多数情形支持线上拍照上传；部分情形需要寄送原件，审核时会告知。"},
+      {"q": "理赔结果不满意怎么办？", "a": "可以拨打客服热线申请复核，并提供补充材料或说明。"}
+    ]},
+    {"type": "contact", "items": [
+      {"label": "客服热线", "value": "【待补充：客服热线】"},
+      {"label": "线上报案", "value": "【待补充：报案渠道】"},
+      {"label": "材料邮寄地址", "value": "【待补充】"}
+    ]}
+  ]
+}

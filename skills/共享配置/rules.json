@@ -1,0 +1,53 @@
+{
+  "_说明": "版面尺寸、字号、阈值等规则。字号单位为磅；整体放大/缩小字号用 brand.json 的 fonts.scale 或命令行 --font-scale。",
+
+  "rules": {
+    "word": {
+      "page": {"width_cm": 21.0, "height_cm": 29.7, "margin_left_cm": 2.3, "margin_right_cm": 2.3,
+               "margin_top_cm": 2.6, "margin_bottom_cm": 2.3, "header_cm": 1.2, "footer_cm": 1.1},
+      "sizes": {"title": 26, "subtitle": 14, "h1": 18, "h2": 14, "h3": 12, "body": 10.5, "small": 9,
+                "caption": 9, "footer": 8, "kpi": 22, "kpi_label": 9, "lead": 11.5, "quote": 12},
+      "line_spacing": 1.4,
+      "toc_min_h1": 4,
+      "kpi_range": [2, 4],
+      "chart_dpi": 200,
+      "review": {"long_paragraph": 320, "no_chart_types": ["policy", "notice"]}
+    },
+    "excel": {
+      "soon_days": 7,
+      "spare_rows": 20,
+      "kpi_range": [2, 6],
+      "review": {"freeze_rows": 15, "max_should": 15}
+    },
+    "ppt": {
+      "slide": {"width_in": 13.333, "height_in": 7.5, "margin_in": 0.6},
+      "sizes": {"cover_title": 40, "cover_sub": 18, "section": 40, "title": 26, "title_min": 20, "kicker": 13,
+                "h": 17, "body": 14, "small": 11.5, "tiny": 9.5, "big_num": 46, "num": 28},
+      "bullets_split_over": 8,
+      "bullets_per_page": 6,
+      "kpis_max": 4,
+      "process_max": 6,
+      "anim_steps_max": 9,
+      "repeat_run": 3,
+      "topic_title_len": 6,
+      "summary_min_content": 6,
+      "agenda_min_sections": 2,
+      "number_units": ["个百分点", "pct", "%", "亿元", "万元", "元", "亿", "万", "天", "个", "人", "次", "倍", "项", "家", "年", "月", "小时", "分钟", "分"],
+      "review": {"text_limit": 230, "text_limit_dense": 320, "dense_layouts": ["table", "matrix", "columns"]}
+    },
+    "impact": {
+      "weights": {"importance": 0.55, "impact": 0.45},
+      "levels": [["P0", 65], ["P1", 48], ["P2", 28], ["P3", 0]],
+      "similarity_minor": 0.92,
+      "min_ref_score": 0.35,
+      "detail_levels": ["P0", "P1", "P2"],
+      "detail_levels_brief": ["P0", "P1"],
+      "detail_max": 12,
+      "matrix_split": {"importance": 50, "impact": 40},
+      "matrix_items_max": 5,
+      "default_window_days": 30,
+      "excerpt_chars": 240,
+      "action_categories_max": 2
+    }
+  }
+}

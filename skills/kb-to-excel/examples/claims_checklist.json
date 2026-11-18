@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "title": "理赔材料准备清单",
+    "subtitle": "客户自助版",
+    "category": "客户服务",
+    "kind": "checklist",
+    "style": "classic",
+    "department": "理赔部",
+    "audience": "申请理赔的客户",
+    "version": "V2.1",
+    "date": "2026-11-01",
+    "confidentiality": "公开",
+    "disclaimer": "本清单为示例，具体所需材料以理赔受理时的告知为准；理赔结果以保险合同条款及理赔审核结论为准。"
+  },
+  "sheets": [
+    {"type": "checklist", "name": "材料清单", "title": "理赔材料准备清单", "subtitle": "在“完成”列下拉选择 ☑，上方进度会自动更新", "desc": "按险种分组的理赔材料",
+     "groups": [
+       {"name": "所有险种都需要", "items": [
+         {"text": "理赔申请书", "required": true, "note": "需申请人签字；可在线填写", "who": "申请人"},
+         {"text": "被保险人身份证明", "required": true, "note": "身份证正反面", "who": "申请人"},
+         {"text": "受益人银行账户信息", "required": true, "note": "需为受益人本人的一类账户", "who": "受益人"},
+         {"text": "委托授权书", "required": false, "note": "委托他人代办时提供", "who": "申请人"}]},
+       {"name": "医疗险", "items": [
+         {"text": "医疗费用发票", "required": true, "note": "电子发票需打印并加盖医院章", "who": "医院"},
+         {"text": "费用明细清单", "required": true, "who": "医院"},
+         {"text": "出院小结或门急诊病历", "required": true, "who": "医院"},
+         {"text": "其他渠道已报销的分割单", "required": false, "note": "已通过社保或其他保险报销时提供", "who": "社保/其他保险公司"}]},
+       {"name": "重疾险", "items": [
+         {"text": "病理报告或相关检查报告", "required": true, "note": "恶性肿瘤须提供病理报告", "who": "医院"},
+         {"text": "专科医生出具的诊断证明", "required": true, "who": "医院"},
+         {"text": "首次确诊相关病历", "required": true, "note": "用于确认确诊日期是否在等待期后", "who": "医院"}]}
+     ],
+     "notes": ["材料不全时，理赔人员会一次性告知需要补充的内容。", "客服热线：【待补充：从知识库核实后填写】"],
+     "source": "理赔服务指引（示例）"}
+  ]
+}

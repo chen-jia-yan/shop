@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "title": "富卫安康重疾三个版本对比与保费试算",
+    "subtitle": "客户沟通版",
+    "category": "产品资料",
+    "kind": "compare",
+    "style": "classic",
+    "department": "产品部",
+    "audience": "销售人员及客户",
+    "version": "V1.0",
+    "date": "2026-11-01",
+    "confidentiality": "公开",
+    "disclaimer": "本表为示例，产品名称、费率均为虚构。试算结果仅供参考，实际保费以核保结论和保险合同为准；保险责任、责任免除以保险合同条款为准。",
+    "tags": ["重疾险", "产品对比", "保费试算", "示例"]
+  },
+  "sheets": [
+    {"type": "cover", "name": "说明", "purpose": "帮助销售人员向客户说明三个版本的差别，并现场按客户情况试算年交保费。",
+     "how_to": ["先在“版本对比”中按客户关注点说明差别", "在“保费试算”的黄色格子中填写年龄、性别、交费期间、保额和版本", "试算结果仅供参考，正式报价以投保系统为准"]},
+
+    {"type": "matrix", "name": "版本对比", "title": "三个版本保什么、差在哪", "subtitle": "✓ 包含　— 不包含", "desc": "基础版、尊享版、臻享版的保障差异",
+     "objects": ["基础版", "尊享版", "臻享版"], "highlight": "尊享版", "highlight_label": "★ 多数家庭适用",
+     "groups": [
+       {"name": "基本信息", "rows": [
+         {"label": "投保年龄", "values": ["18-50 周岁", "18-50 周岁", "18-50 周岁"]},
+         {"label": "保障期间", "values": ["终身", "终身", "终身"]},
+         {"label": "交费期间", "values": ["10 年 / 20 年", "10 年 / 20 年", "10 年 / 20 年"]}]},
+       {"name": "保障责任", "rows": [
+         {"label": "重大疾病", "values": ["100% 保额，1 次", "100% 保额，1 次", "100% 保额，最多 2 次（间隔 1 年）"]},
+         {"label": "中症", "values": ["—", "50% 保额，最多 2 次", "60% 保额，最多 2 次"]},
+         {"label": "轻症", "values": ["30% 保额，最多 2 次", "30% 保额，最多 3 次", "35% 保额，最多 3 次"]},
+         {"label": "轻症/中症豁免后续保费", "values": ["—", "✓", "✓"]},
+         {"label": "身故保险金", "values": ["已交保费", "100% 保额", "100% 保额"]}]},
+       {"name": "适合谁", "rows": [
+         {"label": "适合人群", "values": ["预算有限、先建立基础保障", "有家庭责任，希望保障全面", "预算充足，看重多次赔付"]},
+         {"label": "示例年交保费（元）", "format": "money", "emphasis": true, "values": [10328, 12150, 14823]}]}
+     ],
+     "notes": ["示例年交保费以 30 周岁男性、基本保额 50 万元、20 年交为例，可在“保费试算”中按客户情况计算。", "等待期 90 天、犹豫期 15 天，三个版本相同。"],
+     "source": "《富卫安康重大疾病保险条款》（示例）"},
+
+    {"type": "calculator", "name": "保费试算", "title": "年交保费试算", "subtitle": "在黄色格子中填写，结果自动计算", "desc": "按年龄、性别、交费期间、保额和版本试算",
+     "inputs": [
+       {"key": "age", "label": "被保险人年龄", "value": 30, "unit": "周岁", "validation": {"type": "whole", "min": 18, "max": 50}, "hint": "18-50 周岁"},
+       {"key": "gender", "label": "性别", "value": "男", "options": ["男", "女"]},
+       {"key": "period", "label": "交费期间", "value": "20年", "options": ["10年", "20年"]},
+       {"key": "amount", "label": "基本保额", "value": 500000, "unit": "元", "format": "money", "validation": {"type": "whole", "min": 100000, "max": 2000000}, "hint": "10 万-200 万元"},
+       {"key": "plan", "label": "版本", "value": "尊享版", "options": ["基础版", "尊享版", "臻享版"]}
+     ],
+     "outputs": [
+       {"key": "rate", "label": "适用费率（每千元保额）", "format": "0.00", "formula": "=INDEX({lookup.费率表.data},MATCH({input.age},{lookup.费率表.col1},1),MATCH({input.gender}&{input.period},{lookup.费率表.header},0))", "comment": "按年龄段查费率表"},
+       {"key": "factor", "label": "版本系数", "format": "0.00", "formula": "=INDEX({lookup.版本系数.data},MATCH({input.plan},{lookup.版本系数.col1},0),1)"},
+       {"key": "premium", "label": "年交保费", "format": "money", "emphasis": true, "formula": "=ROUND({input.amount}/1000*{output.rate}*{output.factor},0)", "comment": "元/年"},
+       {"key": "monthly", "label": "折合每月", "format": "money", "formula": "=ROUND({output.premium}/12,0)", "comment": "元/月，仅用于说明"},
+       {"key": "total", "label": "交费期满累计保费", "format": "money", "formula": "={output.premium}*VALUE(SUBSTITUTE({input.period},\"年\",\"\"))", "comment": "元"}
+     ],
+     "lookups": [
+       {"name": "费率表", "title": "费率表（每千元基本保额的年交保费，示例）", "format": "0.0",
+        "columns": ["年龄起", "男10年", "男20年", "女10年", "女20年"],
+        "rows": [[18, 30.5, 17.2, 28.1, 15.8], [25, 36.8, 20.9, 33.6, 19.0], [30, 42.6, 24.3, 38.7, 22.0], [35, 50.9, 29.4, 45.6, 26.3], [40, 61.8, 36.1, 54.3, 31.9], [45, 76.2, 45.3, 65.9, 39.4], [50, 94.5, 57.8, 80.2, 49.6]],
+        "note": "按年龄段取费率，例如 33 周岁使用 30 周岁一行。正式费率请从知识库中的费率表检索后替换。"},
+       {"name": "版本系数", "title": "版本系数（示例）", "format": "0.00",
+        "columns": ["版本", "系数"], "rows": [["基础版", 0.85], ["尊享版", 1.00], ["臻享版", 1.22]]}
+     ],
+     "notes": ["试算结果仅供参考，实际保费以核保结论和保险合同为准。", "本表已锁定公式格，只能修改黄色格子；如需调整，点“审阅 → 撤销工作表保护”（无密码）。"]}
+  ]
+}

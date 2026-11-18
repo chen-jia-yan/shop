@@ -1,0 +1,95 @@
+{
+  "meta": {
+    "title": "2026 年第三季度个险经营看板",
+    "subtitle": "按区域、产品线和季度趋势",
+    "category": "经营分析",
+    "kind": "dashboard",
+    "style": "premium",
+    "department": "战略规划部",
+    "audience": "公司管理层",
+    "as_of": "2026 年 7-9 月，示例数据",
+    "version": "V1.0",
+    "date": "2026-10-15",
+    "confidentiality": "内部",
+    "disclaimer": "示例数据均为虚构，仅用于演示版式与公式联动。修改“机构明细”“产品结构”中的数字，看板指标、排名和图表会自动更新。",
+    "tags": ["经营看板", "示例"]
+  },
+  "sheets": [
+    {"type": "cover", "name": "说明", "purpose": "汇总三季度个险渠道的规模、达成、人力与继续率，供管理层月度经营会使用。",
+     "how_to": ["先看“经营看板”的指标卡和关键结论", "需要细节时点目录里的“机构明细”“产品结构”", "更新数据只需改明细表中的黑色数字，深绿色数字是公式，会自动重算"]},
+
+    {"type": "dashboard", "name": "经营看板", "title": "三季度经营看板", "subtitle": "口径：新单保费为首年规模保费；继续率为 13 个月继续率",
+     "kpis": [
+       {"label": "新单保费", "unit": "亿元", "value": "={机构明细.新单保费:total}", "format": "yi", "delta": "={机构明细.同比:total}", "delta_format": "delta"},
+       {"label": "目标达成率", "value": "={机构明细.达成率:total}", "format": "pct", "note": "季度目标 14.0 亿元"},
+       {"label": "有效人力", "unit": "人", "value": "={机构明细.有效人力:total}", "format": "int", "note": "五个区域合计"},
+       {"label": "13 个月继续率", "value": "={机构明细.继续率:total}", "format": "pct", "note": "五个区域平均，低于 85% 需预警"}
+     ],
+     "insights": [
+       "新单保费 15.0 亿元，超过季度目标；同比增长约 13%，增速逐季提升。",
+       "华南同比增长约 28%，增速最快；华北达成率 120% 居首；华东同比下降、达成率不足 90%，是唯一未完成目标的区域。",
+       "年金险占新单保费 28%，价值率仅 8%，拉低整体新业务价值率，四季度需调整产品结构。"
+     ],
+     "rank": {"title": "目标达成率排名", "data": "机构明细", "by": "达成率", "key": "机构", "top": 5,
+              "columns": ["机构", "新单保费", "达成率"], "formats": {"新单保费": "yi", "达成率": "pct"}},
+     "charts": [
+       {"type": "col", "title": "各区域新单保费与目标（亿元）", "data": "机构明细", "categories": "机构", "series": ["新单保费", "目标"]},
+       {"type": "bar", "title": "华南同比增速领先，华东为负", "data": "机构明细", "categories": "机构", "series": ["同比"], "highlight": "华南", "number_format": "0%"},
+       {"type": "combo", "title": "新单保费逐季回升，Q3 创年内新高", "data": "季度趋势", "categories": "季度", "series": ["新单保费"], "secondary": ["同比增速"], "secondary_format": "0%"},
+       {"type": "donut", "title": "Q3 新单保费产品构成", "data": "产品结构", "categories": "产品线", "series": ["新单保费"]}
+     ]},
+
+    {"type": "table", "name": "机构明细", "title": "区域机构经营明细", "subtitle": "单位：亿元；同比、达成率、人均产能为公式自动计算", "desc": "五个区域的保费、目标、人力、继续率",
+     "total": "合计",
+     "columns": [
+       {"name": "机构"},
+       {"name": "新单保费", "format": "yi", "total": "sum"},
+       {"name": "去年同期", "format": "yi", "total": "sum"},
+       {"name": "同比", "format": "pct", "formula": "=IFERROR({@新单保费}/{@去年同期}-1,0)", "total": "=IFERROR({@新单保费}/{@去年同期}-1,0)", "rule": {"type": "sign"}},
+       {"name": "目标", "format": "yi", "total": "sum"},
+       {"name": "达成率", "format": "pct", "formula": "=IFERROR({@新单保费}/{@目标},0)", "total": "=IFERROR({@新单保费}/{@目标},0)", "rule": {"type": "lt", "value": 1, "style": "bad"}},
+       {"name": "有效人力", "unit": "人", "format": "int", "total": "sum"},
+       {"name": "人均产能", "unit": "万元", "format": "0.0", "formula": "=IFERROR({@新单保费}*10000/{@有效人力},0)", "total": "=IFERROR({@新单保费}*10000/{@有效人力},0)", "databar": true},
+       {"name": "继续率", "format": "pct", "total": "avg", "rule": {"type": "lt", "value": 0.85, "style": "bad"}},
+       {"name": "状态", "options": ["正常", "关注", "预警"], "align": "center", "rule": {"type": "text", "value": "预警", "style": "bad"}}
+     ],
+     "rows": [
+       ["华南", 4.10, 3.20, null, 3.60, null, 3200, null, 0.881, "正常"],
+       ["华中", 3.20, 2.74, null, 2.90, null, 2500, null, 0.869, "正常"],
+       ["西南", 2.70, 2.41, null, 2.60, null, 2300, null, 0.857, "关注"],
+       ["华北", 2.40, 2.20, null, 2.00, null, 1900, null, 0.872, "正常"],
+       ["华东", 2.60, 2.71, null, 2.90, null, 1900, null, 0.840, "预警"]
+     ],
+     "notes": ["华东二季度末两家合作网点调整，部分客户经理转岗，有效人力环比减少 6%。"],
+     "source": "示例数据"},
+
+    {"type": "table", "name": "产品结构", "title": "产品线新单保费与价值", "subtitle": "单位：亿元；新业务价值 = 新单保费 × 价值率", "desc": "各产品线的规模、占比和价值率",
+     "total": "合计",
+     "columns": [
+       {"name": "产品线"},
+       {"name": "新单保费", "format": "yi", "total": "sum"},
+       {"name": "占比", "format": "pct", "formula": "=IFERROR({@新单保费}/{产品结构.新单保费:total},0)", "total": "=IFERROR({@新单保费}/{产品结构.新单保费:total},0)"},
+       {"name": "价值率", "format": "pct", "input": true, "total": "=IFERROR({@新业务价值}/{@新单保费},0)"},
+       {"name": "新业务价值", "format": "yi", "formula": "={@新单保费}*{@价值率}", "total": "sum"}
+     ],
+     "rows": [
+       ["重疾险", 4.65, null, 0.33, null],
+       ["年金险", 4.20, null, 0.08, null],
+       ["终身寿险", 3.00, null, 0.22, null],
+       ["医疗险", 2.25, null, 0.25, null],
+       ["其他", 0.90, null, 0.12, null]
+     ],
+     "source": "示例数据"},
+
+    {"type": "table", "name": "季度趋势", "title": "近五个季度新单保费", "subtitle": "单位：亿元", "desc": "季度规模与同比增速",
+     "columns": [{"name": "季度"}, {"name": "新单保费", "format": "yi"}, {"name": "同比增速", "format": "pct0", "rule": {"type": "sign"}}],
+     "rows": [["2025 Q3", 13.2, 0.03], ["2025 Q4", 11.8, 0.04], ["2026 Q1", 12.1, 0.06], ["2026 Q2", 13.4, 0.10], ["2026 Q3", 15.0, 0.14]],
+     "source": "示例数据"},
+
+    {"type": "notes", "name": "口径说明", "desc": "指标定义与数据来源",
+     "sections": [
+       {"heading": "指标定义", "items": [["新单保费", "首年规模保费，含期交首期和趸交"], ["达成率", "新单保费 ÷ 季度目标"], ["人均产能", "新单保费 ÷ 有效人力，单位万元/人"], ["13 个月继续率", "13 个月前生效的期交保单中，第 13 个月仍有效的比例"], ["价值率", "新业务价值 ÷ 新单保费"]]},
+       {"heading": "数据来源", "items": ["本文件为示例，所有数字均为虚构。正式使用时从知识库中检索季度经营数据，并在此注明报表名称与取数日期。"]}
+     ]}
+  ]
+}
