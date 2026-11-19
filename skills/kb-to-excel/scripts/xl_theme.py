@@ -1,90 +1,77 @@
 # -*- coding: utf-8 -*-
 """
-富卫品牌主题（Excel 版）—— 色值与 kb-to-word/scripts/themes.py 保持一致，改色时两边同步。
+主题（Excel 版）—— 只是共享配置的入口，本文件不存放任何色值、字体或文字。
 
-三套风格：
-  classic  经典橙白：产品对比、客户清单、理赔材料、培训台账
-  premium  尊享深色：经营看板、管理层报表
-  minimal  简约白：整改跟踪、制度台账、合规检查表
+  颜色、字体：tap-config/brand.json（表格专用色以 tb_ 开头）
+  色系（蓝色系 blue / 淡色系 soft / 橙色系 orange，可自行新增）、单元格角色色、数字格式：
+      tap-config/themes.json 的 themes.excel
+  阈值：tap-config/rules.json 的 rules.excel；固定文字：tap-config/labels.json 的 labels.excel
+
+下列字典与共享配置联动：命令行或内容 JSON 覆盖配置后原地刷新，其他模块无需重新 import。
 """
+from _tap import CONF
 
-BRAND = {
-    "orange": "E87722", "orange_dark": "B85A12", "orange_light": "FCE9D9", "orange_pale": "FEF6EF",
-    "green": "183028", "green_mid": "2F5747", "green_light": "E3ECE8",
-    "yellow": "FED141", "yellow_light": "FFF6D6",
-    "ink": "1F2329", "ink_soft": "4A5058", "muted": "8B8E8F", "line": "D9DCDF",
-    "bg_soft": "F5F6F7", "white": "FFFFFF",
-    "red": "C8372D", "red_light": "FBE7E5", "teal": "1E8C7E", "teal_light": "E2F3F0",
-    "blue": "2B6CB0", "blue_light": "E6EFF8",
-}
+BRAND = CONF.colors
+FONTS = CONF.fonts                   # FONTS["cn"] 正文字体，FONTS["num"] 数字字体，FONTS["mono"] 等宽
+CHART_PALETTE = CONF.chart_palette
+ROLE = {}                            # 单元格角色色：录入格、公式、智能生成、异常、提醒……
+FORMATS = {}                         # 数字格式别名 → Excel 格式串
 
-CHART_PALETTE = ["E87722", "183028", "FED141", "6B9A8B", "F2A65A", "8B8E8F", "B85A12", "C9D6D1"]
-GREY_BAR = "C9CDD1"
 
-FONT = "微软雅黑"
-NUM_FONT = "Arial"
+@CONF.on_load
+def _refresh(conf):
+    if conf.scope != "excel":
+        return
+    ROLE.clear()
+    ROLE.update(conf.theme_part("roles"))
+    FORMATS.clear()
+    FORMATS.update(conf.theme_part("formats"))
 
-STYLES = {
-    "classic": {
-        "name": "经典橙白",
-        "title": BRAND["orange"], "title_bar": BRAND["orange"], "subtitle": BRAND["ink_soft"],
-        "head_bg": BRAND["orange"], "head_fg": BRAND["white"],
-        "stripe": BRAND["orange_pale"], "total_bg": BRAND["orange_light"],
-        "hi_col": BRAND["yellow_light"], "group_bg": BRAND["green_light"], "group_fg": BRAND["green"],
-        "tile_bg": BRAND["orange_pale"], "tile_bar": BRAND["orange"], "tile_value": BRAND["ink"],
-        "tab": BRAND["orange"], "accent": BRAND["orange"],
-    },
-    "premium": {
-        "name": "尊享深色",
-        "title": BRAND["green"], "title_bar": BRAND["green"], "subtitle": BRAND["green_mid"],
-        "head_bg": BRAND["green"], "head_fg": BRAND["white"],
-        "stripe": BRAND["bg_soft"], "total_bg": BRAND["yellow_light"],
-        "hi_col": BRAND["orange_pale"], "group_bg": BRAND["orange_light"], "group_fg": BRAND["orange_dark"],
-        "tile_bg": BRAND["green"], "tile_bar": BRAND["yellow"], "tile_value": BRAND["white"],
-        "tab": BRAND["green"], "accent": BRAND["yellow"],
-    },
-    "minimal": {
-        "name": "简约白",
-        "title": BRAND["ink"], "title_bar": BRAND["orange"], "subtitle": BRAND["muted"],
-        "head_bg": BRAND["bg_soft"], "head_fg": BRAND["ink"],
-        "stripe": None, "total_bg": BRAND["bg_soft"],
-        "hi_col": BRAND["orange_pale"], "group_bg": BRAND["bg_soft"], "group_fg": BRAND["ink"],
-        "tile_bg": BRAND["white"], "tile_bar": BRAND["orange"], "tile_value": BRAND["ink"],
-        "tab": BRAND["muted"], "accent": BRAND["orange"],
-    },
-}
 
-# 单元格角色：录入格（可改）、公式格（自动算）、占位格（待补充）
-ROLE = {
-    "input_bg": BRAND["yellow_light"], "input_border": "D69E2E",
-    "formula_fg": BRAND["green_mid"],
-    "todo_bg": "FFE699",
-}
+def L(key, **kw):
+    return CONF.label(key, **kw)
 
-# 数字格式
-FORMATS = {
-    "text": "@",
-    "int": "#,##0",
-    "money": "#,##0",            # 元，整数
-    "money2": "#,##0.00",        # 元，两位小数
-    "wan": "#,##0.00",           # 万元
-    "yi": "0.00",                # 亿元
-    "pct": "0.0%",
-    "pct0": "0%",
-    "ratio": "0.00",
-    "date": "yyyy-mm-dd",
-    "month": "yyyy-mm",
-    "delta": '"▲"0.0%;"▼"0.0%;0.0%',
-    "delta_pt": '"▲"0.0"pct";"▼"0.0"pct";0.0"pct"',
-}
 
-DEFAULT_STYLE_BY_KIND = {
-    "compare": "classic", "dashboard": "premium", "tracker": "minimal", "checklist": "classic",
-    "calculator": "classic", "ledger": "minimal", "roster": "classic",
+def G(name):
+    return CONF.glyph(name)
+
+
+def R(key):
+    return CONF.rule(key)
+
+
+def style_names():
+    return CONF.theme_names()
+
+
+def default_style(kind):
+    return CONF.default_theme("default_by_kind", kind)
+
+
+# 旧工作表类型（对比矩阵、甘特、试算、清单、口径说明）沿用的风格键，由新色系推导，保证同一工作簿颜色一致
+_LEGACY = {
+    "title_bar": "accent", "head_bg": "head_bg", "head_fg": "head_fg", "stripe": "band", "total_bg": "total_bg",
+    "hi_col": "accent_pale", "group_bg": "group_bg", "group_fg": "group_fg", "tile_bar": "accent",
+    "tab": "tab_other", "cover_bg": "accent", "cover_brand": "accent_light", "cover_category": "accent_light",
 }
 
 
 def get_style(name):
-    if name not in STYLES:
-        raise ValueError("未知风格 %r，可选：%s" % (name, ", ".join(STYLES)))
-    return STYLES[name]
+    """取色系；同时把品牌主色临时映射为该色系的强调色（只影响本次 Excel 渲染），
+    这样旧工作表类型里引用 primary 的地方也会跟着换色。"""
+    st = CONF.theme(name)
+    for old, new in _LEGACY.items():
+        st.setdefault(old, st.get(new))
+    st.setdefault("flat_head", True)
+    st.setdefault("dark_tiles", False)
+    st.setdefault("tile_bg", BRAND["white"])
+    st.setdefault("tile_value", BRAND["ink"])
+    st.setdefault("tile_label", BRAND["ink_soft"])
+    st.setdefault("cover_fg", BRAND["white"])
+    for k, v in (("primary", "accent"), ("primary_dark", "accent_dark"), ("primary_mid", "accent_mid"),
+                 ("primary_light", "accent_light"), ("primary_pale", "accent_pale"), ("grid", "grid")):
+        if st.get(v):
+            BRAND[k] = st[v]
+    if st.get("palette"):
+        CHART_PALETTE[:] = list(st["palette"])
+    return st

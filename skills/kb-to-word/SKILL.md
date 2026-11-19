@@ -1,7 +1,7 @@
 ---
 name: kb-to-word
 description: >
-  根据 TAP 知识库内容和用户的具体需求，生成可直接使用的专业 Word 文档（.docx），采用富卫品牌风格。
+  根据 TAP 知识库内容和用户的具体需求，生成可直接使用的专业 Word 文档（.docx），采用品牌风格（品牌、配色、字体等均来自共享配置 tap-config）。
   当用户要“写一份/出一份/整理成 Word/做成文档”时使用，例如产品说明书、客户方案、理赔指引、核保说明、
   培训手册、管理制度、经营分析报告、项目方案、客户告知函、合规自查报告。
   用户只说了主题和用途（如“给新人讲讲核保，做成培训材料”）也适用。
@@ -11,7 +11,7 @@ description: >
 
 # 知识生成 Word
 
-目标不是“把检索结果排进模板”，而是交付一份**读者拿到就能用**的文档：结构是为这位读者设计的，内容是从知识库里查证过的，版式是富卫品牌的，并且通过了合规和质量检查。
+目标不是“把检索结果排进模板”，而是交付一份**读者拿到就能用**的文档：结构是为这位读者设计的，内容是从知识库里查证过的，版式符合品牌规范，并且通过了合规和质量检查。
 
 整个过程分六个阶段。**每个阶段都有一个明确的产出，产出不达标不进入下一阶段。**
 
@@ -37,7 +37,7 @@ description: >
 | 用途 | 读完要能做什么 | 能独立判断常见核保结论 |
 | 对内/对外 | 决定合规要求和能不能出现内部信息 | 对内 |
 | 篇幅 | 页数范围 | 8-12 页 |
-| 风格 | classic / premium / minimal，见 `reference/styles.md` | classic |
+| 风格 | soft 淡雅蓝（默认）/ blue 商务蓝 / navy 深蓝稳重 / 橙色系 classic、premium、minimal，见 `reference/styles.md` | soft |
 | 必须包含 | 用户点名要的内容 | 次标准体的处理方式 |
 | 时间口径 | 数据和制度以哪个时点为准 | 现行版本 |
 
@@ -48,7 +48,7 @@ description: >
 ```
 📋 需求卡片
 类型：培训手册｜读者：新入职代理人｜用途：能独立判断常见核保结论
-对内｜约 10 页｜风格：经典橙白｜重点：次标准体处理｜口径：现行制度
+对内｜约 10 页｜风格：淡雅蓝｜重点：次标准体处理｜口径：现行制度
 ```
 
 ## ② 设计蓝图 → 文档蓝图
@@ -59,9 +59,10 @@ description: >
 
 - **这一章回答读者什么问题**（例：“我遇到有既往症的客户该怎么办？”）
 - **要从知识库查什么**（检索计划，供下一阶段使用）
-- **用什么元素呈现**（从 `reference/elements.md` 的 25 种元素里选）
+- **用什么元素呈现**（从 `reference/elements.md` 的 28 种元素里选）
+- **这一章要给出的硬信息**（至少一个数字、时限、条款或案例），写不出来说明这一章还没想清楚
 
-元素选择原则：**数字用数据卡片或图表，步骤用流程图，对比用表格或对比卡片，风险用提示框或四象限，术语用术语表，常见疑问用 FAQ**。整篇文档里连续 3 段以上纯文字就要考虑换成元素。
+元素选择原则：**汇报先放执行摘要，数字用数据卡片或图表，目标达成用进度条，产品要素用要素表，步骤用流程图，对比用表格或对比卡片，风险用提示框或四象限，术语用术语表，常见疑问用 FAQ**。整篇文档里连续 3 段以上纯文字就要考虑换成元素。
 
 ## ③ 按蓝图检索 → 证据台账
 
@@ -85,6 +86,7 @@ description: >
 - **数字要具体**：写“3 个工作日内”，不写“尽快”。
 - 对外文档遵守合规底线：不承诺收益、不与存款类比、不用绝对化用语；产品资料必须有犹豫期、等待期、责任免除和“以保险合同条款为准”的风险提示。
 - 图文交替：每 1-2 个一级章节至少一个图示或图表。
+- **内容不能空洞**：按 `writing-standards.md` 第三节的五条硬标准写——每章至少一个可核对的事实，每段“结论 + 依据 + 做法”，不用套话，要点不只写关键词，给例子。
 
 生成 JSON 后自查：所有数字能在证据台账里找到吗？每个图表的数据加总、占比算对了吗？
 
@@ -92,12 +94,14 @@ description: >
 
 ```bash
 python scripts/render_docx.py content.json out/文档名.docx            # 按 meta.style 或文档类型自动选风格
-python scripts/render_docx.py content.json out/文档名.docx --style premium
+python scripts/render_docx.py content.json out/文档名.docx --style blue --font-preset formal
 ```
 
 - 脚本会先校验 JSON（未知元素、缺字段、表格列数不一致、图表数据个数不对），有问题会逐条列出并退出，按提示改 JSON 后重跑。
-- 首次运行需要：`pip install -U python-docx matplotlib`，并安装微软雅黑或思源黑体（图表中文）。
+- 首次运行需要：`pip install -U python-docx matplotlib`；字体按 tap-config/brand.json 的候选链选择，图表需本机装有其中任意一种中文字体。
 - 一级标题达到 4 个时自动生成目录；Word 打开时会询问是否更新域，选“是”即可显示页码。
+- 字体按文档类型自动选：制度、通知、合规用 formal（黑体标题 + 宋体正文 + 首行缩进），其余用 modern（微软雅黑 + Arial）。
+- 渲染结束会打印**内容体检**（套话、话题式标题、内容单薄、缺数字、结论不先行、重复表述）。每条都要处理：改内容后重新渲染，或在交付说明里写明为什么保留。
 
 ## ⑥ 质检交付 → 质检报告 + 交付说明
 
@@ -105,8 +109,8 @@ python scripts/render_docx.py content.json out/文档名.docx --style premium
 python scripts/review_docx.py out/文档名.docx --doc-type product --final
 ```
 
-1. **脚本检查**：合规用语、必备要素、结构、图表数量、占位符。有“必须修改”项就回到第 ④ 步改，不能交付。
-2. **六维自评**：按 `reference/quality-rubric.md` 给需求契合、内容准确、结构逻辑、可读性、视觉呈现、合规六项打分（1-5）。**任何一项低于 4 分，修改后重新渲染。**最多返工 2 轮，仍不达标就交付并说明差在哪里。
+1. **脚本检查**：合规用语、必备要素、结构、图表数量、占位符、内容体检。有“必须修改”项就回到第 ④ 步改，不能交付。
+2. **七维自评**：按 `reference/quality-rubric.md` 给需求契合、内容准确、内容充实、结构逻辑、可读性、视觉呈现、合规七项打分（1-5）。**任何一项低于 4 分，修改后重新渲染。**最多返工 2 轮，仍不达标就交付并说明差在哪里。
 3. **交付说明**（对话中给用户）：
    - 文档是什么、给谁用、多少页、用了哪套风格
    - 主要依据了哪些知识库文档（列 3-5 篇最关键的）
@@ -121,18 +125,19 @@ python scripts/review_docx.py out/文档名.docx --doc-type product --final
 |---|---|
 | `reference/requirement-analysis.md` | 需求判断：推断规则、什么时候该问、示例 |
 | `reference/blueprints.md` | 10 类保险文档蓝图 |
-| `reference/elements.md` | 25 种元素的 JSON 格式和使用场景 |
-| `reference/styles.md` | 三套风格的适用场景和视觉规范 |
-| `reference/writing-standards.md` | 保险写作规范与合规底线 |
+| `reference/elements.md` | 28 种元素的 JSON 格式和使用场景 |
+| `reference/styles.md` | 六套风格、两套字体方案、版式细则（字号、行距、底纹、表格） |
+| `reference/writing-standards.md` | 保险写作规范、合规底线、拒绝空洞的五条硬标准 |
 | `reference/retrieval.md` | 检索方法、证据台账格式 |
-| `reference/quality-rubric.md` | 六维质量评分标准 |
+| `reference/quality-rubric.md` | 七维质量评分标准 |
 | `scripts/render_docx.py` | 渲染入口 |
-| `scripts/blocks_basic.py` `blocks_visual.py` | 25 种元素的实现 |
+| `scripts/blocks_basic.py` `blocks_visual.py` | 28 种元素的实现 |
+| `scripts/content_check.py` | 内容体检（渲染和质检共用） |
 | `scripts/charts.py` | 图表和结构图 |
-| `scripts/themes.py` | 品牌色、字体、字号（改这里全局生效） |
+| `scripts/themes.py` `_tap.py` | 读取共享配置 `tap-config/`（品牌、配色、字体、字号、风格、文字、合规词表都在那里改） |
 | `scripts/docx_helpers.py` | Word 底层处理 |
 | `scripts/review_docx.py` | 质检 |
-| `examples/*.json` | 三份完整示例（产品说明书、理赔指引、经营分析报告） |
+| `examples/*.json` | 四份完整示例（产品说明书、理赔指引、经营分析报告、管理制度） |
 | `evaluations/cases.md` | 评测用例 |
 
 ## 不要做的事
@@ -140,4 +145,5 @@ python scripts/review_docx.py out/文档名.docx --doc-type product --final
 - 不要跳过 ①② 直接检索写作，这是上一版质量差的根本原因。
 - 不要编造数字、条款、案例；示例数据只在 `examples/` 里使用。
 - 不要把所有内容写成大段文字；也不要为了“丰富”堆砌元素，每个元素都要回答一个读者问题。
+- 不要用套话填篇幅。查不到的写【待补充】，写不出硬信息的章节就删掉或并入其他章节。
 - 不要在对外文档里出现内部系统名、内部价格、员工姓名。

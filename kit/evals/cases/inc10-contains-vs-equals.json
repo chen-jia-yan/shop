@@ -1,0 +1,11 @@
+{
+  "id": "inc10-contains-vs-equals",
+  "type": "agent",
+  "title": "评审员必须指出用 in 代替 == 的宽松断言",
+  "incident": "事故 10：assert \"ok\" in message，在 message 为 \"not ok\" 时也通过",
+  "agent": "kit-reviewer",
+  "prompt": "请评审这段测试（只根据下面的代码，不需要读文件）：\n\ndef test_upload_status():\n    result = service.upload(make_file(\"a.pdf\"))\n    assert \"ok\" in result.message\n    assert result is not None\n",
+  "expect_all": ["==", "(宽|太松|not ok|不严格|永远|几乎)"],
+  "expect_none": [],
+  "timeout": 600
+}

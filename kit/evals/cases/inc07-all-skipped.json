@@ -1,0 +1,10 @@
+{
+  "id": "inc07-all-skipped",
+  "type": "output",
+  "title": "全部跳过不能被当成通过",
+  "incident": "事故 7 的变体：加了 skip 让测试“通过”",
+  "check_name": "tests",
+  "exit_code": 0,
+  "output": "collected 4 items\n\ntests/unit/test_kg.py ssss                                              [100%]\n\n============================== 4 skipped in 0.10s ==============================\n",
+  "expect": "fail"
+}

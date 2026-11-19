@@ -1,0 +1,10 @@
+{
+  "id": "inc07-interrupted",
+  "type": "output",
+  "title": "收集阶段中断不能被当成通过",
+  "incident": "事故 4/7：收集阶段 ImportError，报告却写“测试通过”",
+  "check_name": "tests",
+  "exit_code": 2,
+  "output": "collected 12 items / 1 error\n\n==================================== ERRORS ====================================\n___________ ERROR collecting tests/unit/test_sdk_ingest.py ___________\nImportError: cannot import name 'KgSchema' from partially initialized module\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n",
+  "expect": "fail"
+}

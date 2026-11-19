@@ -8,12 +8,15 @@ import re
 
 from lxml import etree
 from pptx.dml.color import RGBColor
+from pptx.enum.dml import MSO_LINE_DASH_STYLE
 from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
 
 from ppt_theme import BRAND, CONF, FONTS, R
+
+DASH = {"dash": MSO_LINE_DASH_STYLE.DASH, "dot": MSO_LINE_DASH_STYLE.ROUND_DOT, "long": MSO_LINE_DASH_STYLE.LONG_DASH}
 
 _SLIDE = R("slide")
 W, H = _SLIDE["width_in"], _SLIDE["height_in"]          # 页面尺寸见 rules.ppt.slide
@@ -237,12 +240,61 @@ def add_shadow(sp, blur=16, dist=3, alpha=0.10):
 
 
 def line(slide, x1, y1, x2, y2, color=None, width=1.0, dash=None):
+    """dash：None 实线 / "dash" 虚线 / "dot" 点线。"""
     ln = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, I(x1), I(y1), I(x2), I(y2))
     ln.line.color.rgb = rgb(color or BRAND["line"])
     ln.line.width = Pt(width)
     if dash:
-        ln.line.dash_style = dash
+        ln.line.dash_style = DASH.get(dash, dash)
     return ln
+
+
+def polyline(slide, pts, color, width=2.0, dash=None):
+    """折线：逐段画直线（返回线段列表，便于一起加动画）。"""
+    return [line(slide, a[0], a[1], b[0], b[1], color, width, dash) for a, b in zip(pts, pts[1:])]
+
+
+def smooth(pts, n=8):
+    """Catmull-Rom 插值，把几个点连成平滑曲线的采样点。"""
+    if len(pts) < 3:
+        return list(pts)
+    p = [pts[0]] + list(pts) + [pts[-1]]
+    out = []
+    for i in range(1, len(p) - 2):
+        p0, p1, p2, p3 = p[i - 1], p[i], p[i + 1], p[i + 2]
+        for k in range(n):
+            s = k / float(n)
+            out.append(tuple(0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * s + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * s * s
+                                    + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * s ** 3) for j in (0, 1)))
+    out.append(pts[-1])
+    return out
+
+
+def fmt_num(v, nf=None):
+    """按 Excel 风格的数字格式把数值写成文字：0 / 0.0 / 0.00 / #,##0 / 0% / 0.0% / +0.0%。字符串原样返回。"""
+    if isinstance(v, str) or v is None:
+        return "" if v is None else v
+    nf = nf or ("0" if float(v) == int(v) else "0.0")
+    sign = "+" if nf.startswith("+") and v > 0 else ""
+    core = nf.lstrip("+")
+    dec = len(core.split(".")[1].rstrip("%")) if "." in core else 0
+    if core.endswith("%"):
+        return sign + ("%.*f%%" % (dec, v * 100))
+    if "," in core:
+        return sign + "{:,.{d}f}".format(v, d=dec)
+    return sign + ("%.*f" % (dec, v))
+
+
+def mix(c1, c2, k):
+    """两色混合：k=0 为 c1，k=1 为 c2。"""
+    a, b = c1.lstrip("#"), c2.lstrip("#")
+    k = max(0.0, min(1.0, k))
+    return "".join("%02X" % int(round(int(a[i:i + 2], 16) * (1 - k) + int(b[i:i + 2], 16) * k)) for i in (0, 2, 4))
+
+
+def dashed(sp, dash="dash"):
+    sp.line.dash_style = DASH.get(dash, dash)
+    return sp
 
 
 def shape_text(sp, s, size=14, color=None, bold=False, align="center", anchor="middle", numbers=False, accent=None):

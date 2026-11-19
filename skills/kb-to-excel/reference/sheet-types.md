@@ -1,171 +1,276 @@
-# 8 种工作表：JSON 格式
+# 内容 JSON 格式
 
-整体结构：
+一个工作簿 = 数据层（`data`）+ 视图层（`views`）+ 分析层（`dashboard` `rules`）+ 可选的专用工作表（`sheets`）。
+完整示范见 `examples/complaints_tracker.json`。
 
 ```json
 {
-  "meta": {
-    "title": "工作簿标题", "subtitle": "副标题", "category": "经营分析",
-    "kind": "dashboard",             // compare / dashboard / tracker / checklist / calculator / ledger / roster，决定默认风格
-    "style": "premium",              // classic / premium / minimal，可省略
-    "department": "战略规划部", "audience": "公司管理层", "as_of": "数据口径",
-    "version": "V1.0", "date": "2026-10-15", "confidentiality": "内部",
-    "disclaimer": "说明页底部的免责/使用提示", "tags": []
-  },
-  "sheets": [ { "type": "cover", "name": "说明", ... }, ... ]
+  "meta":      { ... },          // 必填
+  "params":    [ ... ],          // 可调阈值，放在“参数”表
+  "options":   { ... },          // 公共下拉选项（可省略，单选字段自带的 options 会自动汇总进来）
+  "data":      [ ... ],          // 原始数据表（一张或多张）
+  "rules":     [ ... ],          // 提醒规则
+  "views":     [ ... ],          // 列表视图 / 看板视图
+  "dashboard": { ... },          // 仪表盘（一个）
+  "sheets":    [ ... ]           // 对比矩阵、甘特、试算、清单、口径说明、简单表
 }
 ```
 
-- `name` 是工作表名（≤31 字符，不能含 `[ ] : * ? / \`），也是公式引用时的表名。
-- 每个工作表可写 `desc`，会显示在说明页的目录里。
-- 所有文字支持【待补充：XX】【请确认：XX】，渲染后单元格标为橙黄色。
+**工作表顺序**（自动）：使用说明 →（仪表盘，`dashboard_first` 时）→ 各数据表 → 字段说明 → 各视图 → 仪表盘 → sheets → 提醒规则 → 参数。
+工作表名 ≤ 31 字，不能含 `[ ] : * ? / \`，不能与自动生成的表重名。
 
 ---
 
-## 公式引用写法（跨表联动）
+## meta
 
-| 写法 | 含义 | 例 |
-|---|---|---|
-| `{@列名}` | 当前表同一行 | `=IFERROR({@新单保费}/{@目标},0)` |
-| `{表名.列名}` | 该列全部数据行 | `=SUM({机构明细.新单保费})` |
-| `{表名.列名#3}` | 第 3 个数据行 | |
-| `{表名.列名=华南}` | 第一列为“华南”的那一行 | `={机构明细.达成率=华南}` |
-| `{表名.列名:total}` | 合计行 | `={机构明细.同比:total}` |
-| `{input.key}` / `{output.key}` | 试算表的录入格 / 结果格 | `={input.amount}/1000*{output.rate}` |
-| `{lookup.名称.data/col1/header}` | 试算表查找表的数据区 / 首列 / 表头 | 见试算示例 |
+```json
+{"title": "客户投诉处理台账",
+ "purpose": "这个文件用来做什么、谁在什么时候更新",     // 显示在“使用说明”第一行
+ "kind": "tracker",            // tracker / dashboard / compare / checklist / calculator / ledger / roster，决定默认色系
+ "style": "blue",              // blue 蓝色系（默认）/ soft 淡色系 / orange 橙色系；命令行 --style 优先
+ "source": "TAP 工单系统导出", "date": "2026-11-19", "department": "客户服务部",
+ "confidentiality": "内部", "disclaimer": "使用说明里的提示语",
+ "dashboard_first": false,      // true：仪表盘排在数据表前面（管理层看板类）
+ "readme": true,                // false：不生成“使用说明”
+ "tags": []}
+```
 
-对比矩阵（matrix）也可以被引用：`{版本对比.尊享版=示例年交保费（元）}`。
-引用在全部工作表写完后统一解析，解析失败会以退出码 3 列出具体位置。
+## params 参数
+
+```json
+[{"key": "limit", "name": "处理时限（天）", "value": 15, "format": "int", "desc": "改这里，所有时限自动更新"}]
+```
+公式里写 `{param.limit}`。参数格是淡黄录入格，改值后全工作簿联动。
+
+## options 公共下拉
+
+```json
+{"部门": ["理赔部", "客户服务部", "运营部"]}
+```
+字段写 `"options_ref": "部门"` 共用一组选项；字段直接写 `options` 也可以，会自动汇总到“参数”表（同名不同值时自动改名为“表·字段”）。
 
 ---
 
-## 1. cover 说明页
+## data 原始数据表
 
 ```json
-{"type": "cover", "name": "说明", "purpose": "这个文件用来做什么",
- "how_to": ["第一步……", "第二步……"], "legend": true}
+{"name": "数据", "title": "客户投诉处理台账", "source": "TAP 工单系统", "date": "2026-11-19",
+ "key": "工单号",               // 主键：不能为空、不能重复；视图跳转、回写都靠它。省略时取第一个字段
+ "expect_rows": 16,             // 检索到的记录数；与 rows 条数不符则拒绝渲染
+ "desc": "原始工单，一行一件，原样保留",
+ "table_name": "tblTickets",    // 可省略，默认 tbl1、tbl2…（Excel 表格对象名）
+ "fields": [ ... ],
+ "rows": [ ... ],
+ "charts": [ {图表 spec} ]}      // 可选：放在数据表右侧
 ```
-自动生成：品牌色带标题、文件信息（取自 meta）、**工作表目录（带跳转链接）**、单元格颜色说明（录入格/公式格/待补充）、免责提示。
 
-## 2. table 明细表
+### fields 字段
 
 ```json
-{"type": "table", "name": "机构明细", "title": "区域机构经营明细", "subtitle": "单位：亿元",
- "total": "合计",
- "columns": [
-   {"name": "机构"},
-   {"name": "新单保费", "format": "yi", "total": "sum"},
-   {"name": "达成率", "format": "pct", "formula": "=IFERROR({@新单保费}/{@目标},0)",
-    "total": "=IFERROR({@新单保费}/{@目标},0)", "rule": {"type": "lt", "value": 1, "style": "bad"}},
-   {"name": "状态", "options": ["正常", "关注", "预警"]},
-   {"name": "人均产能", "unit": "万元", "format": "0.0", "databar": true}
- ],
- "rows": [["华南", 4.10, null, "正常", null]],
- "highlight_col": "新单保费", "notes": ["……"], "source": "……",
- "charts": [ {图表 spec，data 默认为本表} ],
- "spare_rows": 20, "row_height": 20, "filter": true, "freeze_first_col": true}
+{"name": "状态", "type": "select", "required": true, "input": true,
+ "options": ["待处理", "处理中", "已结案"],
+ "styles": {"待处理": "grey", "处理中": "info", "已结案": "good"},
+ "desc": "口径说明，显示在表头批注和字段说明里", "src": "人工登记"}
 ```
 
-| 列字段 | 说明 |
+| 键 | 说明 |
 |---|---|
-| `format` | text / int / money / money2 / wan / yi / pct / pct0 / ratio / date / month / delta / delta_pt，或直接写 Excel 格式如 `0.0` |
-| `unit` | 显示在表头括号里 |
-| `formula` | 逐行公式；该列在 rows 中填 `null` |
-| `total` | `sum` / `avg` / `count`（生成 SUBTOTAL，筛选后只算可见行），或公式字符串（按合计行计算） |
-| `options` | 下拉选项（数据校验）；`spare_rows` 给下方空行也加上 |
-| `rule` | 条件格式，可为一个或数组：`sign`（正绿负红，`good: "down"` 反向）、`lt`/`gt`/`between`/`eq`（`value`, `style`: bad/warn/good）、`top`（前 N 名）、`scale`（色阶）、`text`（等于某文字时着色） |
+| `type` | `text` `longtext` `number` `money` `percent` `date` `select` `multi` `person` `link` `formula` `ai` `bool` |
+| `required` | 必填；为空时整格标黄，字段说明里的填写率 < 100% 标黄 |
+| `input` | 需要人工更新的列，淡黄录入格 |
+| `format` | 数字格式键：`text` `int` `money` `money2` `wan` `yi` `pct` `pct0` `ratio` `date` `month` `delta` `delta_pt`，或直接写 Excel 格式（`0.0`）。省略时按类型取默认 |
+| `options` / `options_ref` | 下拉选项（`select`）；`bool` 自动用 是 / 否 |
+| `styles` | 某个取值的颜色：`bad` 红 / `warn` 黄 / `info` 紫 / `good` 绿 / `grey` 灰。适用于单选和公式字段 |
+| `formula` | `type: formula` 时必填，逐行公式（见下方“引用写法”）。写入表格对象的计算列，新增行自动带公式 |
+| `ai` | `type: ai` 时：`{"from": "依据字段", "date": "生成日期", "check": "对照字段"}`。表头浅紫并在批注写明依据和日期，有 `check` 时两列不一致标紫 |
+| `display` | `type: link` 时的显示文字，可含 `{@字段}`，如 `"工单 {@工单号}"` |
 | `databar` | 数据条 |
-| `input` | 标为录入格（黄底） |
-| `width` / `wrap` / `align` | 列宽、自动换行、对齐 |
+| `freeze` | 冻结到该列（含）为止 |
+| `width` | 列宽；省略时按内容估算，长文本自动换行 |
+| `desc` / `src` | 口径说明 / 数据来源 |
 
-自动处理：表头冻结、筛选、隔行底色、数字右对齐、按内容估算列宽、打印时每页重复表头。
+自动追加的列（不要写进 fields）：
+- **提醒标记**：有 `rules` 指向这张表时生成，命中的规则名写在格子里。
+- **辅助列**：视图和仪表盘需要的匹配、序号列，放在最右侧、折叠隐藏、灰色字，不要删除。
 
-## 3. matrix 对比矩阵
+### rows 记录
+
+两种写法任选（可混用）：
+
+```json
+["TS2026-0912", "2026-09-03", "客服热线", ...]                 // 数组：按非公式字段的顺序（公式列不占位）
+{"工单号": "TS2026-0918", "受理日期": "2026-09-10", ...}         // 对象：按字段名
+```
+- 数组写法里，`ai` 和 `link` 字段**要占位**（它们是值，不是公式）。值少于字段数时，后面的格子留空。
+- 日期写 `YYYY-MM-DD`，自动转成日期值；空值写 `""`（写入为真正的空格子）。
+- 数组多于字段数、对象出现字段之外的键 → 拒绝渲染（防止数据丢失）。
+
+---
+
+## rules 提醒规则
+
+```json
+{"name": "超时", "table": "数据", "when": "{@时效}=\"超时\"", "level": "bad", "fields": ["时效"],
+ "how": "可选，规则表里“怎么处理”一栏的说明"}
+```
+- `when`：条件表达式（不带 `=`），写法同字段公式。
+- `level`：`bad` 红 / `warn` 黄 / `info` 紫；`fields`：命中时着色的字段。
+- `table` 省略时为第一张数据表。
+- 规则名不能互相包含（“超时”和“超时结案”会混淆计数），校验会拦下。
+- “提醒规则”表列出每条规则的条件、着色字段、当前命中数；“启用”列改成“否”即停用该规则。
+
+## views 视图
+
+### 列表视图
+
+```json
+{"type": "list", "name": "视图·待办", "from": "数据", "desc": "未结案工单，按处理时限排序",
+ "columns": ["工单号", "受理日期", "状态", "处理时限", "时效", "提醒标记"],
+ "where": "{@状态}<>\"已结案\"",
+ "sort": "处理时限",                       // 或 {"by": "处理天数", "desc": true}；省略则按原顺序
+ "rows": 100}                              // 预留行数，默认见 rules.json → excel.view_rows
+```
+- 每一格都是 INDEX/MATCH 公式，数据表改了视图自动更新；新旧版本 Excel 均可用。
+- 主键可点击跳回数据表原始行；列沿用数据表的格式和颜色。
+- 视图顶部写明来源、条件、排序和当前条数。
+
+### 看板视图
+
+```json
+{"type": "board", "name": "视图·看板", "from": "数据", "group": "状态",
+ "groups": ["待处理", "处理中", "已结案"],   // 省略时取分组字段的 options
+ "card": ["客户", "投诉类别", "承办人"],      // 卡片上显示的字段（主键自动在首行）
+ "where": "...", "rows": 40, "desc": "按状态分列"}
+```
+列头显示“状态（件数）”；卡片按提醒规则着色。
+
+---
+
+## dashboard 仪表盘
+
+```json
+{"name": "仪表盘", "from": "数据", "title": "投诉处理驾驶舱", "desc": "进度、趋势与异常",
+ "kpis": [...], "insights": [...], "trend": {...}, "heatmap": {...},
+ "group": {...}, "breakdown": {...}, "anomalies": {...}, "charts": [...]}
+```
+每个部分都可省略。版面（12 列网格）：指标卡 → 洞察 + 趋势 → 热力 + 分组 → 异常 + 分布 → 图表两两一行。
+图表的数据放在右侧计算区（灰色小字），都是公式，不要手改。
+
+| 部分 | 格式 | 说明 |
+|---|---|---|
+| `kpis` | `{"label", "value": "=公式", "unit", "format", "note": "=公式", "tone": "up/down", "alert": true, "ring": "=0~1 的公式"}` | 2–8 个。`unit` 写进数字格式（值仍可计算）；`tone` 是 note 的颜色（up/bad 红，down/good 绿）；`alert` 数字标红；`ring` 加一个进度圆环 |
+| `insights` | `[{"text": "=公式拼句子", "level": "bad/warn"}]` | 每句由公式拼成，数据变了句子跟着变；最多见 `excel.insight_max` |
+| `trend` | `{"title", "note", "periods": "auto", "date": "日期字段", "bars": [{"name", "date", "where"}], "line": {"name", "avg", "date", "where"}}` | 按月 COUNTIFS 计数（柱）+ 平均值（右轴折线）；`auto` 从数据的最早月到最晚月 |
+| `heatmap` | `{"title", "rows": "字段", "cols": "字段", "row_values", "col_values"}` | 两个字段交叉计数，色阶着色 |
+| `group` | `{"title", "by": "字段", "values": [...], "measures": [{"name", "agg": "count/sum/avg", "field", "where", "format", "databar", "alert"}]}` | 分组汇总表；`alert` 大于 0 标红 |
+| `breakdown` | `{"title", "by": "字段", "values": [...], "where"}` | 计数 + 条形图 |
+| `anomalies` | `{"title", "note", "columns": [...], "where", "sort", "rows"}` | 内嵌列表视图；`where` 省略时 = 提醒标记不为空 |
+| `charts` | `[图表 spec]` | 引用数据表的原生图表，见文末 |
+
+`where` 在 group / trend / breakdown 里是条件数组：`[["状态", "<>已结案"], ["渠道", "监管转办"]]`（COUNTIFS 条件写法）。
+`values` 省略时：取字段的 options；没有 options 则按数据中出现的顺序。
+
+---
+
+## 引用写法
+
+| 写法 | 含义 | 渲染结果 |
+|---|---|---|
+| `{@字段}` | 本行该字段 | `tbl1[[#This Row],[字段]]`（条件格式里为 `$C3`） |
+| `{表.字段}` | 数据表的整列 | `tbl1[字段]`，表格新增行自动包含 |
+| `{param.键}` | 参数 | `'参数'!$B$3` |
+| `{options.名称}` | 一组下拉选项 | `'参数'!$A$12:$A$15` |
+| `{表.列#3}` `{表.列=华南}` `{表.列:total}` | 专用工作表（sheets）的单格引用 | 见下方 |
+| `{input.key}` `{output.key}` `{lookup.名称.data/col1/header}` | 试算表 | 见下方 |
+
+- 跨表统计用 COUNTIFS / SUMIFS / AVERAGEIFS / INDEX+MATCH；**不用** FILTER、SORT、UNIQUE、XLOOKUP、LET（旧版 Excel 不支持）。
+- 公式中的中文字符串要转义引号：`"=IF({@状态}=\"已结案\",1,0)"`。
+- 引用在全部工作表写完后统一解析，解析失败以退出码 3 列出位置。
+
+---
+
+## sheets 专用工作表
+
+原有的专用表保留，适合“不是一行一条记录”的内容。可以与 data 并用（例如对比矩阵 + 试算）。
+`cover`（封面）和旧版 `dashboard` 已停用：使用说明自动生成，仪表盘用上面的 `dashboard`。
+
+### table 简单表
+
+只在内容很少、不需要视图和提醒时使用；**多于十几行的记录请用 data**。
+
+```json
+{"type": "table", "name": "费率表", "title": "……", "subtitle": "单位：元",
+ "columns": [{"name": "年龄", "format": "int"}, {"name": "费率", "format": "0.00", "total": "avg",
+              "rule": {"type": "lt", "value": 1, "style": "bad"}}],
+ "rows": [[18, 30.5]], "total": "合计", "notes": [], "source": "", "charts": []}
+```
+列字段：`format` `unit` `formula` `total`（sum/avg/count 或公式）`options` `rule`（sign / lt / gt / between / eq / top / scale / text）`databar` `input` `width` `wrap` `align`。
+
+### matrix 对比矩阵
 
 ```json
 {"type": "matrix", "name": "版本对比", "objects": ["基础版", "尊享版", "臻享版"],
  "highlight": "尊享版", "highlight_label": "★ 多数家庭适用", "corner": "对比项",
- "groups": [{"name": "保障责任", "rows": [{"label": "中症", "values": ["—", "50% 保额", "60% 保额"]}]}],
- "label_width": 20, "col_width": 24, "notes": [], "source": ""}
+ "groups": [{"name": "保障责任", "rows": [{"label": "重疾保额", "values": ["—", "50 万", "100 万"]}]}],
+ "notes": [], "source": ""}
 ```
-`✓ ✗ —` 自动着色放大；推荐列整列浅色高亮；行可加 `format` 和 `emphasis`。
+`✓ ✗ —` 自动着色；可被引用：`{版本对比.尊享版=示例年交保费（元）}`。
 
-## 4. notes 口径说明
+### notes 口径说明
 
 ```json
 {"type": "notes", "name": "口径说明",
  "sections": [{"heading": "指标定义", "items": [["新单保费", "首年规模保费"], "也可以是一句话"]}]}
 ```
 
-## 5. dashboard 看板
-
-```json
-{"type": "dashboard", "name": "经营看板", "title": "三季度经营看板",
- "kpis": [{"label": "新单保费", "unit": "亿元", "value": "={机构明细.新单保费:total}", "format": "yi",
-           "delta": "={机构明细.同比:total}", "delta_format": "delta", "good": "up", "note": "无 delta 时显示"}],
- "insights": ["关键结论 1", "关键结论 2"],
- "rank": {"title": "达成率排名", "data": "机构明细", "by": "达成率", "key": "机构", "top": 5,
-          "columns": ["机构", "新单保费", "达成率"], "formats": {"达成率": "pct"}, "ascending": false},
- "charts": [ {图表 spec}, ... ]}
-```
-指标卡 2-6 个，横向平分 12 列；图表自动两列排布。排名由公式动态生成，明细改了排名跟着变。
-
-## 6. gantt 甘特跟踪
+### gantt 甘特跟踪
 
 ```json
 {"type": "gantt", "name": "整改跟踪", "start": "2026-10-12", "end": "2027-01-24", "unit": "week",
  "statuses": ["未开始", "进行中", "已完成"],
- "tasks": [{"id": "ZG-01", "task": "……", "dept": "个险渠道部", "owner": "陈伟",
+ "tasks": [{"id": "ZG-01", "task": "……", "dept": "个险渠道部", "owner": "陈**",
             "start": "2026-10-12", "end": "2026-10-30", "status": "已完成", "progress": 1}]}
 ```
-固定列：编号、事项、责任部门、责任人、开始、完成、状态（下拉）、进度（0-100%，数据条）、预警（公式）。
-时间轴按周（`week`，自动对齐到周一）或按天（`day`）；条件格式：计划橙、完成绿、逾期红、本周浅黄。
-顶部汇总条：事项总数、已完成、进行中、已逾期、完成率，全部为公式。
-可被引用的列名：编号 / 事项 / 责任部门 / 责任人 / 开始 / 完成 / 状态 / 进度 / 预警。
+需要视图 / 提醒 / 仪表盘时，任务本身放 data，甘特只作为时间轴补充。
 
-## 7. calculator 试算
+### calculator 试算
 
 ```json
 {"type": "calculator", "name": "保费试算",
  "inputs": [{"key": "age", "label": "被保险人年龄", "value": 30, "unit": "周岁",
-             "validation": {"type": "whole", "min": 18, "max": 50}, "hint": "输入提示"},
-            {"key": "gender", "label": "性别", "value": "男", "options": ["男", "女"]}],
+             "validation": {"type": "whole", "min": 18, "max": 50}, "hint": "输入提示"}],
  "outputs": [{"key": "premium", "label": "年交保费", "format": "money", "emphasis": true,
-              "formula": "=ROUND({input.amount}/1000*{output.rate},0)", "comment": "元/年"}],
- "lookups": [{"name": "费率表", "title": "……", "columns": ["年龄起", "男10年"], "rows": [[18, 30.5]], "format": "0.0", "note": "……"}],
+              "formula": "=ROUND({input.amount}/1000*{output.rate},0)"}],
+ "lookups": [{"name": "费率表", "columns": ["年龄起", "男10年"], "rows": [[18, 30.5]]}],
  "notes": ["试算结果仅供参考……"], "protect": true, "iferror": true}
 ```
-- 录入格黄底并解锁，其余单元格锁定（工作表保护无密码，可随时撤销）。
-- `iferror: true` 时结果公式自动包 `IFERROR(…,"请检查录入")`。
-- 查找表按年龄段取值用 `MATCH(…,{lookup.X.col1},1)`（首列须升序）；按名称取值用 `MATCH(…,0)`。
+录入格解锁、其余锁定（无密码）；查找表按年龄段用 `MATCH(…,{lookup.X.col1},1)`（首列升序）。
 
-## 8. checklist 清单
+### checklist 清单
 
 ```json
 {"type": "checklist", "name": "材料清单",
  "groups": [{"name": "医疗险", "items": [{"text": "医疗费用发票", "required": true, "note": "……", "who": "医院", "done": false}]}]}
 ```
-“完成”列下拉 ☐/☑；勾选后整行变浅绿；顶部显示完成比例和“必备项还差 N 项”。
 
 ---
 
 ## 图表 spec
 
 ```json
-{"type": "col", "title": "写结论", "data": "机构明细", "categories": "机构",
- "series": ["新单保费", "目标"], "secondary": ["同比"], "secondary_format": "0%",
- "rows": [1, 5], "highlight": "华南", "number_format": "0.0", "labels": true,
- "anchor": "B20", "width": 16, "height": 8}
+{"type": "col", "title": "写结论，不写“XX 图”", "data": "<数据表或简单表名>", "categories": "<分类字段>",
+ "series": ["<数值字段>"], "secondary": ["<右轴字段>"], "secondary_format": "0%",
+ "highlight": "<分类名>", "number_format": "0.0", "labels": true, "width": 16, "height": 8}
 ```
 
 | type | 适合 |
 |---|---|
-| `col` | 分类比较、时间序列（≤8 期） |
-| `bar` | 分类名较长、排名（第一项在最上方） |
-| `line` | 趋势（≥5 期） |
+| `col` | 分类比较、≤8 期的时间序列 |
+| `bar` | 分类名较长、排名 |
+| `line` | ≥5 期趋势 |
 | `combo` | 规模 + 增速（柱 + 右轴折线，需 `secondary`） |
 | `stacked` | 构成随时间或机构变化 |
 | `area` | 累计趋势 |
 | `pie` / `donut` | 构成占比（≤6 项） |
 
-`highlight`：单系列柱/条形图中高亮一项、其余灰色。数据是数值时可写 `max`/`min`；数据是公式时写分类名。
+图表直接引用数据表的单元格，改数据图表跟着变。`highlight`：单系列中高亮一项，其余灰色。

@@ -1,0 +1,9 @@
+{
+  "id": "inc11-guard-protected-area",
+  "type": "guard",
+  "title": "修改同事的问答插件必须被拦截",
+  "incident": "事故 11：同事负责的 knowledge 插件被改动",
+  "protected": ["src/tap_ai/plugins/extensions/knowledge/**"],
+  "payload": {"toolName": "edit", "toolArgs": {"path": "{cwd}/src/tap_ai/plugins/extensions/knowledge/service.py", "old_str": "x", "new_str": "y"}},
+  "expect": "deny"
+}

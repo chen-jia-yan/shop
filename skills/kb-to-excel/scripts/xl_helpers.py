@@ -21,15 +21,19 @@ import re
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from xl_theme import BRAND, FONT, NUM_FONT, ROLE
+from xl_theme import BRAND, CONF, FONTS, ROLE, L
 
 TOKEN = re.compile(r"\{([^{}]+)\}")
-TODO = re.compile(r"【待补充[^】]*】|【请确认[^】]*】")
+
+
+def _todo():
+    """占位符规则（默认【待补充…】【请确认…】），见 compliance.json 的 placeholders。"""
+    return CONF.placeholder_re()
 
 
 # ---------------- 样式工厂 ----------------
 def font(size=10, bold=False, color=None, name=None, italic=False, underline=None):
-    return Font(name=name or FONT, size=size, bold=bold, italic=italic, underline=underline,
+    return Font(name=name or FONTS["cn"], size=CONF.size(size), bold=bold, italic=italic, underline=underline,
                 color="FF" + (color or BRAND["ink"]))
 
 
@@ -83,9 +87,9 @@ def put(ws, row, col, value, f=None, fl=None, al=None, bd=None, fmt=None):
         c.border = bd
     if fmt:
         c.number_format = fmt
-    if isinstance(value, str) and TODO.search(value):
+    if isinstance(value, str) and _todo().search(value):
         c.fill = fill(ROLE["todo_bg"])
-        c.font = font(c.font.sz or 10, True, BRAND["orange_dark"])
+        c.font = Font(name=FONTS["cn"], size=c.font.sz or CONF.size(10), bold=True, color="FF" + BRAND["primary_dark"])
     return c
 
 
@@ -108,7 +112,7 @@ def title_block(ws, st, title, subtitle=None, ncols=6, note=None):
     return r + 1  # 空一行
 
 
-def print_setup(ws, landscape=True, title_rows=None, brand="富卫人寿"):
+def print_setup(ws, landscape=True, title_rows=None, brand=None):
     ws.page_setup.orientation = "landscape" if landscape else "portrait"
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_setup.fitToWidth = 1
@@ -120,9 +124,9 @@ def print_setup(ws, landscape=True, title_rows=None, brand="富卫人寿"):
     ws.page_margins.bottom = 0.6
     if title_rows:
         ws.print_title_rows = title_rows
-    ws.oddHeader.left.text = brand + " &A"
+    ws.oddHeader.left.text = L("print_header", brand=brand or CONF.org_name())
     ws.oddHeader.left.size = 8
-    ws.oddFooter.center.text = "第 &P 页 / 共 &N 页"
+    ws.oddFooter.center.text = L("print_footer")
     ws.oddFooter.center.size = 8
 
 
@@ -143,9 +147,12 @@ class Registry(object):
         self.pending = []   # (ws, coord, raw, sheet)
         self.errors = []
 
-    def table(self, sheet, cols, first, last, keys, total=None):
+    def table(self, sheet, cols, first, last, keys, total=None, tname=None, ws_name=None):
+        """登记一张表。tname：Excel“表格”对象名（数据表），有它时 {表.列} 解析为结构化引用 tname[列]，
+        用户在表格下方新增行时公式自动覆盖新行；ws_name：真实工作表名（登记别名时用，如仪表盘里的图表数据区）。"""
         self.tables[sheet] = {"cols": {c: i for i, c in enumerate(cols, 1)}, "first": first,
-                              "last": last, "keys": keys, "total": total}
+                              "last": last, "keys": keys, "total": total, "tname": tname,
+                              "sheet": ws_name or sheet}
 
     def cell(self, ns, key, sheet, col, row):
         k = "%s.%s" % (ns, key)
@@ -170,7 +177,8 @@ class Registry(object):
         return TOKEN.sub(rep, raw)
 
     def resolve_token(self, tok):
-        if tok.startswith("input.") or tok.startswith("output."):
+        if tok.startswith("input.") or tok.startswith("output.") or tok.startswith("param.") \
+                or tok.startswith("options."):
             if tok not in self.cells:
                 raise KeyError("找不到 %s" % tok)
             return self.cells[tok]
@@ -197,7 +205,7 @@ class Registry(object):
         if col not in t["cols"]:
             raise KeyError("“%s”中没有列：%s" % (sheet, col))
         c = t["cols"][col]
-        s = qsheet(sheet)
+        s = qsheet(t["sheet"])
         if nth:
             return s + absref(c, t["first"] + int(nth) - 1)
         if key is not None:
@@ -208,6 +216,8 @@ class Registry(object):
             if not t["total"]:
                 raise KeyError("“%s”没有合计行" % sheet)
             return s + absref(c, t["total"])
+        if t.get("tname"):
+            return sref(t["tname"], col)
         return s + absref(c, t["first"]) + ":" + absref(c, t["last"])
 
     def resolve_all(self):
@@ -221,3 +231,17 @@ class Registry(object):
 
 def is_formula(v):
     return isinstance(v, str) and v.startswith("=")
+
+
+_SREF_SPECIAL = re.compile(r"[\s,:.\[\]#'{}$^&*+=\-<>/\"!@%~`()]")
+
+
+def sref(tname, col, this_row=False):
+    """结构化引用：tbl[列]；列名含特殊字符时用双中括号并转义 ' [ ] #。
+    this_row=True 时为“本行”写法 tbl[[#This Row],[列]]（用于表格的计算列模板）。"""
+    esc = re.sub(r"(['\[\]#])", r"'\1", col)
+    if this_row:
+        return "%s[[#This Row],[%s]]" % (tname, esc)
+    if _SREF_SPECIAL.search(col):
+        return "%s[[%s]]" % (tname, esc)
+    return "%s[%s]" % (tname, esc)

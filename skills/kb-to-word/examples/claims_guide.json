@@ -5,7 +5,6 @@
     "subtitle": "客户自助理赔版",
     "category": "客户服务",
     "doc_type": "claims",
-    "style": "minimal",
     "department": "理赔部",
     "audience": "已投保医疗险、重疾险的客户",
     "version": "V2.1",

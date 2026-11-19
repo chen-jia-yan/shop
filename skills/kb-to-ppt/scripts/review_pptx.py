@@ -24,6 +24,7 @@ from pptx import Presentation                     # noqa: E402
 
 P_NS = "{http://schemas.openxmlformats.org/presentationml/2006/main}"
 A_NS = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+FRAMES = ("cover", "agenda", "section", "end", "disclaimer")
 
 
 def slide_text(slide):
@@ -35,6 +36,8 @@ def slide_text(slide):
 
 def _shape_text(sp):
     out = []
+    if (sp.name or "").startswith("tap_avoid"):      # 问答页“避免说”一栏本身列的就是违规用语，不算命中
+        return out
     if sp.shape_type == 6:                      # 组合
         for s in sp.shapes:
             out += _shape_text(s)
@@ -73,13 +76,13 @@ def review(path, external=False, final=False):
             todo_pages.append(str(i))
         chars = len(re.sub(r"\s", "", body))
         limit = rv["text_limit_dense"] if lay in rv["dense_layouts"] else rv["text_limit"]
-        if chars > limit and lay not in ("cover", "agenda", "section", "end"):
+        if chars > limit and lay not in FRAMES:
             should.append("第 %d 页文字约 %d 字，偏多（建议 ≤%d），考虑精简或拆页" % (i, chars, limit))
         if external:
             for t in texts:
                 for cat, word, _, _ in tapcheck.banned_hits(t):
                     must.append("第 %d 页【%s】“%s”：%s" % (i, cat, word, t[:40]))
-        if lay not in ("cover", "agenda", "section", "end"):
+        if lay not in FRAMES:
             notes = slide.notes_slide.notes_text_frame.text.strip() if slide.has_notes_slide else ""
             if not notes:
                 no_notes.append(str(i))
@@ -104,16 +107,20 @@ def review(path, external=False, final=False):
                 should.append("第 %d-%d 页连续使用同一版式（%s）" % (k - rep + 2, k + 1, layouts[k]))
         else:
             run = 1
+    if external and layouts and "disclaimer" not in layouts:
+        must.append("对外材料缺少“重要提示”页（渲染时 meta.external 设为 true 会自动插入）")
+    if rec.get("minutes"):
+        info.append("预计讲述约 %d 分钟" % round(sum(rec["minutes"])))
     if layouts:
         if layouts[0] != "cover":
             should.append("第 1 页不是封面")
         if layouts[-1] != "end":
             should.append("最后一页不是结束页")
-        frame = ("cover", "agenda", "section", "end", "statement", "big_number", "summary")
+        frame = ("cover", "agenda", "section", "end", "statement", "big_number", "summary", "exec_summary", "disclaimer")
         n_content = sum(1 for l in layouts if l not in frame)
         if n_content >= CONF.rule("summary_min_content") and "summary" not in layouts:
             should.append("内容页较多（%d 页）但没有“总结与行动”页" % n_content)
-        varieties = len(set(l for l in layouts if l not in ("cover", "agenda", "section", "end")))
+        varieties = len(set(l for l in layouts if l not in FRAMES))
         info.append("共使用 %d 种版式：%s" % (varieties, "、".join(sorted(set(layouts)))))
     info.append("共 %d 页；有动画 %d 页，有切换效果 %d 页；风格：%s" % (n, anim, trans, rec.get("theme", "未知")))
     return must, should, info

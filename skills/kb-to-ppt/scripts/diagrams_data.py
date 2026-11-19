@@ -15,7 +15,7 @@ from pptx.util import Pt
 
 from diagrams_flow import _icon, card
 from icons import draw_icon, icon_badge
-from ppt_base import BRAND, I, fit_size, line, rgb, ring_segment, shape, shape_text, text
+from ppt_base import BRAND, I, fit_size, fmt_num, line, rgb, ring_segment, shape, shape_text, text
 from ppt_theme import CONF, FONTS, G, L as label, palette
 
 
@@ -31,24 +31,27 @@ def _delta_color(delta, good="up"):
 
 # ---------------- 1. 数据卡片 ----------------
 def kpis(slide, t, seq, box, d):
+    """每张卡可加一种辅助图：trend 迷你趋势线 / progress 进度环（0-1）/ bench 基准条 {value, mark, label}。"""
     x, y, w, h = box
     items = d["items"]
     n = len(items)
     gap = 0.25
     cw = (w - gap * (n - 1)) / n
-    ch = min(h, 2.6)
+    extra = any(k.get("trend") or k.get("progress") is not None or k.get("bench") for k in items)
+    ch = min(h, 3.5 if extra else 2.6)
     cy = y + (h - ch) / 2
     used = set()
     for i, k in enumerate(items):
         cx = x + i * (cw + gap)
         hero = k.get("highlight", False)
+        alert = k.get("alert", False)
         seq.begin()
         card(slide, cx, cy, cw, ch, t, fill=t["primary"] if hero else t["card"])
-        shape(slide, "rect", cx, cy, cw, 0.07, fill=t["accent"] if hero else t["primary"])
+        shape(slide, "rect", cx, cy, cw, 0.07, fill=t["accent"] if hero else (BRAND["red"] if alert else t["primary"]))
         ic = k.get("icon") or _icon({"title": k["label"]}, used)
         used.add(ic)
-        icon_badge(slide, ic, cx + 0.28, cy + 0.32, 0.62, BRAND["white"] if hero else t["soft2"],
-                   t["primary"] if hero else t["primary"])
+        icon_badge(slide, ic, cx + 0.28, cy + 0.32, 0.62, BRAND["white"] if hero else (BRAND["red_light"] if alert else t["soft2"]),
+                   BRAND["red"] if alert and not hero else t["primary"])
         fg = BRAND["white"] if hero else BRAND["ink"]
         vs = fit_size([str(k["value"]) + " " * 2], cw - 0.6, 0.9, 44, 24)
         tb = text(slide, cx + 0.28, cy + 1.02, cw - 0.5, 0.9,
@@ -66,6 +69,39 @@ def kpis(slide, t, seq, box, d):
             text(slide, cx + 0.28, cy + 2.22, cw - 0.5, 0.3,
                  [{"text": str(k["delta"]) + ("  " + k["delta_label"] if k.get("delta_label") else ""),
                    "bold": True, "color": (BRAND["accent"] if hero else col)}], 12, en=FONTS["num"])
+        ex, ey, ew, eh = cx + 0.28, cy + 2.62, cw - 0.56, ch - 2.8
+        main = BRAND["white"] if hero else t["primary"]
+        if k.get("trend"):
+            vals = [float(v) for v in k["trend"]]
+            lo, hi = min(vals), max(vals)
+            sp = (hi - lo) or 1.0
+            pts = [(ex + ew * j / float(max(len(vals) - 1, 1)), ey + eh - 0.06 - (v - lo) / sp * (eh - 0.16))
+                   for j, v in enumerate(vals)]
+            from ppt_base import polyline
+            polyline(slide, pts, main, 2.0)
+            shape(slide, "oval", pts[-1][0] - 0.07, pts[-1][1] - 0.07, 0.14, 0.14, fill=main)
+        elif k.get("progress") is not None:
+            p = max(0.0, min(1.0, float(k["progress"])))
+            r = min(0.36, eh / 2)
+            rcx, rcy = ex + ew - r, ey + eh / 2
+            ring_segment(slide, rcx, rcy, r, r * 0.7, 90, -270, BRAND["white"] if hero else t["soft2"],
+                         alpha=0.35 if hero else None)
+            if p > 0:
+                ring_segment(slide, rcx, rcy, r, r * 0.7, 90, 90 - 360 * min(p, 0.999), main)
+            if k.get("progress_label"):
+                text(slide, ex, ey, ew - 2 * r - 0.1, eh, k["progress_label"], 10.5, BRAND["white"] if hero else BRAND["ink_soft"],
+                     anchor="middle", min_size=8.5)
+        elif k.get("bench"):
+            b = k["bench"]
+            ty = ey + 0.12
+            shape(slide, "round", ex, ty, ew, 0.13, fill=t["soft2"], radius=0.5)
+            shape(slide, "round", ex, ty, max(0.06, ew * min(1.0, float(b["value"]))), 0.13,
+                  fill=BRAND["red"] if alert else t["bar_fill"], radius=0.5)
+            if b.get("mark") is not None:
+                mx = ex + ew * min(1.0, float(b["mark"]))
+                shape(slide, "rect", mx - 0.02, ty - 0.08, 0.04, 0.29, fill=BRAND["red"])
+            if b.get("label"):
+                text(slide, ex, ty + 0.22, ew, 0.3, b["label"], 10.5, BRAND["white"] if hero else BRAND["ink_soft"], min_size=8.5)
         seq.end("float")
 
 
@@ -327,6 +363,11 @@ def chart(slide, t, seq, box, d):
         except AttributeError:
             pass
         hi = d.get("highlight")
+        alert_i = _alert_index(d, cats, series)
+        if alert_i is not None:
+            d["_alert_name"] = cats[alert_i]
+        emph = (hi is not None or alert_i is not None) and len(series) == 1
+        alert_col = t["highlight"] if t["highlight"] != t["primary"] else BRAND["red"]
         for si, s in enumerate(plot.series):
             col = pal[si % len(pal)]
             if kind in ("line",):
@@ -338,15 +379,24 @@ def chart(slide, t, seq, box, d):
                 s.marker.format.fill.solid()
                 s.marker.format.fill.fore_color.rgb = rgb(BRAND["white"])
                 s.marker.format.line.color.rgb = rgb(col)
+                if emph and alert_i is not None:
+                    p = s.points[alert_i]
+                    p.marker.format.fill.solid()
+                    p.marker.format.fill.fore_color.rgb = rgb(alert_col)
+                    p.marker.format.line.color.rgb = rgb(alert_col)
             else:
                 s.format.fill.solid()
-                s.format.fill.fore_color.rgb = rgb(col if hi is None or len(series) > 1 else BRAND["grey_bar"])
-                if hi is not None and len(series) == 1:
+                s.format.fill.fore_color.rgb = rgb(BRAND["grey_bar"] if emph else col)
+                if emph:
                     idx = cats.index(hi) if hi in cats else (s.values.index(max(s.values)) if hi == "max" else None)
                     if idx is not None:
                         p = s.points[idx]
                         p.format.fill.solid()
                         p.format.fill.fore_color.rgb = rgb(t["primary"])
+                    if alert_i is not None:
+                        p = s.points[alert_i]
+                        p.format.fill.solid()
+                        p.format.fill.fore_color.rgb = rgb(alert_col)
         if d.get("labels", True):
             plot.has_data_labels = True
             dl = plot.data_labels
@@ -374,7 +424,97 @@ def chart(slide, t, seq, box, d):
         ca.has_major_gridlines = False
         if kind == "bar":
             ca.reverse_order = True
+        if kind in ("col", "bar", "line") and (d.get("target") is not None or d.get("callout")):
+            _annotate(slide, t, ch, (x, y, w, h), d, kind, cats, series, alert_i, alert_col)
     seq.end("fade")
+
+
+# ---------------- 图表智能标注：目标线、异常项、标注框 ----------------
+def _alert_index(d, cats, series):
+    """alert：分类名，或 "auto"（有目标时取低于目标的最低项，没有目标时取最低项；good: "down" 时反过来取最高项）。"""
+    a = d.get("alert")
+    if a is None or len(series) != 1:
+        return None
+    if a != "auto":
+        return cats.index(a) if a in cats else None
+    vals = [float(v) for v in series[0]["values"]]
+    down = d.get("good") == "down"
+    tg = d.get("target")
+    if tg is not None:
+        bad = [i for i, v in enumerate(vals) if (v > tg if down else v < tg)]
+        if not bad:
+            return None
+        return max(bad, key=lambda i: vals[i]) if down else min(bad, key=lambda i: vals[i])
+    return vals.index(max(vals) if down else min(vals))
+
+
+def _manual_layout(ch, lx, ly, lw, lh):
+    """把绘图区固定在图表框内的指定比例位置，便于在图表上精确叠加目标线和标注。"""
+    from lxml import etree
+    pa = ch._chartSpace.chart.plotArea
+    old = pa.find(qn("c:layout"))
+    if old is not None:
+        pa.remove(old)
+    lay = etree.SubElement(pa, qn("c:layout"))
+    pa.remove(lay)
+    pa.insert(0, lay)
+    ml = etree.SubElement(lay, qn("c:manualLayout"))
+    for tag, val in (("c:layoutTarget", "inner"), ("c:xMode", "edge"), ("c:yMode", "edge"),
+                     ("c:x", lx), ("c:y", ly), ("c:w", lw), ("c:h", lh)):
+        etree.SubElement(ml, qn(tag)).set("val", str(val))
+
+
+def _annotate(slide, t, ch, box, d, kind, cats, series, alert_i, alert_col):
+    x, y, w, h = box
+    nf = d.get("number_format")
+    vals = [float(v) for s in series for v in s["values"]]
+    tg = d.get("target")
+    vmin = float(d.get("axis_min", 0))
+    vmax = float(d.get("axis_max") or max(vals + ([tg] if tg is not None else [])) * 1.18)
+    va = ch.value_axis
+    va.minimum_scale, va.maximum_scale = vmin, vmax
+    legend = len(series) > 1
+    if kind == "bar":
+        lx, ly, lw, lh = 0.16, 0.03, 0.8, 0.86 if legend else 0.94
+    else:
+        lx, ly, lw, lh = 0.03, 0.08, 0.94, 0.72 if legend else 0.8
+    _manual_layout(ch, lx, ly, lw, lh)
+    frac = lambda v: (float(v) - vmin) / ((vmax - vmin) or 1.0)
+    n = len(cats)
+    if tg is not None:
+        tl = label("target_line", v=fmt_num(tg, nf))
+        if kind == "bar":
+            tx = x + w * (lx + lw * frac(tg))
+            line(slide, tx, y + h * ly, tx, y + h * (ly + lh), BRAND["red"], 1.5, "dash")
+            text(slide, tx + 0.05, y + h * ly - 0.05, 1.6, 0.26, tl, 9.5, BRAND["red"], True)
+        else:
+            ty = y + h * (ly + lh * (1 - frac(tg)))
+            line(slide, x + w * lx, ty, x + w * (lx + lw), ty, BRAND["red"], 1.5, "dash")
+            text(slide, x + w * (lx + lw) - 1.6, ty - 0.3, 1.6, 0.26, tl, 9.5, BRAND["red"], True, align="right")
+    c = d.get("callout")
+    if c and alert_i is not None:
+        v = float(series[0]["values"][alert_i])
+        if c == "auto":
+            if tg is not None:
+                gap = abs(tg - v)
+                gs = ("%.1fpct" % (gap * 100)) if nf and "%" in nf else fmt_num(gap, nf)
+                c = label("gap_callout", name=cats[alert_i], value=fmt_num(v, nf), gap=gs)
+            else:
+                c = "%s %s" % (cats[alert_i], fmt_num(v, nf))
+        bw = min(3.2, 0.3 + 0.14 * len(c))
+        if kind == "bar":
+            cy = y + h * (ly + lh * (alert_i + 0.5) / n)
+            bx = min(x + w - bw, x + w * (lx + lw * frac(v)) + 0.55)
+            by = cy - 0.19
+        else:
+            cxp = x + w * (lx + lw * (alert_i + 0.5) / n)
+            top = y + h * (ly + lh * (1 - frac(v)))
+            bx = max(x, min(x + w - bw, cxp - bw / 2))
+            by = max(y, top - 0.95)
+            shape(slide, "triangle", cxp - 0.08, by + 0.38, 0.16, 0.1, fill=BRAND["ink"], rotation=180)
+        tag = shape(slide, "round", bx, by, bw, 0.38, fill=BRAND["ink"], radius=0.25)
+        shape_text(tag, c, 10.5, BRAND["white"], True)
+        tag.name = "tap_callout"
 
 
 REGISTRY = {"kpis": kpis, "bars": bars, "gauge": gauge, "icon_grid": icon_grid, "compare": compare,

@@ -9,7 +9,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 from xl_helpers import (TOKEN, Registry, align, auto_width, border, box, fill, font, is_formula,
                         print_setup, put, side, text_width, title_block)
-from xl_theme import BRAND, FORMATS, NUM_FONT, ROLE
+from xl_theme import BRAND, CONF, FONTS, FORMATS, ROLE, G, L, R
 
 NUMERIC = {"int", "money", "money2", "wan", "yi", "pct", "pct0", "ratio", "delta", "delta_pt"}
 
@@ -30,7 +30,7 @@ def write_value(ctx, ws, r, c, value, fmt=None, **style):
 def _rule_fills():
     return {
         "bad": (fill(BRAND["red_light"]), font(10, True, BRAND["red"])),
-        "warn": (fill(BRAND["yellow_light"]), font(10, True, "9C6500")),
+        "warn": (fill(BRAND["accent_light"]), font(10, True, BRAND["warn_text"])),
         "good": (fill(BRAND["teal_light"]), font(10, True, BRAND["teal"])),
     }
 
@@ -59,11 +59,11 @@ def apply_rule(ws, rng, rule, first_cell):
             formula=["RANK(%s,%s)<=%d" % (first_cell, _abs(col_rng), n)], fill=fl, font=ft))
     elif t == "scale":
         ws.conditional_formatting.add(rng, ColorScaleRule(
-            start_type="min", start_color="FFFFFFFF", mid_type="percentile", mid_value=50,
-            mid_color="FF" + BRAND["orange_light"], end_type="max", end_color="FF" + BRAND["orange"]))
+            start_type="min", start_color="FF" + BRAND["white"], mid_type="percentile", mid_value=50,
+            mid_color="FF" + BRAND["primary_light"], end_type="max", end_color="FF" + BRAND["primary"]))
     elif t == "databar":
         ws.conditional_formatting.add(rng, DataBarRule(
-            start_type="num", start_value=0, end_type="max", color="FF" + rule.get("color", "F2A65A"),
+            start_type="num", start_value=0, end_type="max", color="FF" + (CONF.color(rule.get("color")) or ROLE["databar"]),
             showValue=True))
     elif t == "text":
         fl, ft = styles[rule.get("style", "bad")]
@@ -88,32 +88,31 @@ def cover(ctx, ws, spec):
     widths = [4, 8, 22, 54, 14, 4]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
-    band = fill(st["head_bg"] if st["head_bg"] != BRAND["bg_soft"] else BRAND["white"])
-    fg = st["head_fg"] if st["head_bg"] != BRAND["bg_soft"] else BRAND["ink"]
+    band = fill(st["cover_bg"])
+    fg = st["cover_fg"]
     for r in range(1, 9):
         ws.row_dimensions[r].height = 20
         for c in range(1, 7):
             ws.cell(row=r, column=c).fill = band
-    if st["head_bg"] == BRAND["bg_soft"]:
+    if st["flat_head"]:
         for c in range(1, 7):
-            ws.cell(row=1, column=c).fill = fill(BRAND["orange"])
-    put(ws, 2, 2, (meta.get("brand", "富卫人寿") + "　FWD"), font(11, True, st["accent"] if fg == BRAND["white"] else BRAND["orange"]))
-    put(ws, 4, 2, spec.get("category", meta.get("category", "")), font(11, True, st["accent"] if fg == BRAND["white"] else BRAND["muted"]))
+            ws.cell(row=1, column=c).fill = fill(st["title_bar"])
+    brand = CONF.org_name(meta) + (("　" + CONF.org_short()) if CONF.org_short() else "")
+    put(ws, 2, 2, brand, font(11, True, st["cover_brand"]))
+    put(ws, 4, 2, spec.get("category", meta.get("category", "")), font(11, True, st["cover_category"]))
     ws.row_dimensions[5].height = 36
     put(ws, 5, 2, spec.get("title") or meta["title"], font(22, True, fg))
     put(ws, 6, 2, spec.get("subtitle") or meta.get("subtitle", ""), font(11, False, fg))
 
     r = 10
-    info = [(k, meta.get(v)) for k, v in (("编制部门", "department"), ("适用对象", "audience"),
-                                           ("数据口径", "as_of"), ("版本", "version"),
-                                           ("更新日期", "date"), ("密级", "confidentiality")) if meta.get(v)]
-    for k, v in info:
-        put(ws, r, 3, k, font(9.5, False, BRAND["muted"]), bd=border(bottom=side()))
-        put(ws, r, 4, v, font(10, True), bd=border(bottom=side()))
-        r += 1
+    for key, label in L("cover_rows"):
+        if meta.get(key):
+            put(ws, r, 3, label, font(9.5, False, BRAND["muted"]), bd=border(bottom=side()))
+            put(ws, r, 4, meta[key], font(10, True), bd=border(bottom=side()))
+            r += 1
     if spec.get("purpose"):
         r += 1
-        put(ws, r, 2, "用途", font(11, True, st["title"]))
+        put(ws, r, 2, L("purpose"), font(11, True, st["title"]))
         r += 1
         ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=5)
         put(ws, r, 3, spec["purpose"], font(10), al=align("left", "top", True))
@@ -121,22 +120,22 @@ def cover(ctx, ws, spec):
         r += 1
 
     r += 1
-    put(ws, r, 2, "工作表目录", font(11, True, st["title"]))
+    put(ws, r, 2, L("toc"), font(11, True, st["title"]))
     r += 1
-    for c, h in zip((2, 3, 4, 5), ("序号", "工作表", "内容", "")):
-        put(ws, r, c, h, font(9.5, True, st["head_fg"] if st["head_bg"] != BRAND["bg_soft"] else BRAND["ink"]),
-            fill(st["head_bg"]), align("center" if c != 4 else "left"))
+    for c, h in zip((2, 3, 4, 5), L("toc_cols")):
+        put(ws, r, c, h, font(9.5, True, st["head_fg"]), fill(st["head_bg"]), align("center" if c != 4 else "left"))
     r += 1
     n = 0
     for s in ctx.sheets:
         if s.get("type") == "cover":
             continue
         n += 1
-        put(ws, r, 2, n, font(10, True, BRAND["orange"], NUM_FONT), al=align("center"), bd=border(bottom=side()))
+        put(ws, r, 2, n, font(10, True, BRAND["primary"], FONTS["num"]),
+            al=align("center"), bd=border(bottom=side()))
         put(ws, r, 3, s["name"], font(10, True), bd=border(bottom=side()))
         put(ws, r, 4, s.get("desc", ""), font(9.5, False, BRAND["ink_soft"]), al=align("left", "center", True),
             bd=border(bottom=side()))
-        link = put(ws, r, 5, "前往 →", font(9.5, True, BRAND["orange_dark"], underline="single"),
+        link = put(ws, r, 5, L("goto"), font(9.5, True, BRAND["primary_dark"], underline="single"),
                    al=align("center"), bd=border(bottom=side()))
         link.hyperlink = "#'%s'!A1" % s["name"].replace("'", "''")
         ws.row_dimensions[r].height = 22
@@ -144,23 +143,24 @@ def cover(ctx, ws, spec):
 
     if spec.get("how_to"):
         r += 1
-        put(ws, r, 2, "怎么用", font(11, True, st["title"]))
+        put(ws, r, 2, L("how_to"), font(11, True, st["title"]))
         r += 1
         for i, tip in enumerate(spec["how_to"], 1):
-            put(ws, r, 2, i, font(10, True, BRAND["orange"], NUM_FONT), al=align("center"))
+            put(ws, r, 2, i, font(10, True, BRAND["primary"], FONTS["num"]), al=align("center"))
             ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=5)
             put(ws, r, 3, tip, font(10), al=align("left", "center", True))
             r += 1
 
     if spec.get("legend", True):
         r += 1
-        put(ws, r, 2, "单元格说明", font(11, True, st["title"]))
+        put(ws, r, 2, L("legend_title"), font(11, True, st["title"]))
         r += 1
-        for label, f, desc in (("录入格", fill(ROLE["input_bg"]), "黄色底，可以修改，相关结果会自动重算"),
-                               ("公式格", None, "深绿色字，由公式自动计算，请勿手工覆盖"),
-                               ("待补充", fill(ROLE["todo_bg"]), "知识库中未查到，需要人工补充或确认")):
-            c = put(ws, r, 3, label, font(9.5, True, ROLE["formula_fg"] if label == "公式格" else BRAND["ink"]),
-                    f, align("center"), box(ROLE["input_border"] if label == "录入格" else BRAND["line"]))
+        looks = {"input": (fill(ROLE["input_bg"]), BRAND["ink"], ROLE["input_border"]),
+                 "formula": (None, ROLE["formula_fg"], BRAND["line"]),
+                 "todo": (fill(ROLE["todo_bg"]), BRAND["ink"], BRAND["line"])}
+        for kind, label, desc in L("legend_items"):
+            bg, fg_, bd = looks.get(kind, (None, BRAND["ink"], BRAND["line"]))
+            put(ws, r, 3, label, font(9.5, True, fg_), bg, align("center"), box(bd))
             put(ws, r, 4, desc, font(9.5, False, BRAND["ink_soft"]))
             r += 1
     if meta.get("disclaimer"):
@@ -168,7 +168,7 @@ def cover(ctx, ws, spec):
         ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=5)
         put(ws, r, 2, meta["disclaimer"], font(8.5, False, BRAND["muted"], italic=True), al=align("left", "top", True))
         ws.row_dimensions[r].height = 30
-    print_setup(ws, landscape=False, brand=meta.get("brand", "富卫人寿"))
+    print_setup(ws, landscape=False)
 
 
 # ---------------- 明细表 ----------------
@@ -180,7 +180,7 @@ def table(ctx, ws, spec):
     n = len(cols)
     r = title_block(ws, st, spec.get("title", spec["name"]), spec.get("subtitle"), n, spec.get("note"))
     hdr = r
-    head_bd = border(bottom=side(BRAND["orange"], "medium")) if st["head_bg"] == BRAND["bg_soft"] else box(st["head_bg"])
+    head_bd = border(bottom=side(BRAND["primary"], "medium")) if st["flat_head"] else box(st["head_bg"])
     ws.row_dimensions[hdr].height = 30
     hi = spec.get("highlight_col")
     for ci, col in enumerate(cols, 1):
@@ -199,7 +199,7 @@ def table(ctx, ws, spec):
             numeric = col.get("format", "text") not in ("text", "@") or isinstance(v, (int, float))
             f = font(10, ci == 1 and spec.get("first_col_bold", True),
                      ROLE["formula_fg"] if is_formula(v) else BRAND["ink"],
-                     NUM_FONT if numeric and not isinstance(v, str) else None)
+                     FONTS["num"] if numeric and not isinstance(v, str) else None)
             bg = fill(st["hi_col"]) if hi == col["name"] else (fill(st["stripe"]) if stripe else None)
             al = align("right" if numeric else ("center" if col.get("align") == "center" else "left"), "center",
                        col.get("wrap", False))
@@ -214,7 +214,7 @@ def table(ctx, ws, spec):
     if spec.get("total") and rows:
         total_row = last + 1
         ws.row_dimensions[total_row].height = 22
-        label = spec["total"] if isinstance(spec["total"], str) else "合计"
+        label = spec["total"] if isinstance(spec["total"], str) else L("total")
         for ci, col in enumerate(cols, 1):
             L = get_column_letter(ci)
             t = col.get("total")
@@ -230,9 +230,9 @@ def table(ctx, ws, spec):
             elif isinstance(t, str) and t.startswith("="):
                 v = Registry.row_formula(t, {nm: i for i, nm in enumerate(names, 1)}, total_row)
             write_value(ctx, ws, total_row, ci, v, _fmt(col) if ci > 1 else None,
-                        f=font(10, True, BRAND["ink"], NUM_FONT if ci > 1 else None), fl=fill(st["total_bg"]),
+                        f=font(10, True, BRAND["ink"], FONTS["num"] if ci > 1 else None), fl=fill(st["total_bg"]),
                         al=align("right" if ci > 1 else "left"),
-                        bd=border(top=side(st["head_bg"] if st["head_bg"] != BRAND["bg_soft"] else BRAND["orange"], "medium")))
+                        bd=border(top=side(st["head_bg"] if not st["flat_head"] else BRAND["primary"], "medium")))
     ctx.reg.table(spec["name"], names, first, last, keys, total_row)
 
     # 列宽、校验、条件格式
@@ -247,8 +247,8 @@ def table(ctx, ws, spec):
         rng = "%s%d:%s%d" % (L, first, L, last)
         if col.get("options") and rows:
             dv = DataValidation(type="list", formula1='"%s"' % ",".join(col["options"]), allow_blank=True,
-                                showErrorMessage=True, errorTitle="请从下拉列表选择",
-                                error="可选值：" + "、".join(col["options"]))
+                                showErrorMessage=True, errorTitle=L("pick_title"),
+                                error=L("pick_msg", opts="、".join(col["options"])))
             ws.add_data_validation(dv)
             dv.add("%s%d:%s%d" % (L, first, L, last + spec.get("spare_rows", 0)))
         for rule in ([col["rule"]] if isinstance(col.get("rule"), dict) else col.get("rule", [])) or []:
@@ -262,12 +262,12 @@ def table(ctx, ws, spec):
             ws.auto_filter.ref = "A%d:%s%d" % (hdr, get_column_letter(n), last)
     after = (total_row or last) + 2
     for note in spec.get("notes", []):
-        put(ws, after, 1, "注：" + note, font(9, False, BRAND["muted"]))
+        put(ws, after, 1, L("note_prefix") + note, font(9, False, BRAND["muted"]))
         after += 1
     if spec.get("source"):
-        put(ws, after, 1, "资料来源：" + spec["source"], font(9, False, BRAND["muted"], italic=True))
+        put(ws, after, 1, L("source") + spec["source"], font(9, False, BRAND["muted"], italic=True))
     ws.sheet_properties.tabColor = st["tab"]
-    print_setup(ws, landscape=n > 5, title_rows="%d:%d" % (hdr, hdr), brand=ctx.meta.get("brand", "富卫人寿"))
+    print_setup(ws, landscape=n > 5, title_rows="%d:%d" % (hdr, hdr))
     for i, ch in enumerate(spec.get("charts", [])):
         ch = dict(ch)
         ch.setdefault("data", spec["name"])
@@ -276,10 +276,14 @@ def table(ctx, ws, spec):
 
 
 # ---------------- 对比矩阵 ----------------
-MARKS = {"✓": BRAND["teal"], "✔": BRAND["teal"], "✗": BRAND["red"], "✘": BRAND["red"], "—": BRAND["muted"], "-": BRAND["muted"]}
+def _marks():
+    """对比矩阵中的符号着色：符号本身取自 labels.json 的 glyphs。"""
+    return {G("tick"): BRAND["teal"], "✔": BRAND["teal"], G("cross"): BRAND["red"], "✘": BRAND["red"],
+            G("dash"): BRAND["muted"], "-": BRAND["muted"]}
 
 
 def matrix(ctx, ws, spec):
+    marks = _marks()
     st = ctx.st
     objs = spec["objects"]
     hi = spec.get("highlight")
@@ -292,16 +296,16 @@ def matrix(ctx, ws, spec):
     if hi:
         for i, o in enumerate(objs, 2):
             if o == hi:
-                put(ws, r, i, spec.get("highlight_label", "★ 推荐"), font(9, True, BRAND["white"]),
-                    fill(BRAND["orange"]), align("center"))
+                put(ws, r, i, spec.get("highlight_label", L("highlight_label")), font(9, True, BRAND["white"]),
+                    fill(BRAND["primary"]), align("center"))
         r += 1
     hdr = r
     ws.row_dimensions[hdr].height = 34
-    put(ws, hdr, 1, spec.get("corner", "对比项"), font(10, True, st["head_fg"]), fill(st["head_bg"]), align("left", "center", indent=1))
+    put(ws, hdr, 1, spec.get("corner", L("corner")), font(10, True, st["head_fg"]), fill(st["head_bg"]), align("left", "center", indent=1))
     for i, o in enumerate(objs, 2):
         on = o == hi
-        put(ws, hdr, i, o, font(11, True, BRAND["white"] if on or st["head_bg"] != BRAND["bg_soft"] else BRAND["ink"]),
-            fill(BRAND["orange_dark"] if on and st["head_bg"] == BRAND["orange"] else (BRAND["orange"] if on else st["head_bg"])),
+        put(ws, hdr, i, o, font(11, True, BRAND["white"] if on or not st["flat_head"] else BRAND["ink"]),
+            fill(BRAND["primary_dark"] if on and st["head_bg"] == BRAND["primary"] else (BRAND["primary"] if on else st["head_bg"])),
             align("center", "center", True))
     r = hdr + 1
     keys = {}
@@ -319,25 +323,25 @@ def matrix(ctx, ws, spec):
                 bd=border(bottom=side()))
             for i, v in enumerate(row["values"], 2):
                 on = objs[i - 2] == hi
-                color = MARKS.get(str(v).strip(), ROLE["formula_fg"] if is_formula(v) else BRAND["ink"])
-                big = str(v).strip() in MARKS
+                color = marks.get(str(v).strip(), ROLE["formula_fg"] if is_formula(v) else BRAND["ink"])
+                big = str(v).strip() in marks
                 write_value(ctx, ws, r, i, v, FORMATS.get(row.get("format", ""), row.get("format")) if row.get("format") else None,
                             f=font(12 if big else 10, big or (on and row.get("emphasis", False)), color,
-                                   NUM_FONT if isinstance(v, (int, float)) else None),
+                                   FONTS["num"] if isinstance(v, (int, float)) else None),
                             fl=fill(st["hi_col"]) if on else None, al=align("center", "center", True),
                             bd=border(bottom=side()))
             keys[row["label"]] = r
             r += 1
-    ctx.reg.table(spec["name"], [spec.get("corner", "对比项")] + objs, hdr + 1, r - 1, keys)
+    ctx.reg.table(spec["name"], [spec.get("corner", L("corner"))] + objs, hdr + 1, r - 1, keys)
     ws.freeze_panes = ws.cell(row=hdr + 1, column=2)
     r += 1
     for note in spec.get("notes", []):
-        put(ws, r, 1, "注：" + note, font(9, False, BRAND["muted"]))
+        put(ws, r, 1, L("note_prefix") + note, font(9, False, BRAND["muted"]))
         r += 1
     if spec.get("source"):
-        put(ws, r, 1, "资料来源：" + spec["source"], font(9, False, BRAND["muted"], italic=True))
+        put(ws, r, 1, L("source") + spec["source"], font(9, False, BRAND["muted"], italic=True))
     ws.sheet_properties.tabColor = st["tab"]
-    print_setup(ws, landscape=len(objs) > 3, title_rows="%d:%d" % (hdr, hdr), brand=ctx.meta.get("brand", "富卫人寿"))
+    print_setup(ws, landscape=len(objs) > 3, title_rows="%d:%d" % (hdr, hdr))
 
 
 # ---------------- 口径说明 ----------------
@@ -349,7 +353,7 @@ def notes(ctx, ws, spec):
     ws.column_dimensions["C"].width = 70
     ws.column_dimensions["D"].width = 18
     for sec in spec.get("sections", []):
-        put(ws, r, 1, "■", font(9, True, BRAND["orange"]))
+        put(ws, r, 1, G("square"), font(9, True, BRAND["primary"]))
         put(ws, r, 2, sec["heading"], font(11.5, True, st["title"]))
         r += 1
         for it in sec.get("items", []):
@@ -359,13 +363,13 @@ def notes(ctx, ws, spec):
                 txt = it[1]
             else:
                 ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=3)
-                put(ws, r, 2, "· " + it, font(10, False, BRAND["ink_soft"]), al=align("left", "top", True))
+                put(ws, r, 2, G("dot") + " " + it, font(10, False, BRAND["ink_soft"]), al=align("left", "top", True))
                 txt = it
             ws.row_dimensions[r].height = max(18, 15 * (1 + int(text_width(txt) / 130)))
             r += 1
         r += 1
     ws.sheet_properties.tabColor = BRAND["muted"]
-    print_setup(ws, landscape=False, brand=ctx.meta.get("brand", "富卫人寿"))
+    print_setup(ws, landscape=False)
 
 
 REGISTRY = {"cover": cover, "table": table, "matrix": matrix, "notes": notes}

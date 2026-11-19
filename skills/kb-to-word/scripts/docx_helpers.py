@@ -12,7 +12,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
-from themes import BRAND, FONTS
+from themes import BRAND, CONF, FONTS
 
 # ---- OOXML 子元素顺序（只列出本项目会用到的及其相邻元素） ----
 PPR_ORDER = ["pStyle", "keepNext", "keepLines", "pageBreakBefore", "framePr", "widowControl",
@@ -72,10 +72,11 @@ def rgb(h):
 
 
 # ---------------- 字体与文字 ----------------
-def set_run(run, size=None, bold=None, color=None, font=None, italic=None):
+def set_run(run, size=None, bold=None, color=None, font=None, italic=None, cn=None):
+    """font 为西文/数字字体（默认 FONTS["en"]），cn 为中文字体（默认 FONTS["cn"]；标题传 FONTS["head"]）。"""
     f = run.font
     if size is not None:
-        f.size = Pt(size)
+        f.size = Pt(CONF.size(size))
     if bold is not None:
         f.bold = bold
     if italic is not None:
@@ -83,28 +84,27 @@ def set_run(run, size=None, bold=None, color=None, font=None, italic=None):
     if color:
         f.color.rgb = rgb(color)
     name_en = font or FONTS["en"]
-    name_cn = FONTS["cn"] if font in (None, FONTS["en"]) else font
+    name_cn = cn or (FONTS["cn"] if font in (None, FONTS["en"], FONTS["num"]) else font)
     f.name = name_en
     rfonts = run._element.get_or_add_rPr().get_or_add_rFonts()
     rfonts.set(qn("w:eastAsia"), name_cn)
     return run
 
 
-INLINE = re.compile(r"(\*\*.+?\*\*|【待补充[^】]*】|【请确认[^】]*】)")
-
-
-def add_rich(par, text, size=None, color=None, bold=False, font=None):
-    """写入一段文字：支持 **加粗**；【待补充…】【请确认…】自动黄底高亮，便于交付前逐个处理。"""
-    for part in INLINE.split(str(text or "")):
+def add_rich(par, text, size=None, color=None, bold=False, font=None, cn=None):
+    """写入一段文字：支持 **加粗**；占位符（默认【待补充…】【请确认…】，见 compliance.json）自动黄底高亮。"""
+    ph = CONF.placeholder_re()
+    inline = re.compile(r"(\*\*.+?\*\*|%s)" % ph.pattern)
+    for part in inline.split(str(text or "")):
         if not part:
             continue
         if part.startswith("**") and part.endswith("**"):
-            set_run(par.add_run(part[2:-2]), size, True, color, font)
-        elif part.startswith("【待补充") or part.startswith("【请确认"):
-            r = set_run(par.add_run(part), size, True, BRAND["orange_dark"], font)
+            set_run(par.add_run(part[2:-2]), size, True, color, font, cn=cn)
+        elif ph.fullmatch(part):
+            r = set_run(par.add_run(part), size, True, BRAND["ink"], font, cn=cn)
             r.font.highlight_color = WD_COLOR_INDEX.YELLOW
         else:
-            set_run(par.add_run(part), size, bold, color, font)
+            set_run(par.add_run(part), size, bold, color, font, cn=cn)
     return par
 
 
@@ -165,7 +165,7 @@ def shade(cell, fill):
 
 
 def cell_borders(cell, **sides):
-    """cell_borders(cell, top=("single", 12, "E87722"), bottom=None, ...)；None 表示无边框。"""
+    """cell_borders(cell, top=("single", 12, BRAND["primary"]), bottom=None, ...)；None 表示无边框。"""
     tcPr = cell._tc.get_or_add_tcPr()
     tcb = tcPr.find(qn("w:tcBorders"))
     if tcb is None:

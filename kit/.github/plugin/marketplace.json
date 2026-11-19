@@ -1,0 +1,7 @@
+{
+  "name": "ai-dev-kit-local",
+  "owner": {"name": "Miya"},
+  "plugins": [
+    {"name": "ai-dev-kit", "source": "./", "description": "个人 AI 开发工具包"}
+  ]
+}

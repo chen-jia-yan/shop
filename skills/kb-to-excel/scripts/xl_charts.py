@@ -6,13 +6,13 @@ Excel 原生图表（在 Excel 里可直接改数据、改样式）。所有图�
 图表 spec（写在任意工作表的 charts 列表中）：
 {
   "type": "col | bar | line | combo | stacked | area | pie | donut",
-  "title": "Q3 华南新单保费领先",       # 写结论，不写话题
-  "data": "机构明细",                   # 数据来源工作表（必须是 table 类型）
-  "categories": "机构",                 # 分类列
-  "series": ["新单保费"],               # 一个或多个数值列
-  "secondary": ["同比增速"],            # combo 专用：右轴折线
+  "title": "（写结论，不写话题）",
+  "data": "（数据来源工作表名，必须是 table 类型）",
+  "categories": "（分类列名）",
+  "series": ["（数值列名）"],          # 一个或多个
+  "secondary": ["（右轴列名）"],       # combo 专用：右轴折线
   "rows": [1, 5],                       # 可选：只画第 1-5 个数据行
-  "highlight": "max | min | 华南",      # 可选：单系列柱/条形图中高亮一项，其余灰色
+  "highlight": "max | min | 分类名",    # 可选：单系列柱/条形图中高亮一项，其余灰色
   "number_format": "0.0%",              # 可选：主轴数字格式
   "labels": true,                       # 是否显示数据标签，默认 true
   "anchor": "H4", "width": 16, "height": 8   # 位置与尺寸（cm）
@@ -26,7 +26,7 @@ from openpyxl.chart.series import SeriesLabel
 from openpyxl.chart.shapes import GraphicalProperties
 from openpyxl.drawing.line import LineProperties
 
-from xl_theme import BRAND, CHART_PALETTE, GREY_BAR
+from xl_theme import BRAND, CHART_PALETTE, ROLE
 
 
 def _labels(show_val=True, show_pct=False, pos=None):
@@ -49,7 +49,7 @@ def _axes(ch, fmt=None):
             pass
     try:
         if ch.y_axis.majorGridlines is not None:
-            ch.y_axis.majorGridlines.spPr = GraphicalProperties(ln=LineProperties(solidFill="E4E6E8"))
+            ch.y_axis.majorGridlines.spPr = GraphicalProperties(ln=LineProperties(solidFill=BRAND["grid"]))
     except AttributeError:
         pass
     if fmt:
@@ -62,16 +62,16 @@ def _paint(series, color, line=False):
         series.graphicalProperties = GraphicalProperties(ln=LineProperties(solidFill=color, w=28575))
         series.marker = Marker(symbol="circle", size=7)
         series.marker.graphicalProperties = GraphicalProperties(
-            solidFill="FFFFFF", ln=LineProperties(solidFill=color, w=19050))
+            solidFill=BRAND["white"], ln=LineProperties(solidFill=color, w=19050))
         series.smooth = False
     else:
         series.graphicalProperties = GraphicalProperties(solidFill=color,
                                                          ln=LineProperties(solidFill=color))
 
 
-def _point(idx, color, line="FFFFFF"):
+def _point(idx, color, line=None):
     return DataPoint(idx=idx, spPr=GraphicalProperties(solidFill=color,
-                                                      ln=LineProperties(solidFill=line)))
+                                                      ln=LineProperties(solidFill=line or BRAND["white"])))
 
 
 def _values(ws, col, r0, r1):
@@ -88,7 +88,7 @@ def build_chart(wb, reg, spec, errors):
     if not t:
         errors.append("图表“%s”：数据表 %s 不存在或不是 table 类型" % (spec.get("title", ""), src))
         return None
-    ws = wb[src]
+    ws = wb[t.get("sheet") or src]
     first, last = t["first"], t["last"]
     if spec.get("rows"):
         a, b = spec["rows"]
@@ -156,10 +156,10 @@ def build_chart(wb, reg, spec, errors):
                 idx = keys.index(hi)
             if idx is not None:
                 # 只有确定了高亮项才把其余柱子改成灰色；公式列算不出最大值时保持品牌色
-                _paint(s, GREY_BAR)
-                s.dPt.append(_point(idx, BRAND["orange"], BRAND["orange"]))
+                _paint(s, ROLE["grey_bar"])
+                s.dPt.append(_point(idx, BRAND["primary"], BRAND["primary"]))
             else:
-                errors.append("图表“%s”：highlight=%s 无法确定（数据是公式时请直接写分类名，如“华南”）"
+                errors.append("图表“%s”：highlight=%s 无法确定（数据是公式时请直接写分类名）"
                               % (spec.get("title", ""), hi))
         if show:
             for s in ch.series:

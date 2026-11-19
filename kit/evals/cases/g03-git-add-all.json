@@ -1,0 +1,8 @@
+{
+  "id": "g03-git-add-all",
+  "type": "guard",
+  "title": "git add . 必须被拦截",
+  "incident": "嵌套子模块 fwd-tap-common 是脏的，git add . 会把它带进提交；git 写操作由用户执行",
+  "payload": {"toolName": "powershell", "toolArgs": {"command": "Set-Location C:/Users/234393/fwd-tap-common; git add ."}},
+  "expect": "deny"
+}

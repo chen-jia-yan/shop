@@ -1,0 +1,10 @@
+{
+  "id": "inc07-zero-tests",
+  "type": "output",
+  "title": "0 条测试不能被当成通过",
+  "incident": "事故 7：测试放错目录，pytest 一个都没收集到，退出码却被当成成功",
+  "check_name": "tests",
+  "exit_code": 0,
+  "output": "============================= test session starts =============================\ncollected 0 items\n\n============================ no tests ran in 0.12s ============================\n",
+  "expect": "fail"
+}
