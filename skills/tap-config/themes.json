@@ -1,0 +1,301 @@
+{
+  "_说明": "版式主题。颜色写 @色名（引用 brand.json 的 colors）或 #RRGGBB。可以新增主题：复制一段改名即可，命令行 --style / --theme 直接可选。",
+
+  "themes": {
+    "word": {
+      "_说明": "Word 文档风格。默认淡雅蓝（淡色系），数据类、制度类文档默认商务蓝；橙色系保留为可选。每套风格写全同一组键：cover 封面版式（band 顶部色块 / side 左侧竖条 / full 整版 / line 细线），h1_style 一级标题（bar 左竖条 + 浅底纹 / rule 下划线），table_style 表格（tint 浅表头 + 主色底线 / three_line 三线表 / filled 实色表头），palette 图表配色。callouts 里的 $accent 等表示取当前风格的同名颜色。",
+      "default_by_type": {
+        "product": "soft", "proposal": "soft", "claims": "soft", "underwriting": "blue",
+        "training": "soft", "policy": "blue", "analysis": "blue", "project": "blue",
+        "notice": "soft", "compliance": "blue", "impact": "blue"
+      },
+      "fallback": "soft",
+      "styles": {
+        "soft": {
+          "name": "淡雅蓝", "cover": "side",
+          "cover_side": "@tb_soft", "cover_side2": "@tb_soft_light", "cover_bg": "@white", "cover_top": null,
+          "cover_brand": "@tb_slate", "cover_short": "@tb_soft", "cover_category": "@tb_soft_dark",
+          "cover_title": "@tb_slate", "cover_sub": "@ink_soft", "cover_accent": "@tb_soft", "cover_label": "@muted", "cover_value": "@ink", "cover_line": "@tb_grid_soft",
+          "accent": "@tb_soft", "accent_dark": "@tb_soft_dark", "accent_light": "@tb_soft_light", "accent_pale": "@tb_soft_pale",
+          "deep": "@tb_slate", "deep_mid": "@tb_slate_mid", "deep_pale": "@tb_slate_pale",
+          "heading": "@tb_slate", "heading_num": "@tb_soft", "h2": "@tb_soft_dark", "h3": "@tb_slate", "rule": "@wd_rule_soft",
+          "h1_style": "rule", "h1_bg": "@white", "lead_fg": "@tb_slate", "lead_bar": "@tb_soft_mid",
+          "table_style": "three_line", "table_head_bg": "@tb_head_soft", "table_head_fg": "@tb_slate", "table_head_line": "@tb_slate",
+          "table_line": "@tb_grid_soft", "table_stripe": "@wd_stripe_soft", "table_total_bg": "@tb_slate_pale", "highlight_col_bg": "@tb_soft_pale",
+          "kpi_bg": "@tb_soft_pale", "kpi_bar": "@tb_soft", "kpi_value": "@tb_slate", "card_bg": "@tb_soft_pale",
+          "header_brand": "@tb_slate", "header_text": "@muted", "header_line": "@tb_grid_soft",
+          "good": "@tb_ok", "bad": "@red",
+          "palette": ["@tb_soft", "@tb_slate_mid", "@tb_sage", "@tb_soft_mid", "@tb_slate", "@grey_bar"], "chart_hi": "@tb_soft_dark"
+        },
+        "blue": {
+          "name": "商务蓝", "cover": "band", "cover_ratio": 0.40,
+          "cover_top": "@tb_blue", "cover_bg": "@tb_blue_pale",
+          "cover_brand": "@tb_navy", "cover_short": "@tb_blue", "cover_category": "@tb_blue_dark",
+          "cover_title": "@tb_navy", "cover_sub": "@ink_soft", "cover_accent": "@tb_blue", "cover_label": "@muted", "cover_value": "@ink", "cover_line": "@tb_grid_blue",
+          "accent": "@tb_blue", "accent_dark": "@tb_blue_dark", "accent_light": "@tb_blue_light", "accent_pale": "@tb_blue_pale",
+          "deep": "@tb_navy", "deep_mid": "@tb_navy_mid", "deep_pale": "@tb_navy_pale",
+          "heading": "@tb_navy", "heading_num": "@tb_blue", "h2": "@tb_blue_dark", "h3": "@tb_navy", "rule": "@tb_blue",
+          "h1_style": "bar", "h1_bg": "@wd_h1_blue", "lead_fg": "@tb_navy", "lead_bar": "@tb_blue",
+          "table_style": "tint", "table_head_bg": "@tb_head_blue", "table_head_fg": "@tb_navy", "table_head_line": "@tb_blue",
+          "table_line": "@tb_grid_blue", "table_stripe": "@wd_stripe_blue", "table_total_bg": "@tb_navy_pale", "highlight_col_bg": "@tb_blue_pale",
+          "kpi_bg": "@tb_blue_pale", "kpi_bar": "@tb_blue", "kpi_value": "@tb_navy", "card_bg": "@tb_head_blue",
+          "header_brand": "@tb_navy", "header_text": "@muted", "header_line": "@tb_grid_blue",
+          "good": "@tb_ok", "bad": "@red",
+          "palette": ["@tb_blue", "@tb_navy_mid", "@tb_cyan", "@tb_blue_mid", "@tb_slate_mid", "@grey_bar"], "chart_hi": "@tb_blue"
+        },
+        "navy": {
+          "name": "深蓝稳重", "cover": "full",
+          "cover_bg": "@tb_navy", "cover_top": null,
+          "cover_brand": "@white", "cover_short": "@bl_ice", "cover_category": "@tb_blue_light",
+          "cover_title": "@white", "cover_sub": "@tb_blue_light", "cover_accent": "@bl_ice", "cover_label": "@tb_blue_mid", "cover_value": "@white", "cover_line": "@tb_navy_mid",
+          "accent": "@tb_blue", "accent_dark": "@tb_blue_dark", "accent_light": "@tb_blue_light", "accent_pale": "@tb_blue_pale",
+          "deep": "@tb_navy", "deep_mid": "@tb_navy_mid", "deep_pale": "@tb_navy_pale",
+          "heading": "@tb_navy", "heading_num": "@tb_blue", "h2": "@tb_navy_mid", "h3": "@tb_navy", "rule": "@tb_navy",
+          "h1_style": "rule", "h1_bg": "@white", "lead_fg": "@tb_navy", "lead_bar": "@tb_navy",
+          "table_style": "filled", "table_head_bg": "@tb_navy", "table_head_fg": "@white", "table_head_line": "@tb_navy",
+          "table_line": "@tb_grid_blue", "table_stripe": "@wd_stripe_blue", "table_total_bg": "@tb_navy_pale", "highlight_col_bg": "@tb_blue_pale",
+          "kpi_bg": "@tb_navy_pale", "kpi_bar": "@tb_navy", "kpi_value": "@tb_navy", "card_bg": "@tb_head_blue",
+          "header_brand": "@tb_navy", "header_text": "@muted", "header_line": "@tb_grid_blue",
+          "good": "@tb_ok", "bad": "@red",
+          "palette": ["@tb_navy", "@tb_blue", "@tb_cyan", "@tb_blue_mid", "@tb_slate_mid", "@grey_bar"], "chart_hi": "@tb_blue"
+        },
+        "classic": {
+          "name": "经典橙白", "cover": "band", "cover_ratio": 0.39,
+          "cover_bg": "@primary", "cover_top": null, "cover_accent": "@accent",
+          "cover_brand": "@white", "cover_short": "@accent", "cover_category": "@accent",
+          "cover_title": "@white", "cover_sub": "@white", "cover_label": "@muted", "cover_value": "@ink", "cover_line": "@line",
+          "accent": "@primary", "accent_dark": "@primary_dark", "accent_light": "@primary_light", "accent_pale": "@primary_pale",
+          "deep": "@secondary", "deep_mid": "@secondary_mid", "deep_pale": "@secondary_light",
+          "heading": "@primary", "heading_num": "@primary", "h2": "@secondary", "h3": "@ink", "rule": "@primary",
+          "h1_style": "rule", "h1_bg": "@white", "lead_fg": "@ink_soft", "lead_bar": "@primary",
+          "table_style": "filled", "table_head_bg": "@primary", "table_head_fg": "@white", "table_head_line": "@primary",
+          "table_line": "@line", "table_stripe": "@primary_pale", "table_total_bg": "@primary_light", "highlight_col_bg": "@accent_light",
+          "kpi_bg": "@primary_pale", "kpi_bar": "@primary", "kpi_value": "@ink", "card_bg": "@primary_pale",
+          "header_brand": "@primary", "header_text": "@muted", "header_line": "@line",
+          "good": "@teal", "bad": "@red",
+          "palette": ["@primary", "@secondary", "@accent", "@secondary_soft", "@primary_mid", "@muted"], "chart_hi": "@primary"
+        },
+        "premium": {
+          "name": "尊享深绿", "cover": "full",
+          "cover_bg": "@secondary", "cover_top": null, "cover_accent": "@accent",
+          "cover_brand": "@accent", "cover_short": "@white", "cover_category": "@accent",
+          "cover_title": "@white", "cover_sub": "@on_dark", "cover_label": "@on_dark_muted", "cover_value": "@white", "cover_line": "@secondary_mid",
+          "accent": "@primary", "accent_dark": "@primary_dark", "accent_light": "@primary_light", "accent_pale": "@primary_pale",
+          "deep": "@secondary", "deep_mid": "@secondary_mid", "deep_pale": "@secondary_light",
+          "heading": "@secondary", "heading_num": "@primary", "h2": "@secondary_mid", "h3": "@secondary", "rule": "@accent",
+          "h1_style": "rule", "h1_bg": "@white", "lead_fg": "@secondary", "lead_bar": "@accent",
+          "table_style": "filled", "table_head_bg": "@secondary", "table_head_fg": "@white", "table_head_line": "@secondary",
+          "table_line": "@line", "table_stripe": "@bg_soft", "table_total_bg": "@accent_light", "highlight_col_bg": "@primary_pale",
+          "kpi_bg": "@secondary_light", "kpi_bar": "@accent", "kpi_value": "@secondary", "card_bg": "@bg_soft",
+          "header_brand": "@primary", "header_text": "@secondary_mid", "header_line": "@line",
+          "good": "@teal", "bad": "@red",
+          "palette": ["@secondary", "@primary", "@accent", "@secondary_soft", "@primary_mid", "@muted"], "chart_hi": "@primary"
+        },
+        "minimal": {
+          "name": "简约白（橙）", "cover": "line",
+          "cover_bg": "@white", "cover_top": null, "cover_accent": "@primary",
+          "cover_brand": "@primary", "cover_short": "@muted", "cover_category": "@muted",
+          "cover_title": "@ink", "cover_sub": "@ink_soft", "cover_label": "@muted", "cover_value": "@ink", "cover_line": "@line",
+          "accent": "@primary", "accent_dark": "@primary_dark", "accent_light": "@primary_light", "accent_pale": "@primary_pale",
+          "deep": "@ink", "deep_mid": "@ink_soft", "deep_pale": "@bg_soft",
+          "heading": "@ink", "heading_num": "@primary", "h2": "@ink", "h3": "@ink", "rule": "@primary",
+          "h1_style": "rule", "h1_bg": "@white", "lead_fg": "@ink_soft", "lead_bar": "@primary",
+          "table_style": "tint", "table_head_bg": "@bg_soft", "table_head_fg": "@ink", "table_head_line": "@primary",
+          "table_line": "@line", "table_stripe": "@white", "table_total_bg": "@bg_soft", "highlight_col_bg": "@primary_pale",
+          "kpi_bg": "@white", "kpi_bar": "@primary", "kpi_value": "@ink", "card_bg": "@bg_soft",
+          "header_brand": "@primary", "header_text": "@muted", "header_line": "@line",
+          "good": "@teal", "bad": "@red",
+          "palette": ["@primary", "@ink_soft", "@accent", "@secondary_soft", "@primary_mid", "@muted"], "chart_hi": "@primary"
+        }
+      },
+      "callouts": {
+        "key":     {"icon": "◆", "bar": "$accent",   "bg": "$accent_pale"},
+        "summary": {"icon": "≡", "bar": "$deep",     "bg": "$deep_pale"},
+        "info":    {"icon": "i", "bar": "$deep_mid", "bg": "@bg_soft"},
+        "tip":     {"icon": "✓", "bar": "@teal",     "bg": "@teal_light"},
+        "warning": {"icon": "!", "bar": "@warn",     "bg": "@accent_light"},
+        "risk":    {"icon": "!", "bar": "@red",      "bg": "@red_light"}
+      }
+    },
+
+    "excel": {
+      "_说明": "Excel 表格风格：表格原生样式（浅表头 + 强调色下边线、隔行浅底、浅网格），不做封面和海报式色块。三套色系只换颜色，结构一致。",
+      "default_by_kind": {
+        "ledger": "blue", "tracker": "blue", "dashboard": "blue", "compare": "blue", "checklist": "blue",
+        "calculator": "blue", "roster": "soft", "impact": "blue"
+      },
+      "fallback": "blue",
+      "styles": {
+        "blue": {
+          "name": "蓝色系",
+          "accent": "@tb_blue", "accent_dark": "@tb_blue_dark", "accent_mid": "@tb_blue_mid", "accent_light": "@tb_blue_light", "accent_pale": "@tb_blue_pale",
+          "second": "@tb_cyan", "second_pale": "@tb_cyan_pale", "deep": "@tb_navy", "deep_mid": "@tb_navy_mid", "deep_pale": "@tb_navy_pale",
+          "head_bg": "@tb_head_blue", "head_fg": "@ink", "head_line": "@tb_blue", "band": "@tb_band_blue", "grid": "@tb_grid_blue",
+          "total_bg": "@tb_head_blue", "group_bg": "@tb_navy_pale", "group_fg": "@tb_navy",
+          "title": "@tb_navy", "subtitle": "@muted",
+          "tab_data": "@tb_navy", "tab_view": "@tb_navy_mid", "tab_dash": "@tb_blue", "tab_rule": "@tb_ai", "tab_other": "@muted",
+          "heat_low": "@tb_blue_pale", "heat_high": "@tb_blue",
+          "palette": ["@tb_blue", "@tb_cyan", "@tb_navy", "@tb_blue_mid", "@tb_navy_mid", "@grey_bar"]
+        },
+        "soft": {
+          "name": "淡色系",
+          "accent": "@tb_soft", "accent_dark": "@tb_soft_dark", "accent_mid": "@tb_soft_mid", "accent_light": "@tb_soft_light", "accent_pale": "@tb_soft_pale",
+          "second": "@tb_sage", "second_pale": "@tb_sage_pale", "deep": "@tb_slate", "deep_mid": "@tb_slate_mid", "deep_pale": "@tb_slate_pale",
+          "head_bg": "@tb_head_soft", "head_fg": "@ink", "head_line": "@tb_soft", "band": "@tb_band_soft", "grid": "@tb_grid_soft",
+          "total_bg": "@tb_head_soft", "group_bg": "@tb_slate_pale", "group_fg": "@tb_slate",
+          "title": "@tb_slate", "subtitle": "@muted",
+          "tab_data": "@tb_slate", "tab_view": "@tb_slate_mid", "tab_dash": "@tb_soft", "tab_rule": "@tb_ai", "tab_other": "@muted",
+          "heat_low": "@tb_soft_pale", "heat_high": "@tb_soft",
+          "palette": ["@tb_soft", "@tb_sage", "@tb_slate", "@tb_soft_mid", "@tb_slate_mid", "@grey_bar"]
+        },
+        "orange": {
+          "name": "橙色系",
+          "accent": "@primary", "accent_dark": "@primary_dark", "accent_mid": "@primary_mid", "accent_light": "@primary_light", "accent_pale": "@primary_pale",
+          "second": "@warn", "second_pale": "@accent_light", "deep": "@secondary", "deep_mid": "@secondary_mid", "deep_pale": "@secondary_light",
+          "head_bg": "@tb_head_orange", "head_fg": "@ink", "head_line": "@primary", "band": "@tb_band_orange", "grid": "@tb_grid_orange",
+          "total_bg": "@tb_head_orange", "group_bg": "@secondary_light", "group_fg": "@secondary",
+          "title": "@secondary", "subtitle": "@muted",
+          "tab_data": "@secondary", "tab_view": "@secondary_mid", "tab_dash": "@primary", "tab_rule": "@tb_ai", "tab_other": "@muted",
+          "heat_low": "@primary_pale", "heat_high": "@primary",
+          "palette": ["@primary", "@secondary_mid", "@warn", "@primary_mid", "@secondary_soft", "@grey_bar"]
+        }
+      },
+      "roles": {
+        "fx_head_bg": "@tb_fx_head", "fx_fg": "@secondary_mid",
+        "ai_head_bg": "@tb_ai_pale", "ai_line": "@tb_ai", "ai_fg": "@tb_ai_dark",
+        "src_head_bg": "@bg_soft", "link": "@tb_link",
+        "input_bg": "@tb_input", "aux_bg": "@tb_aux", "aux_fg": "@muted",
+        "todo_bg": "@tb_amber_pale", "todo_fg": "@tb_amber",
+        "bad_bg": "@red_light", "bad_fg": "@red", "warn_bg": "@tb_amber_pale", "warn_fg": "@tb_amber",
+        "good_fg": "@tb_ok", "good_bg": "@tb_ok_pale", "info_bg": "@tb_ai_pale", "info_fg": "@tb_ai",
+        "status_grey_bg": "@tb_status_grey", "status_grey_fg": "@tb_status_grey_fg",
+        "databar": "@grey_bar", "grey_bar": "@grey_bar",
+        "input_border": "@warn", "formula_fg": "@secondary_mid"
+      },
+      "formats": {
+        "text": "@", "int": "#,##0", "money": "#,##0", "money2": "#,##0.00", "wan": "#,##0.00",
+        "yi": "0.00", "pct": "0.0%", "pct0": "0%", "ratio": "0.00", "date": "yyyy-mm-dd", "month": "yyyy-mm",
+        "delta": "\"▲\"0.0%;\"▼\"0.0%;0.0%",
+        "delta_pt": "\"▲\"0.0\"pct\";\"▼\"0.0\"pct\";0.0\"pct\""
+      }
+    },
+
+    "ppt": {
+      "_说明": "PPT 主题。共 7 套，结构一致只换颜色与封面装饰；用户可在 meta.theme 或 --theme 自选。封面、章节页以留白为主，主色只做强调。cover_style：light 白底 + 柔和圆形 / line 左侧竖条 / panel 右侧色块（可加 grid 网格、wave 波浪）/ rings 深色同心圆。",
+      "default_by_deck": {
+        "work_report": "minimal", "proposal": "orange", "training": "orange", "product": "orange",
+        "project": "minimal", "analysis": "blue", "customer": "warm", "kickoff": "warm", "impact": "blue",
+        "health": "teal", "claims": "teal", "service": "teal", "policy": "soft", "annual": "premium"
+      },
+      "fallback": "orange",
+      "styles": {
+        "orange": {
+          "name": "橙白活力", "cover_style": "light", "cover_light": true, "filled": true, "section_dark": false,
+          "cover_bg": ["solid", "@white"], "cover_fg": "@ink", "cover_accent": "@primary",
+          "cover_deco": "@primary_pale", "cover_deco2": "@primary_light", "cover_icon": "@primary", "cover_icon_cut": "@primary_pale",
+          "cover_tag_bg": "@primary_light", "cover_tag_fg": "@primary_dark", "cover_band": "@primary",
+          "section_bg": ["solid", "@white"], "section_fg": "@ink", "section_num": "@primary", "section_deco": "@primary_pale",
+          "bg": "@white", "primary": "@primary", "secondary": "@secondary", "highlight": "@primary",
+          "accent": "@accent", "soft": "@primary_pale", "soft2": "@primary_light",
+          "title": "@ink", "card": "@white", "card_line": "@line", "deco": "@primary_light", "grey": "@grey_bar",
+          "on_dark": "@on_dark", "on_dark_soft": "@on_dark_soft",
+          "palette": ["@primary", "@secondary", "@primary_mid", "@secondary_soft", "@accent", "@muted", "@primary_dark", "@on_dark"],
+          "funnel": ["@primary", "@primary_mid", "@secondary", "@secondary_soft", "@muted", "@on_dark"],
+          "pyramid": ["@primary", "@primary_mid", "@secondary", "@secondary_soft", "@muted"],
+          "bar_fill": "@primary_mid"
+        },
+        "warm": {
+          "name": "暖阳渐变", "cover_style": "light", "cover_light": true, "filled": true, "section_dark": false,
+          "cover_bg": ["solid", "@cream"], "cover_fg": "@ink", "cover_accent": "@primary",
+          "cover_deco": "@cream_deep", "cover_deco_grad": ["@accent_light", "@primary_light"], "cover_deco2": "@accent_light",
+          "cover_icon": "@accent_warm", "cover_icon_cut": "@primary_light",
+          "cover_tag_bg": "@accent_light", "cover_tag_fg": "@primary_dark", "cover_band_grad": ["@primary", "@accent"],
+          "section_bg": ["solid", "@cream"], "section_fg": "@ink", "section_num": "@accent_warm", "section_deco": "@cream_deep",
+          "bg": "@cream", "primary": "@primary", "secondary": "@secondary", "highlight": "@primary",
+          "accent": "@accent", "soft": "@primary_pale", "soft2": "@primary_light",
+          "title": "@ink", "card": "@white", "card_line": "@warm_line", "deco": "@primary_light", "grey": "@grey_bar",
+          "on_dark": "@on_dark", "on_dark_soft": "@on_dark_soft",
+          "palette": ["@primary", "@accent_warm", "@primary_mid", "@secondary_soft", "@accent", "@muted", "@primary_dark", "@on_dark"],
+          "funnel": ["@primary", "@accent_warm", "@primary_mid", "@accent", "@muted", "@on_dark"],
+          "pyramid": ["@primary", "@accent_warm", "@primary_mid", "@accent", "@muted"],
+          "bar_fill": "@primary_mid"
+        },
+        "soft": {
+          "name": "淡雅米橙", "cover_style": "light", "cover_light": true, "filled": false, "section_dark": false,
+          "cover_bg": ["solid", "@sf_bg"], "cover_fg": "@sf_ink", "cover_accent": "@sf_main",
+          "cover_deco": "@sf_light", "cover_deco2": "@sf_grey_pale", "cover_icon": "@sf_main", "cover_icon_cut": "@sf_light",
+          "cover_tag_bg": "@sf_light", "cover_tag_fg": "@sf_dark",
+          "section_bg": ["solid", "@sf_bg"], "section_fg": "@sf_ink", "section_num": "@sf_main", "section_deco": "@sf_light",
+          "bg": "@sf_bg", "primary": "@sf_main", "secondary": "@sf_grey", "highlight": "@sf_main",
+          "accent": "@sf_gold", "soft": "@sf_pale", "soft2": "@sf_light",
+          "title": "@sf_ink", "card": "@white", "card_line": "@sf_line", "deco": "@sf_light", "grey": "@sf_line",
+          "on_dark": "@on_dark", "on_dark_soft": "@on_dark_soft",
+          "palette": ["@sf_main", "@sf_grey", "@sf_mid", "@sf_gold", "@secondary_soft", "@muted", "@sf_dark", "@sf_light"],
+          "funnel": ["@sf_main", "@sf_mid", "@sf_grey", "@sf_gold", "@muted", "@sf_light"],
+          "pyramid": ["@sf_main", "@sf_mid", "@sf_grey", "@sf_gold", "@muted"],
+          "bar_fill": "@sf_mid"
+        },
+        "minimal": {
+          "name": "简约商务", "cover_style": "line", "cover_light": true, "filled": false, "section_dark": false,
+          "cover_bg": ["solid", "@white"], "cover_fg": "@ink", "cover_accent": "@primary",
+          "cover_deco": "@primary_pale", "cover_icon": "@primary_light", "cover_icon_cut": "@primary_pale",
+          "cover_tag_bg": "@bg_grey", "cover_tag_fg": "@primary",
+          "section_bg": ["solid", "@bg_soft"], "section_fg": "@ink", "section_num": "@primary", "section_deco": "@bg_grey",
+          "bg": "@white", "primary": "@primary", "secondary": "@ink_soft", "highlight": "@primary",
+          "accent": "@primary", "soft": "@bg_soft", "soft2": "@bg_grey",
+          "title": "@ink", "card": "@white", "card_line": "@line", "deco": "@bg_grey", "grey": "@grey_bar",
+          "on_dark": "@muted", "on_dark_soft": "@muted",
+          "palette": ["@primary", "@ink_soft", "@primary_mid", "@secondary_soft", "@accent", "@muted", "@primary_dark", "@on_dark"],
+          "funnel": ["@primary", "@primary_mid", "@ink_soft", "@secondary_soft", "@muted", "@on_dark"],
+          "pyramid": ["@primary", "@primary_mid", "@ink_soft", "@secondary_soft", "@muted"],
+          "bar_fill": "@primary_mid"
+        },
+        "premium": {
+          "name": "尊享深绿", "cover_style": "rings", "cover_light": false, "filled": true, "section_dark": true,
+          "cover_bg": ["solid", "@secondary"], "cover_fg": "@white", "cover_accent": "@accent",
+          "cover_icon": "@accent", "cover_icon_cut": "@secondary", "cover_band": "@primary",
+          "cover_tag_bg": "@accent", "cover_tag_fg": "@ink",
+          "section_bg": ["solid", "@secondary"], "section_fg": "@white", "section_num": "@accent", "section_deco": "@secondary_mid",
+          "bg": "@white", "primary": "@secondary", "secondary": "@primary", "highlight": "@primary",
+          "accent": "@accent", "soft": "@secondary_light", "soft2": "@secondary_tint",
+          "title": "@secondary", "card": "@white", "card_line": "@line", "deco": "@secondary_tint", "grey": "@grey_bar",
+          "on_dark": "@on_dark", "on_dark_soft": "@on_dark_soft",
+          "palette": ["@secondary", "@primary", "@primary_mid", "@secondary_soft", "@accent", "@muted", "@primary_dark", "@on_dark"],
+          "funnel": ["@secondary", "@secondary_mid", "@secondary_soft", "@primary", "@primary_mid", "@muted"],
+          "pyramid": ["@accent", "@primary", "@secondary", "@secondary_mid", "@secondary_soft"],
+          "bar_fill": "@primary"
+        },
+        "blue": {
+          "name": "信赖科技蓝", "cover_style": "panel", "panel_deco": "grid", "cover_light": true, "filled": true, "section_dark": false,
+          "cover_bg": ["solid", "@white"], "cover_fg": "@tb_navy", "cover_accent": "@tb_blue",
+          "cover_panel": ["@tb_navy", "@tb_blue"], "cover_icon": "@white", "cover_icon_cut": "@tb_blue_dark", "panel_line": "@bl_ice",
+          "cover_tag_bg": "@bl_light", "cover_tag_fg": "@tb_blue_dark", "cover_band": "@primary",
+          "section_bg": ["solid", "@white"], "section_fg": "@tb_navy", "section_num": "@tb_blue", "section_deco": "@tb_blue_pale",
+          "bg": "@white", "primary": "@tb_blue", "secondary": "@tb_navy", "highlight": "@primary",
+          "accent": "@tb_cyan", "soft": "@tb_blue_pale", "soft2": "@bl_light",
+          "title": "@tb_navy", "card": "@white", "card_line": "@bl_line", "deco": "@bl_light", "grey": "@tb_grid_blue",
+          "on_dark": "@tb_blue_light", "on_dark_soft": "@tb_blue_light",
+          "palette": ["@tb_blue", "@tb_navy", "@tb_blue_mid", "@tb_cyan", "@primary", "@muted", "@tb_blue_dark", "@tb_blue_light"],
+          "funnel": ["@tb_navy", "@tb_blue_dark", "@tb_blue", "@tb_blue_mid", "@tb_cyan", "@tb_blue_light"],
+          "pyramid": ["@tb_navy", "@tb_blue_dark", "@tb_blue", "@tb_blue_mid", "@tb_cyan"],
+          "bar_fill": "@tb_blue_mid"
+        },
+        "teal": {
+          "name": "康护青绿", "cover_style": "panel", "panel_deco": "wave", "cover_light": true, "filled": true, "section_dark": false,
+          "cover_bg": ["solid", "@white"], "cover_fg": "@secondary", "cover_accent": "@teal",
+          "cover_panel": ["@tl_dark", "@tl_soft"], "cover_icon": "@white", "cover_icon_cut": "@teal", "panel_line": "@tl_light",
+          "cover_tag_bg": "@tl_light", "cover_tag_fg": "@tl_dark", "cover_band": "@accent",
+          "section_bg": ["solid", "@white"], "section_fg": "@secondary", "section_num": "@teal", "section_deco": "@tl_pale",
+          "bg": "@white", "primary": "@teal", "secondary": "@secondary", "highlight": "@primary",
+          "accent": "@accent", "soft": "@tl_pale", "soft2": "@tl_light",
+          "title": "@secondary", "card": "@white", "card_line": "@tl_line", "deco": "@tl_light", "grey": "@grey_bar",
+          "on_dark": "@tl_light", "on_dark_soft": "@tl_light",
+          "palette": ["@teal", "@secondary", "@tl_mid", "@primary", "@accent", "@muted", "@tl_dark", "@tl_light"],
+          "funnel": ["@tl_dark", "@teal", "@tl_soft", "@tl_mid", "@muted", "@tl_light"],
+          "pyramid": ["@tl_dark", "@teal", "@tl_soft", "@tl_mid", "@muted"],
+          "bar_fill": "@tl_mid"
+        }
+      }
+    }
+  }
+}

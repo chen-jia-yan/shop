@@ -1,6 +1,6 @@
 {
   "name": "ai-dev-kit",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "个人 AI 开发工具包：技能、自定义代理、钩子（硬拦截）、记忆、提示词助手、风格包、评估用例。",
   "author": {"name": "Miya"},
   "skills": "skills/",

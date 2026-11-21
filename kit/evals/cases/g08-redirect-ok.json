@@ -1,8 +1,0 @@
-{
-  "id": "g08-redirect-ok",
-  "type": "guard",
-  "title": "反向：2>&1 合并输出不能被误拦",
-  "incident": "防止规则过宽：看完整错误输出是正常需求",
-  "payload": {"toolName": "powershell", "toolArgs": {"command": "uv run pytest tests/unit -q 2>&1 | Select-Object -Last 30"}},
-  "expect": "none"
-}

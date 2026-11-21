@@ -1,9 +1,0 @@
-{
-  "id": "inc11-guard-out-of-scope",
-  "type": "guard",
-  "title": "编辑修改范围外的文件必须被当场拦截",
-  "incident": "事故 11：越界修改",
-  "scope": {"task": "K2a", "files": ["src/a.py"]},
-  "payload": {"toolName": "edit", "toolArgs": {"path": "{cwd}/src/b.py", "old_str": "A = 1", "new_str": "A = 2"}},
-  "expect": "deny"
-}

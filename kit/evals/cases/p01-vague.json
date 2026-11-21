@@ -1,9 +1,0 @@
-{
-  "id": "p01-vague",
-  "type": "prompt",
-  "title": "含糊需求必须被识别出缺少完成标准和验证",
-  "incident": "用户反馈：指令比较笼统，Copilot 做偏",
-  "text": "帮我优化一下知识库上传，然后看看图谱那块",
-  "expect_missing": ["done", "verify"],
-  "expect_max_score": 45
-}

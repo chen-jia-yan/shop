@@ -1,0 +1,10 @@
+{
+  "id": "s03-delete-in-tests",
+  "type": "static",
+  "title": "测试里直接删真实数据要被静态检查发现",
+  "incident": "测试的清理代码用真实 session 执行 DETACH DELETE",
+  "check": "data_delete_in_tests",
+  "before": {"tests/__init__.py": ""},
+  "after": {"tests/test_cleanup.py": "def test_cleanup(session):\n    session.run(\"MATCH (n:TmpDoc) DETACH DELETE n\")\n"},
+  "expect": "fail"
+}

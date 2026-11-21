@@ -25,14 +25,14 @@ LOCKED = ["pyproject.toml", "uv.lock", "poetry.lock", "*.lock", "requirements*.t
 def main(argv: list[str] | None = None) -> int:
     kitlib.setup_console()
     parser = argparse.ArgumentParser(description="安全提交助手（只生成命令）")
-    parser.add_argument("--project", required=True)
+    parser.add_argument("--project", default=".", help="项目名；不填表示当前目录（登记过的用登记设置，没登记的自动识别）")
     parser.add_argument("--message", default="", help="提交说明")
     args = parser.parse_args(argv)
 
     cfg = kitlib.load_config()
     proj = kitlib.get_project(cfg, args.project)
     if not proj:
-        print(f"kit.config.json 里没有登记项目：{args.project}")
+        print(f"找不到项目：{args.project}（当前目录不在 git 仓库里，也没有在 kit.config.json 登记）")
         return 2
     proj_root = Path(proj["path"])
     git_root = Path(proj.get("git_root") or proj["path"])
@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             out_scope.append(rel)
 
-    print(f"仓库：{git_root}　当前分支：{branch or '（未知）'}")
+    print(f"仓库：{git_root}  当前分支：{branch or '（未知）'}")
     if branch in {"develop", "master", "main"}:
         print(f"!! 当前在 {branch} 分支上。规则要求不要直接在这个分支上提交，请先切到功能分支。")
     if scope is None:

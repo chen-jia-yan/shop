@@ -1,6 +1,6 @@
 """ai-dev-kit 公共函数库。
 
-所有脚本（钩子、工具、挂件）都从这里读取配置、定位目录、运行命令。
+所有脚本（钩子、工具、桌面宠物）都从这里读取配置、定位目录、运行命令。
 只使用 Python 标准库，保证在离线、不能装包的电脑上也能运行。
 """
 
@@ -119,11 +119,58 @@ def find_project(cfg: dict[str, Any], cwd: Path | str) -> dict[str, Any] | None:
     return best
 
 
-def get_project(cfg: dict[str, Any], name: str) -> dict[str, Any] | None:
+def get_project(cfg: dict[str, Any], name: str | None) -> dict[str, Any] | None:
+    """按名字找项目。名字也可以是 "."（当前目录）、"auto" 或一个目录路径：
+    先找登记过的项目，没登记但在 git 仓库里就自动识别，都不是就返回 None（非项目工作）。"""
     for proj in cfg.get("projects", []):
-        if proj.get("name") == name:
+        if name and proj.get("name") == name:
             return proj
+    if not name or name in (".", "auto"):
+        target: str = os.getcwd()
+    elif os.path.isdir(name):
+        target = name
+    else:
+        return None
+    return find_project(cfg, target) or detect_project(target)
+
+
+def find_git_root(start: Path | str) -> Path | None:
+    cur = Path(start).resolve()
+    for folder in [cur] + list(cur.parents):
+        if (folder / ".git").exists():
+            return folder
     return None
+
+
+def detect_project(start: Path | str) -> dict[str, Any] | None:
+    """没登记的目录：在 git 仓库里就按常见约定自动识别测试命令和目录；不在仓库里返回 None。"""
+    root = find_git_root(start)
+    if root is None or root == Path.home().resolve():
+        return None
+    def has(rel: str) -> bool:
+        return (root / rel).exists()
+
+    source_dirs = ["src"] if has("src") else ["."]
+    test_dirs = [d for d in ("tests", "test") if has(d)][:1]
+    checks: dict[str, list[str]] = {}
+    is_python = has("pyproject.toml") or has("setup.py") or any(root.glob("requirements*.txt"))
+    runner: list[str] = []
+    if is_python:
+        runner = ["uv", "run"] if has("uv.lock") else ["poetry", "run"] if has("poetry.lock") else []
+        pytest = runner + ["pytest"] if runner else ["{python}", "-m", "pytest"]
+        if test_dirs:
+            checks["tests"] = pytest + [test_dirs[0], "-q"]
+            checks["collect"] = pytest + [test_dirs[0], "--collect-only", "-q"]
+        pyproject = (root / "pyproject.toml").read_text(encoding="utf-8", errors="replace") if has("pyproject.toml") else ""
+        if "ruff" in pyproject or has("ruff.toml") or has(".ruff.toml"):
+            checks["lint"] = (runner or ["{python}", "-m"]) + ["ruff", "check"] + source_dirs + test_dirs
+    checks["chars"] = ["{python}", "{kit}/tools/check_chars.py"] + source_dirs + test_dirs
+    return {
+        "name": root.name, "path": str(root), "_auto": True, "style_pack": "",
+        "python_cmd": (runner + ["python"]) if runner else ["{python}"],
+        "checks": checks, "source_dirs": source_dirs, "test_dirs": test_dirs,
+        "protected": [], "notes": [], "isolated_import_modules": [],
+    }
 
 
 def get_profile(cfg: dict[str, Any], name: str | None = None) -> dict[str, Any]:
@@ -170,8 +217,10 @@ def run(
     cwd: Path | str | None = None,
     timeout: int = 900,
     env_extra: dict[str, str] | None = None,
+    nodelete: bool = False,
 ) -> tuple[int, str]:
-    """运行命令并返回 (退出码, 合并后的输出)。不经过 shell，避免引号和注入问题。"""
+    """运行命令并返回 (退出码, 合并后的输出)。不经过 shell，避免引号和注入问题。
+    nodelete=True 时子进程启用禁删保护（跑测试、跑项目脚本时用）。"""
     if not cmd:
         return 2, "命令为空"
     env = os.environ.copy()
@@ -179,6 +228,8 @@ def run(
     env["PYTHONUTF8"] = "1"
     if env_extra:
         env.update(env_extra)
+    if nodelete:
+        env = nodelete_env(env)
     real = [resolve_exe(cmd[0])] + list(cmd[1:])
     try:
         proc = subprocess.run(
@@ -336,6 +387,253 @@ def now() -> str:
 
 def today() -> str:
     return time.strftime("%Y-%m-%d")
+
+
+# ---------------------------------------------------------------- 禁删保护（运行时）
+
+RUNTIME_DIR = KIT_ROOT / "runtime"
+
+
+def nodelete_env(base: dict[str, str] | None = None, allow_delete: bool = False) -> dict[str, str]:
+    """给子进程用的环境变量：启用禁删保护（见 runtime/kit_nodelete.py）。
+    allow_delete=True 只在用户同意删除之后使用：删除照常执行，但每一次都记日志。"""
+    env = dict(base if base is not None else os.environ)
+    old = env.get("PYTHONPATH", "")
+    parts = [str(RUNTIME_DIR)] + [p for p in old.split(os.pathsep) if p and p != str(RUNTIME_DIR)]
+    env["PYTHONPATH"] = os.pathsep.join(parts)
+    env["AI_DEV_KIT_NODELETE"] = "1"
+    env["AI_DEV_KIT_HOME"] = str(DATA_DIR)
+    if allow_delete:
+        env["AI_DEV_KIT_ALLOW_DELETE"] = "1"
+    else:
+        env.pop("AI_DEV_KIT_ALLOW_DELETE", None)
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    return env
+
+
+# ---------------------------------------------------------------- 删除数据：先评估，等用户同意
+#
+# 流程：
+#   1. 模型要运行删除数据的命令 → 守卫拦下，附上风险评估，并记一条“待同意”；
+#   2. 模型把风险告诉用户，停下来等回复；
+#   3. 用户回复“同意 / 可以删 / 确认删除”等 → 提交消息的钩子把这一会话里待同意的删除标记为“已同意”；
+#      回复“不要 / 取消”等 → 作废；
+#   4. 模型重新运行同一条命令 → 守卫放行一次（用掉就作废），并写审计日志。
+# 同意只认用户在对话里亲口回复，模型自己改命令、改环境变量都绕不过去。
+
+DELETE_REQ_PATH = DATA_DIR / "delete_requests.json"
+DELETE_REQ_TTL = 30 * 60
+CONSENT_YES = re.compile(r"(同意|确认删除|确定删除|可以删|删吧|删掉吧|允许删除|批准|^\s*(好|好的|可以|确认|确定|行|ok|yes|y)\s*[。.!！]*\s*$)", re.I)
+CONSENT_NO = re.compile(r"(不.{0,2}同意|没同意|不要删|别删|不能删|先别删|取消|不行|不可以|算了|^\s*(no|n)\s*$)", re.I)
+CONSENT_WAIT = re.compile(r"(等一下|等等|先不|先查|先看|先统计|先数|多少条|哪个库|哪个环境|\?|？)")
+
+
+def command_digest(command: str) -> str:
+    """命令的指纹（忽略多余空白）。用户同意的是“这一条命令”，换了命令要重新问。"""
+    return hashlib.sha1(" ".join(command.split()).encode("utf-8", errors="replace")).hexdigest()[:16]
+
+
+def delete_core(command: str) -> str:
+    """去掉 kit_run.py 包装和 --allow-delete，只留真正要执行的命令。
+    这样“被拦下的原命令”和“同意后加了 --allow-delete 的重试命令”算同一条。"""
+    text = command.strip()
+    at = text.lower().replace("\\", "/").find("kit_run.py")
+    if at >= 0:
+        sep = text.find(" -- ", at)
+        if sep >= 0:
+            text = text[sep + 4:]
+    return " ".join(text.split())
+
+
+def _delete_reqs() -> dict[str, Any]:
+    data = load_json(DELETE_REQ_PATH, {}) or {}
+    now = time.time()
+    for sid in list(data):
+        data[sid] = [r for r in data[sid] if now - float(r.get("ts", 0)) < DELETE_REQ_TTL]
+        if not data[sid]:
+            data.pop(sid)
+    return data
+
+
+def pending_deletes() -> list[dict[str, Any]]:
+    """所有会话里还在等用户同意的删除（桌面机器人用来亮“等你决定”）。"""
+    out: list[dict[str, Any]] = []
+    for sid, items in _delete_reqs().items():
+        for r in items:
+            if r.get("status") == "pending":
+                out.append(dict(r, session=sid))
+    return sorted(out, key=lambda r: float(r.get("ts", 0)))
+
+
+def delete_request(session: str, command: str, risk: str) -> None:
+    data = _delete_reqs()
+    digest = command_digest(command)
+    items = [r for r in data.get(session, []) if r.get("digest") != digest]
+    items.append({"digest": digest, "status": "pending", "ts": time.time(), "risk": risk[:600],
+                  "command": redact(command, 200)})
+    data[session] = items[-10:]
+    save_json(DELETE_REQ_PATH, data)
+
+
+def delete_consent(session: str, prompt: str) -> str:
+    """用户发来新消息时调用：根据回复把待同意的删除标为同意或作废。返回 approved / rejected / ""。"""
+    data = _delete_reqs()
+    pending = [r for r in data.get(session, []) if r.get("status") == "pending"]
+    if not pending:
+        return ""
+    text = prompt.strip()
+    if CONSENT_NO.search(text):
+        status = "rejected"
+    elif CONSENT_WAIT.search(text):
+        return ""  # 用户还有疑问（先查数量、问是哪个库……），继续等
+    elif CONSENT_YES.search(text):
+        status = "approved"
+    else:
+        return ""  # 用户在说别的，继续等
+    for r in pending:
+        r["status"] = status
+        r["ts"] = time.time()
+    save_json(DELETE_REQ_PATH, data)
+    log_event("delete_consent", {"session": session[:12], "status": status, "count": len(pending),
+                                 "commands": [r.get("command", "") for r in pending]})
+    return status
+
+
+def delete_status(session: str, command: str, consume: bool = False) -> str:
+    """这条删除命令的状态：approved / pending / rejected / ""。consume=True 时同意用一次就作废。"""
+    data = _delete_reqs()
+    digest = command_digest(command)
+    for r in data.get(session, []):
+        if r.get("digest") == digest:
+            status = str(r.get("status", ""))
+            if consume and status == "approved":
+                data[session].remove(r)
+                save_json(DELETE_REQ_PATH, data)
+            return status
+    return ""
+
+
+# ---------------------------------------------------------------- 三种模式
+
+MODES = {"chat": "随手问", "workbench": "工作台", "project": "项目开发"}
+MODE_PATH = DATA_DIR / "mode.json"
+MODE_TTL = 12 * 3600
+
+
+def location_kind(cfg: dict[str, Any], cwd: Path | str) -> tuple[str, dict[str, Any] | None]:
+    """按目录判断位置：project（登记过的项目）/ repo（没登记的 git 仓库）/ other（其他目录）。"""
+    proj = find_project(cfg, cwd)
+    if proj:
+        return "project", proj
+    det = detect_project(cwd)
+    if det:
+        return "repo", det
+    return "other", None
+
+
+def read_mode_override() -> dict[str, Any]:
+    data = load_json(MODE_PATH, {}) or {}
+    if data.get("mode") not in MODES or time.time() - float(data.get("set_at", 0)) > MODE_TTL:
+        return {}
+    return data
+
+
+def current_mode(cfg: dict[str, Any], cwd: Path | str) -> dict[str, Any]:
+    """当前模式。没手动指定时：登记过的项目 = 项目开发，其余 = 工作台（随手问由模型按意图判断）。"""
+    kind, proj = location_kind(cfg, cwd)
+    auto = "project" if kind == "project" else "workbench"
+    override = read_mode_override()
+    root = override.get("root", "")
+    if override and (not root or norm(cwd) == norm(root) or norm(cwd).startswith(norm(root).rstrip("\\/") + os.sep)):
+        mode, source = str(override["mode"]), "manual"
+    else:
+        mode, source = auto, "auto"
+    return {"mode": mode, "label": MODES[mode], "source": source, "kind": kind, "project": proj}
+
+
+def set_mode(mode: str | None, root: str = "") -> None:
+    if not mode or mode == "auto":
+        if MODE_PATH.exists():
+            MODE_PATH.unlink()
+        return
+    if mode not in MODES:
+        raise ValueError(f"不认识的模式：{mode}，可选：{', '.join(MODES)}、auto")
+    save_json(MODE_PATH, {"mode": mode, "root": root, "set_at": time.time()})
+
+
+# ---------------------------------------------------------------- “问一次”的记录
+
+APPROVALS_PATH = DATA_DIR / "approvals.json"
+
+
+def args_digest(args: Any) -> str:
+    try:
+        raw = json.dumps(args, ensure_ascii=False, sort_keys=True)
+    except (TypeError, ValueError):
+        raw = str(args)
+    return hashlib.sha1(raw.encode("utf-8", errors="replace")).hexdigest()[:16]
+
+
+def _approvals() -> dict[str, Any]:
+    return load_json(APPROVALS_PATH, {}) or {}
+
+
+def approval_ok(session: str, kind: str) -> bool:
+    """本会话里同一类操作已经被用户放行过一次。"""
+    if not session or not kind:
+        return False
+    return kind in (_approvals().get(session, {}) or {}).get("kinds", {})
+
+
+def approval_pending(session: str, kind: str, digest: str) -> None:
+    if not session or not kind:
+        return
+    data = _approvals()
+    entry = data.setdefault(session, {"kinds": {}, "pending": [], "ts": time.time()})
+    entry["pending"] = [p for p in entry.get("pending", []) if time.time() - p.get("ts", 0) < 900][-20:]
+    entry["pending"].append({"kind": kind, "digest": digest, "ts": time.time()})
+    entry["ts"] = time.time()
+    if len(data) > 20:
+        for old in sorted(data, key=lambda k: data[k].get("ts", 0))[: len(data) - 20]:
+            data.pop(old, None)
+    save_json(APPROVALS_PATH, data)
+
+
+def approval_confirm(session: str, digest: str) -> str:
+    """工具真的执行了（postToolUse），说明用户在确认框里点了允许：记下这一类，本会话不再问。"""
+    data = _approvals()
+    entry = data.get(session)
+    if not entry:
+        return ""
+    for p in list(entry.get("pending", [])):
+        if p.get("digest") == digest:
+            entry["pending"].remove(p)
+            kind = str(p.get("kind", ""))
+            if kind and not kind.endswith("!"):  # 以 ! 结尾的类别每次都问
+                entry.setdefault("kinds", {})[kind] = time.time()
+            save_json(APPROVALS_PATH, data)
+            return kind
+    return ""
+
+
+# ---------------------------------------------------------------- 共享模块（和同事一起开发的代码）
+
+
+def shared_areas(project: dict[str, Any] | None) -> tuple[list[str], list[str]]:
+    """返回 (共享区域, 例外)。旧配置里的 protected 当作共享区域处理：可以改，但要保持兼容。"""
+    if not project:
+        return [], []
+    areas = list(project.get("shared", [])) or list(project.get("protected", []))
+    allow = list(project.get("shared_allow", [])) or list(project.get("protected_allow", []))
+    return areas, allow
+
+
+def shared_state_path(project: dict[str, Any]) -> Path:
+    return Path(project.get("path", ".")) / SCOPE_DIRNAME / "shared.json"
+
+
+def read_shared_state(project: dict[str, Any]) -> dict[str, Any]:
+    return load_json(shared_state_path(project), {}) or {}
 
 
 def setup_console() -> None:

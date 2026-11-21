@@ -1,0 +1,10 @@
+{
+  "id": "inc11-guard-shared-with-baseline",
+  "type": "guard",
+  "title": "反向：记录了基线之后，共享模块可以改",
+  "incident": "用户说明：插件不是同事一个人的，可以改和优化，只是不能改坏",
+  "shared": ["src/tap_ai/plugins/extensions/knowledge/**"],
+  "baseline": true,
+  "payload": {"toolName": "edit", "toolArgs": {"path": "{cwd}/src/tap_ai/plugins/extensions/knowledge/service.py", "old_str": "x", "new_str": "y"}},
+  "expect": "none"
+}

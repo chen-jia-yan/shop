@@ -1,0 +1,10 @@
+{
+  "id": "inc11-guard-protected-area",
+  "type": "guard",
+  "title": "没有记录测试基线就改共享模块必须被拦截",
+  "incident": "事故 11：共享的 knowledge 插件被改坏；现在允许改，但要先有基线才能对比",
+  "shared": ["src/tap_ai/plugins/extensions/knowledge/**"],
+  "payload": {"toolName": "edit", "toolArgs": {"path": "{cwd}/src/tap_ai/plugins/extensions/knowledge/service.py", "old_str": "x", "new_str": "y"}},
+  "expect": "deny",
+  "expect_rule": "shared-baseline"
+}

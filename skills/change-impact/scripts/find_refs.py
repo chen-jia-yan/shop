@@ -17,6 +17,10 @@
           或出现了被删除的原文短语（≥ 6 个字）
   related 相关：同一句里出现该变更涉及的上下文词 / 术语；给了 --scope-term 时还要求同一篇提到它
 不论有没有语料，都会为每条实质变更生成检索语句（queries），供在 TAP Retrieval / qa_advance 中补查。
+
+这里的匹配只是“找候选”：命中的每篇内容连同全文（doc_text）交给模型，由模型判断是否真的过时、
+对存量客户是否仍然有效、该怎么处置（见 reference/methods.md 第 2 节）。语料记录里的 via 字段
+（如 keyword / vector / graph）会原样保留，便于说明候选是从哪条检索路径来的。
 """
 import argparse
 import csv
@@ -44,6 +48,7 @@ def _doc(rec, i, src):
     return {"doc_id": str(rec.get("doc_id") or rec.get("id") or title), "title": title,
             "type": rec.get("type") or rec.get("doc_type") or "", "owner": rec.get("owner") or "",
             "url": rec.get("url") or "", "updated": rec.get("updated") or rec.get("update_time") or "",
+            "via": rec.get("via") or rec.get("source_type") or "",
             "text": norm(text)}
 
 
@@ -61,7 +66,7 @@ def load_corpus(paths):
                             print("跳过 %s：%s" % (fp, e))
                             continue
                         docs.append({"doc_id": fn, "title": os.path.splitext(fn)[0], "type": "", "owner": "",
-                                     "url": fp, "updated": "", "text": "\n".join(b["text"] for b in d["blocks"])})
+                                     "url": fp, "updated": "", "via": "", "text": "\n".join(b["text"] for b in d["blocks"])})
             continue
         ext = os.path.splitext(p)[1].lower()
         if ext == ".jsonl":
@@ -171,7 +176,8 @@ def match(ch, docs, scope_terms):
         if best and best[1] >= R("min_ref_score"):
             out.append({"change_id": ch["id"], "doc_id": d["doc_id"], "title": d["title"], "type": d["type"],
                         "owner": d["owner"], "url": d["url"], "updated": d["updated"],
-                        "match": best[0], "score": round(best[1], 2), "evidence": clip(best[2], 90)})
+                        "match": best[0], "score": round(best[1], 2), "evidence": clip(best[2], 90),
+                        "sentence": best[2], "via": d.get("via", ""), "doc_text": d["text"]})
     return out, queries_for(ch, stale, phrases, terms, scope_terms)
 
 

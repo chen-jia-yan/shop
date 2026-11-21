@@ -1,5 +1,7 @@
 # 报告写作与 notes.json
 
+> **judgments.json 和 notes.json 的分工**：判断类内容（性质、级别、对谁生效、理由、证据、受影响内容的处置、修订建议稿）都写在 judgments.json，格式见 `methods.md`。notes.json 只写报告的补充信息（摘要、对客告知、负责人、部门、读者、密级等）。下面的 `overrides` 是旧写法，仍然支持；同一条变更两边都写时，以 judgments 为准。
+
 ## 1. notes.json 完整格式
 
 所有字段都可选。`score.py` 读 `overrides`，`build_report.py` 读其余字段（两个脚本传同一个文件即可）。
@@ -72,7 +74,7 @@
 
 ## 4. 版式
 
-报告默认使用 Word 的 premium 风格（深色封面、橙色强调），可用 `--style` 换成 classic / minimal。修订前后对照使用左右卡片、变化处加粗；四象限、时间轴、指标卡、图表都由 kb-to-word 渲染，品牌色与字体来自 tap-config。需要调整文字或补内容时，改 `_报告内容.json` 后单独运行：
+报告默认使用 Word 的 blue 商务蓝风格（浅蓝封面、蓝色强调），可用 `--style` 换成 soft 淡雅蓝、navy 深蓝稳重或橙色系的 classic / premium / minimal。修订前后对照使用左右卡片、变化处加粗；四象限、时间轴、指标卡、图表都由 kb-to-word 渲染，品牌色与字体来自 tap-config。需要调整文字或补内容时，改 `_报告内容.json` 后单独运行：
 
 ```bash
 python ../kb-to-word/scripts/render_docx.py out/xx_报告内容.json out/xx.docx

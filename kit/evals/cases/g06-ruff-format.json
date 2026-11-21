@@ -1,8 +1,0 @@
-{
-  "id": "g06-ruff-format",
-  "type": "guard",
-  "title": "对已有文件运行 ruff format 必须被拦截",
-  "incident": "格式化会产生大量无关改动，淹没真实改动",
-  "payload": {"toolName": "powershell", "toolArgs": {"command": "uv run ruff format src/tap_ai/api"}},
-  "expect": "deny"
-}

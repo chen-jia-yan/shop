@@ -17,6 +17,8 @@
   3. 全局二次配对：把各区间剩下的删除块和新增块再配一次，找出“移动”与“移动并修改”。
   4. 每处修改做字词级差异，并识别信号（数值、日期、义务表述、否定词、适用范围、术语）。
   5. 只改了标点空格、或相似度很高且没有任何实质信号的，标为“措辞调整”。
+  6. 比对盲区打上复核提示（review_flags）：可能的段落拆分 / 合并、同义改写、表格列结构变化；
+     图片、公式、扫描页计数写进 meta.warnings。是否真有问题由模型读原文判断（见 reference/methods.md 第 4 节）。
 退出码：0 成功；2 输入有误。
 """
 import argparse
@@ -197,7 +199,70 @@ def build(old_doc, new_doc):
              "by_type": {}}
     for c in changes:
         stats["by_type"][c["type"]] = stats["by_type"].get(c["type"], 0) + 1
+    flag_for_review(changes)
+    stats["flagged"] = sum(1 for c in changes if c.get("review_flags"))
     return changes, stats
+
+
+# ---------------- 复核提示：比对算法的已知盲区，只提示、不下结论 ----------------
+def _contained(part, whole):
+    """part 有多大比例的文字出现在 whole 里（按最长公共片段累加）。"""
+    a, b = bare(part), bare(whole)
+    if not a or not b:
+        return 0.0
+    sm = SequenceMatcher(None, a, b, autojunk=False)
+    return sum(m.size for m in sm.get_matching_blocks()) / float(len(a))
+
+
+def _table_keys(text):
+    return [kv.split("：", 1)[0] for kv in text.split("；") if "：" in kv]
+
+
+def flag_for_review(changes):
+    """给模型的复核提示（review_flags）。脚本只说“这里可能有问题”，由模型读原文判断：
+    split_merge  一段拆成两段 / 两段合成一段，会被识别成“修改 + 新增 / 删除”
+    paraphrase   否定词、义务词变了但整体相似度很高，可能只是同义改写
+    table_shape  表格行的表头（列）变了，整表每行都可能被识别为修改"""
+    cf = R("review_flags")
+    F = L("flags")
+    for i, c in enumerate(changes):
+        flags = []
+        if c["type"] in ("modified", "moved_modified"):
+            lo, hi = max(0, i - cf["split_window"]), min(len(changes), i + cf["split_window"] + 1)
+            for d in changes[lo:hi]:
+                if d is c:
+                    continue
+                if d["type"] == "added" and len(bare(d["new"]["text"])) >= cf["split_min_chars"] \
+                        and _contained(d["new"]["text"], c["old"]["text"]) >= cf["split_contain"]:
+                    flags.append({"flag": "split_merge", "with": d["id"], "note": F["split_merge"]})
+                elif d["type"] == "removed" and len(bare(d["old"]["text"])) >= cf["split_min_chars"] \
+                        and _contained(d["old"]["text"], c["new"]["text"]) >= cf["split_contain"]:
+                    flags.append({"flag": "split_merge", "with": d["id"], "note": F["split_merge"]})
+            sig = c["signals"]
+            if (sig.get("negation") or sig.get("obligation")) and not sig["numbers"] and not sig["dates"] \
+                    and (c.get("similarity") or 0) >= cf["paraphrase_sim"]:
+                flags.append({"flag": "paraphrase", "note": F["paraphrase"]})
+            if c["kind"] == "table" and _table_keys(c["old"]["text"]) != _table_keys(c["new"]["text"]):
+                flags.append({"flag": "table_shape", "note": F["table_shape"]})
+        if flags:
+            c["review_flags"] = flags
+    for c in changes:                          # 双向标记，便于两条一起看
+        for f in c.get("review_flags", []):
+            if f.get("with"):
+                other = next((d for d in changes if d["id"] == f["with"]), None)
+                if other is not None and not any(g.get("with") == c["id"] for g in other.get("review_flags", [])):
+                    other.setdefault("review_flags", []).append({"flag": f["flag"], "with": c["id"], "note": f["note"]})
+
+
+def doc_warnings(old_doc, new_doc):
+    W = L("doc_warnings")
+    out = []
+    for side, d in ((L("report.version_old"), old_doc), (L("report.version_new"), new_doc)):
+        if d.get("non_text"):
+            out.append(W["non_text"].format(side=side, n=d["non_text"]))
+        if d.get("empty_pages"):
+            out.append(W["low_text"].format(side=side, n=d["empty_pages"]))
+    return out
 
 
 def main():
@@ -221,13 +286,21 @@ def main():
                     "old": {"file": old_doc["name"], "label": a.old_label or old_doc["name"]},
                     "new": {"file": new_doc["name"], "label": a.new_label or new_doc["name"]},
                     "effective_date": fmt_date(eff), "source": a.source or "",
-                    "analysed": fmt_date(today()), "stats": stats},
-           "changes": changes}
+                    "analysed": fmt_date(today()), "stats": stats,
+                    "warnings": doc_warnings(old_doc, new_doc)},
+           "changes": changes,
+           # 全文：供核对分析判断里引用的原文（防止引用不存在的内容）
+           "texts": {"old": "\n".join(b["text"] for b in old_doc["blocks"]),
+                     "new": "\n".join(b["text"] for b in new_doc["blocks"])}}
     save_json(out, a.output)
     print("已比对：%s → %s" % (old_doc["name"], new_doc["name"]))
     print("旧版 %d 块、新版 %d 块，未变 %d 块；识别变更 %d 处（其中措辞调整 %d 处）"
           % (stats["old_blocks"], stats["new_blocks"], stats["unchanged"], stats["changes"], stats["minor"]))
     print("类型：" + "，".join("%s %d" % (L("change_types").get(k, k), v) for k, v in stats["by_type"].items()))
+    if stats["flagged"]:
+        print("需要读原文复核的比对 %d 处（review_flags：拆分 / 合并、同义改写、表格结构）" % stats["flagged"])
+    for w in out["meta"]["warnings"]:
+        print("注意：" + w)
     print("已写入：%s" % a.output)
 
 

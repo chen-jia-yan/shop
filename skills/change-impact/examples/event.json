@@ -1,0 +1,11 @@
+{
+  "_说明": "示例样本：虚构产品，仅用于演示 run.py prepare。路径相对本文件所在目录。trigger 写 manual 表示手工发起；TAP 自动触发时为 review_submitted，报告按“审核前预分析”出具。",
+  "trigger": "manual",
+  "doc": {"id": "DOC-DEMO-001", "name": "示例重大疾病保险条款", "type": "条款", "owner": "产品部"},
+  "old": {"file": "sample_terms_v2.3.md", "label": "v2.3"},
+  "new": {"file": "sample_terms_v3.0.md", "label": "v3.0"},
+  "source": "产品条款修订",
+  "scope_terms": ["示例重大疾病"],
+  "exclude": ["DOC-DEMO-001"],
+  "corpus": ["kb_sample.jsonl"]
+}

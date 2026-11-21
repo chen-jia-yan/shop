@@ -1,4 +1,4 @@
-"""按模板生成任务提示词（R3 格式），供挂件和命令行使用。
+"""按模板生成任务提示词（R3 格式），供桌面宠物和命令行使用。
 
 模板在 templates/*.md，占位符写成 {{名字}}：
     {{rules}}          通用规则（固定内容，永远放在最前面）
@@ -74,7 +74,7 @@ def build(action: str, task: str, project_name: str | None = None, profile_name:
             project_block += "\n【受保护区域，不要修改】" + "、".join(project["protected"])
         if project.get("style_pack"):
             style_hint = f"写代码和评审都以风格包 /{project['style_pack']} 为准：先加载它，按相关卡片的“必须 / 禁止 / 检查项”执行。"
-        verify_cmd = f"\"{kitlib.python_exe(cfg)}\" \"{kitlib.KIT_ROOT / 'tools' / 'run_checks.py'}\" --project {project.get('name')}"
+        verify_cmd = f"\"{kitlib.python_exe(cfg)}\" \"{kitlib.KIT_ROOT / 'tools' / 'run_checks.py'}\" " + ("" if project.get("_auto") else f" --project {project.get('name')}")
     output_block = ("【输出要求：省 token】只给结论、改动摘要、命令输出里的失败行和汇总行、核对表；不要复述代码，不要重复贴相同的输出。"
                     if lean else "【输出要求】命令都贴原始输出；没把握的地方明确写出来。")
 

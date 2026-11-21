@@ -12,6 +12,7 @@
     test_collection    测试收集阶段报错，或者一个测试都没收集到（"0 tests ran"）
     scope_diff         改动的文件超出本次允许修改的名单
     submodule_dirty    子模块（gitlink）有未提交改动，提交时容易被一起带进去
+    data_delete_in_tests 新增的测试代码在删真实数据（数据可以写、不能删；假对象除外）
 
 用法：
     python checks.py --project tap-ai-backend
@@ -31,6 +32,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import check_chars
+import kit_rules
 import kitlib
 
 
@@ -254,10 +256,26 @@ def check_tautological(ctx: Ctx) -> Result:
     return Result("tautological_asserts", not findings, f"永远成立的断言 {len(findings)} 处", findings, "warning")
 
 
+def check_data_delete_in_tests(ctx: Ctx) -> Result:
+    """新增的测试代码里，对“不是假对象”的东西调用删除，或者写了 DELETE / DETACH DELETE 语句。
+
+    删除数据要用户同意：测试应该用假对象（fake_repo.delete 这类不算）。运行时还有删除保护兜底，
+    这里是提前提醒，所以只算 warning。"""
+    test_dirs = [d.rstrip("/") + "/" for d in ctx.project.get("test_dirs", ["tests"])]
+    findings: list[str] = []
+    for f, n, t in added_lines(ctx):
+        rel = f.replace("\\", "/")
+        if not any(rel.startswith(d) or f"/{d}" in rel for d in test_dirs) and "test" not in rel.rsplit("/", 1)[-1]:
+            continue
+        for item in kit_rules.scan_python(t):
+            findings.append(f"{f}:{n} 测试里可能在删真实数据（{item.kind}）：{t.strip()[:110]}")
+    return Result("data_delete_in_tests", not findings, f"测试里删除数据的写法 {len(findings)} 处", findings, "warning")
+
+
 def check_test_collection(ctx: Ctx) -> Result:
     cmd = ctx.project.get("checks", {}).get("collect")
     cmd = kitlib.expand_cmd(cmd, kitlib.base_ctx(ctx.cfg, ctx.project)) if cmd else ctx.py_cmd() + ["-m", "pytest", "--collect-only", "-q"]
-    code, out = kitlib.run(cmd, cwd=ctx.root, timeout=300)
+    code, out = kitlib.run(cmd, cwd=ctx.root, timeout=300, nodelete=True)
     collected = re.search(r"(\d+)\s+tests?\s+collected", out) or re.search(r"(\d+)\s+tests?\b", out.strip().splitlines()[-1] if out.strip() else "")
     errors = re.search(r"(\d+)\s+errors?", out)
     n = int(collected.group(1)) if collected else 0
@@ -312,16 +330,17 @@ CHECKS: dict[str, Callable[[Ctx], Result]] = {
     "test_collection": check_test_collection,
     "scope_diff": check_scope_diff,
     "submodule_dirty": check_submodule_dirty,
+    "data_delete_in_tests": check_data_delete_in_tests,
 }
 FAST_CHECKS = ["chars", "nested_orm_class", "removed_names", "env_in_tests", "getattr_settings",
-               "forbidden_markers", "tautological_asserts", "scope_diff", "submodule_dirty"]
+               "forbidden_markers", "tautological_asserts", "scope_diff", "submodule_dirty", "data_delete_in_tests"]
 
 
 def make_ctx(project_name: str, ref: str = "HEAD") -> Ctx:
     cfg = kitlib.load_config()
     project = kitlib.get_project(cfg, project_name)
     if not project:
-        raise SystemExit(f"kit.config.json 里没有登记项目：{project_name}")
+        raise SystemExit(f"找不到项目：{project_name}（当前目录不在 git 仓库里，也没有在 kit.config.json 登记）")
     root = Path(project["path"])
     git_root = Path(project.get("git_root") or project["path"])
     return Ctx(project, root, git_root, ref, cfg)
@@ -356,7 +375,7 @@ def format_results(results: list[Result]) -> str:
 def main(argv: list[str] | None = None) -> int:
     kitlib.setup_console()
     parser = argparse.ArgumentParser(description="ai-dev-kit 静态检查（只读）")
-    parser.add_argument("--project", help="kit.config.json 里的项目名")
+    parser.add_argument("--project", default=".", help="项目名；不填表示当前目录")
     parser.add_argument("--only", help="逗号分隔的检查项")
     parser.add_argument("--ref", default="HEAD", help="对比的基准提交，默认 HEAD")
     parser.add_argument("--all", action="store_true", help="包括较慢的检查（导入、测试收集）")
@@ -367,8 +386,6 @@ def main(argv: list[str] | None = None) -> int:
         for name in CHECKS:
             print(f"{name}{'' if name in FAST_CHECKS else '（较慢）'}")
         return 0
-    if not args.project:
-        parser.error("需要 --project")
     ctx = make_ctx(args.project, args.ref)
     names = args.only.split(",") if args.only else (list(CHECKS) if args.all else FAST_CHECKS)
     results = run_checks(ctx, [n.strip() for n in names if n.strip()])

@@ -28,6 +28,6 @@ description: tap-ai-backend 项目的代码风格包：分层、接口、服务�
 
 ## 项目级硬规则（任何卡片都适用）
 1. 不改同事的问答知识插件 `src/tap_ai/plugins/extensions/knowledge/`（唯一例外：`backends/kg_browse.py`，需任务明确要求）。
-2. 只读资源不写：jp-poc 搜索索引只读（只用查询密钥）；共享 Neo4j 里不属于本任务范围的数据（例如 hk）不删不改。
+2. 只读资源不写：jp-poc 搜索索引只读（只用查询密钥）；共享 Neo4j 可以写入；要删除任何数据先评估风险并等用户同意（守卫会核对）。
 3. 测试用 fake，不连真实 MySQL / Azure Search / Neo4j / 大模型；不读真实 .env。
 4. 不改 pyproject.toml / uv.lock；不对已有文件运行 ruff format。

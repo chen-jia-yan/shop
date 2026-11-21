@@ -1,13 +1,15 @@
 """安装 / 更新 / 卸载 ai-dev-kit（可以反复运行，结果一样）。
 
 做的事：
-1. 没有 kit.config.json 时，从示例复制一份，并自动填好当前 Python 路径；
+1. 没有 kit.config.json 时，从示例复制一份，并自动填好当前 Python 路径；已有的旧版配置自动升级到 2.0（先备份）；
 2. 把 skills/ 和 style-packs/ 里的技能同步到 ~/.copilot/skills/（个人技能，所有项目可用）；
 3. 把 agents/ 里的自定义代理同步到 ~/.copilot/agents/；
 4. 把 instructions/personal.md 合并进 ~/.copilot/copilot-instructions.md（只替换标记之间的内容，你自己写的部分不动）；
-5. 写入 ~/.copilot/hooks/ai-dev-kit.json，注册三个钩子：会话开始注入上下文、调用工具前拦截、改完文件检查；
-6. 记录安装清单到 ~/.ai-dev-kit/installed.json，卸载和更新时只动自己装的东西；
-7. 被覆盖的文件先备份到 ~/.ai-dev-kit/backups/时间戳/。
+5. 写入两份钩子配置：~/.copilot/hooks/ai-dev-kit.json（会话注入、守卫、改完检查、计量）和
+   ai-dev-kit-extra.json（新版 Copilot 才有的事件：一轮结束计时、代理计时、“该你了”提醒、消息提示）；
+6. 生成能力目录 ~/.ai-dev-kit/catalog.json（工具包的 + 你自己装的技能和代理）；
+7. 记录安装清单到 ~/.ai-dev-kit/installed.json，卸载和更新时只动自己装的东西；
+8. 被覆盖的文件先备份到 ~/.ai-dev-kit/backups/时间戳/。
 
 用法（在工具包根目录）：
     python tools/install.py               # 安装或更新
@@ -32,7 +34,59 @@ import kitlib
 BEGIN = "<!-- ai-dev-kit:begin（这段由 ai-dev-kit 安装脚本维护，请不要手动修改） -->"
 END = "<!-- ai-dev-kit:end -->"
 HOOK_FILE = "ai-dev-kit.json"
+HOOK_EXTRA_FILE = "ai-dev-kit-extra.json"
 TEXT_SUFFIXES = {".md", ".txt", ".json", ".py", ".yaml", ".yml"}
+EDIT_TOOLS = "edit|create|apply_patch|str_replace_editor|write|str_replace|insert"
+
+# 1.x 配置里的旧说法 → 2.0 的新说法（按关键词匹配整条替换）
+NOTE_MIGRATIONS = [
+    (("问答知识插件", "不要改"), "问答知识插件 src/tap_ai/plugins/extensions/knowledge/ 是和同事共同开发的共享模块：可以改和优化，"
+     "但要保持对外接口兼容；改之前先 run_checks.py --shared-baseline，改完对比，不能改坏"),
+    (("Neo4j", "不删不改"), "数据可以写入；删除数据要先评估风险告诉我、等我同意后再删，不能乱删（包括运行测试）；测试和脚本通过 kit_run.py 运行"),
+    (("删除接口",), "本地 TAP_AI_LIBRARY_KB_GRAPH_ENABLED=false；本地不要调用任何删除接口"),
+    (("jp-poc", "只读"), "jp-poc 搜索索引手上只有查询密钥，实际只读"),
+]
+NEW_SECTIONS: dict[str, dict[str, Any]] = {
+    "nodelete": {"enabled": True, "require_wrapper": True},
+    "capabilities": {"auto_suggest": True, "extra_skill_dirs": []},
+    "metrics": {"enabled": True},
+}
+
+
+def migrate_config(cfg: dict[str, Any]) -> list[str]:
+    """把 1.x 的配置升级到 2.0，返回改了什么。可以反复运行，已经是 2.0 的不动。"""
+    changes: list[str] = []
+    for proj in cfg.get("projects", []):
+        name = proj.get("name", "?")
+        if "protected" in proj and "shared" not in proj:
+            proj["shared"] = proj.pop("protected")
+            proj["shared_allow"] = proj.pop("protected_allow", [])
+            if proj["shared"]:
+                changes.append(f"{name}：受保护目录改为共享模块（可以改，改前记基线）")
+        notes = list(proj.get("notes", []))
+        new_notes: list[str] = []
+        for note in notes:
+            replaced = note
+            for keys, new in NOTE_MIGRATIONS:
+                if all(k in note for k in keys) and note != new:
+                    replaced = new
+                    break
+            if replaced not in new_notes:
+                new_notes.append(replaced)
+        if new_notes != notes:
+            proj["notes"] = new_notes
+            changes.append(f"{name}：更新了注意事项（共享模块、删除先问）")
+    for key, value in NEW_SECTIONS.items():
+        if key not in cfg:
+            cfg[key] = dict(value)
+            changes.append(f"新增 {key} 配置段")
+    sc = cfg.setdefault("session_context", {})
+    if int(sc.get("max_chars", 1800)) <= 1800:
+        sc["max_chars"] = 3600
+        changes.append("会话摘要上限调到 3600 字（要放能力目录）")
+    if cfg.get("config_version") != 2:
+        cfg["config_version"] = 2
+    return changes
 
 
 class Installer:
@@ -65,6 +119,12 @@ class Installer:
         if kitlib.CONFIG_PATH.exists():
             cfg = kitlib.load_config()
             self.say(f"使用已有配置：{kitlib.CONFIG_PATH}")
+            changes = migrate_config(cfg)
+            if changes:
+                self.say("升级配置到 2.0（原文件先备份）：" + "；".join(changes))
+                if not self.dry:
+                    self.backup(kitlib.CONFIG_PATH)
+                    kitlib.save_json(kitlib.CONFIG_PATH, cfg)
         else:
             cfg = kitlib.load_json(kitlib.EXAMPLE_CONFIG_PATH, {}) or {}
             cfg["python"] = sys.executable
@@ -163,40 +223,72 @@ class Installer:
             kitlib.write_text(target, new)
 
     def write_hooks(self, cfg: dict[str, Any], style: str) -> None:
-        target = self.home / "hooks" / HOOK_FILE
+        """写两个钩子文件：核心（1.0.75 也认识的事件）和扩展（新版本才有的事件）。
+        分开写是因为旧版本遇到不认识的事件可能整份文件都不加载，分开后至少核心的守卫和注入照常工作。"""
         py = kitlib.python_exe(cfg)
         hooks_dir = kitlib.KIT_ROOT / "hooks"
 
-        def entry(script: str, timeout: int, matcher: str | None = None) -> dict[str, Any]:
+        def entry(script: str, timeout: int, *args: str, matcher: str | None = None) -> dict[str, Any]:
             path = str(hooks_dir / script)
             if style == "powershell":
-                item: dict[str, Any] = {"type": "command", "powershell": f"& '{py}' '{path}'", "timeoutSec": timeout}
+                tail = "".join(f" '{a}'" for a in args)
+                item: dict[str, Any] = {"type": "command", "powershell": f"& '{py}' '{path}'{tail}", "timeoutSec": timeout}
             else:
-                item = {"type": "command", "exec": py, "args": [path], "timeoutSec": timeout}
+                item = {"type": "command", "exec": py, "args": [path, *args], "timeoutSec": timeout}
             if matcher:
                 item["matcher"] = matcher
             return item
 
-        data = {
+        core = {
             "version": 1,
             "hooks": {
                 "sessionStart": [entry("session_start.py", 10)],
+                "userPromptSubmitted": [entry("kit_events.py", 5, "prompt")],
                 "preToolUse": [entry("guard.py", 5)],
-                "postToolUse": [entry("post_edit.py", 10, "edit|create|apply_patch|str_replace_editor|write|str_replace|insert")],
+                "postToolUse": [entry("post_edit.py", 10, matcher=EDIT_TOOLS), entry("kit_events.py", 5, "tool")],
+                "sessionEnd": [entry("kit_events.py", 5, "end")],
             },
         }
-        self.say(f"写入钩子配置 {target}（方式：{style}）")
-        if not self.dry:
-            self.backup(target)
-            kitlib.save_json(target, data)
-
-    def remove_hooks(self) -> None:
-        target = self.home / "hooks" / HOOK_FILE
-        if target.exists():
-            self.say(f"删除钩子配置 {target}")
+        extra = {
+            "version": 1,
+            "hooks": {
+                "userPromptTransformed": [entry("kit_events.py", 5, "transform")],
+                "postToolUseFailure": [entry("kit_events.py", 5, "tool_fail")],
+                "agentStop": [entry("kit_events.py", 10, "stop")],
+                "subagentStart": [entry("kit_events.py", 5, "subagent_start")],
+                "subagentStop": [entry("kit_events.py", 5, "subagent_stop")],
+                "notification": [entry("kit_events.py", 5, "notification", matcher="permission_prompt|elicitation_dialog")],
+                "preCompact": [entry("kit_events.py", 5, "compact")],
+            },
+        }
+        for name, data in ((HOOK_FILE, core), (HOOK_EXTRA_FILE, extra)):
+            target = self.home / "hooks" / name
+            self.say(f"写入钩子配置 {target}（方式：{style}）")
             if not self.dry:
                 self.backup(target)
-                target.unlink()
+                kitlib.save_json(target, data)
+
+    def remove_hooks(self) -> None:
+        for name in (HOOK_FILE, HOOK_EXTRA_FILE):
+            target = self.home / "hooks" / name
+            if target.exists():
+                self.say(f"删除钩子配置 {target}")
+                if not self.dry:
+                    self.backup(target)
+                    target.unlink()
+
+    def build_catalog(self) -> None:
+        if self.dry:
+            self.say("生成能力目录（预演时跳过）")
+            return
+        try:
+            import kit_catalog
+
+            items = kit_catalog.build()
+            mine = sum(1 for i in items if i["source"] == "user")
+            self.say(f"生成能力目录：{len(items)} 个技能和代理（你自己的 {mine} 个）")
+        except Exception as exc:  # 目录生成失败不影响安装
+            self.say(f"能力目录生成失败（不影响使用，稍后运行 kit_catalog.py build）：{exc!r}")
 
     def save_manifest(self, skills: list[str], agents: list[str], hooks: bool) -> None:
         data = {"kit_root": str(kitlib.KIT_ROOT), "copilot_home": str(self.home), "skills": skills,
@@ -258,14 +350,16 @@ def main(argv: list[str] | None = None) -> int:
     else:
         inst.write_hooks(cfg, args.hook_style)
     inst.save_manifest(skills, agents, not args.no_hooks)
+    inst.build_catalog()
     if not args.dry_run:
         (kitlib.DATA_DIR / "logs").mkdir(parents=True, exist_ok=True)
     print("\n下一步：")
-    print("  1. 按实际情况检查 kit.config.json（项目路径、启动脚本、受保护目录）")
+    print("  1. 按实际情况检查 kit.config.json（项目路径、启动脚本、共享模块）")
     print("  2. 重启 Copilot CLI；在会话里输入 /skills list 和 /agent，应能看到 kit- 开头的技能和代理")
-    print("  3. 运行 python tools/kit_doctor.py 做一次完整体检")
+    print("  3. 运行 python tools/kit_doctor.py 做一次完整体检（会检查两份钩子文件有没有被 Copilot 接受）")
     print("  4. 运行 python tools/selftest.py 确认工具包自身没有问题")
-    print("  5. 双击 widget/start_widget.bat 打开桌面挂件")
+    print("  5. 运行 python tools/kit_run.py --check 确认禁删保护在项目环境里生效")
+    print("  6. 双击 widget/start_widget.bat 打开桌面机器人")
     if inst.dry:
         print("\n以上为预演，没有改动任何文件。")
     return 0

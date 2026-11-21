@@ -1,0 +1,9 @@
+{
+  "id": "g19-workbench-git-commit-ask",
+  "type": "guard",
+  "title": "工作台里 git commit：弹确认（登记过的项目里仍由用户执行）",
+  "incident": "用户反馈：非项目目录也一律拒绝 git 太死板",
+  "context": "other",
+  "payload": {"toolName": "powershell", "toolArgs": {"command": "git commit -m \"整理文档\""}},
+  "expect": "ask"
+}

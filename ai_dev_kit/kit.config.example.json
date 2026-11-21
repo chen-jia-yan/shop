@@ -1,5 +1,6 @@
 {
-  "_说明": "复制为 kit.config.json 后按实际情况修改（install.py 会自动复制一份）。kit.config.json 是个人配置，不要提交、不要发给别人。路径里的反斜杠要写成两个 \\\\ 或者改用 /。",
+  "_说明": "复制为 kit.config.json 后按实际情况修改（install.py 会自动复制一份；从旧版升级时会自动迁移字段，原文件先备份）。kit.config.json 是个人配置，不要提交、不要发给别人。路径里的反斜杠要写成两个 \\\\ 或者改用 /。",
+  "config_version": 2,
   "python": "C:\\Program Files\\Python312\\python.exe",
   "default_profile": "quota",
   "profiles": {
@@ -11,7 +12,7 @@
       "agent_flag": false,
       "launch_extra_args": [],
       "noninteractive_cmd": null,
-      "_说明": "agent_flag：打开 bat 看最后一行调用 copilot 的地方，如果末尾有 %*（把参数传下去），就可以改成 true，挂件会直接带上 --agent；否则保持 false，挂件会提示你在会话里用 /agent 选择代理。"
+      "_说明": "agent_flag：打开 bat 看最后一行调用 copilot 的地方，如果末尾有 %*（把参数传下去），就可以改成 true，挂件会直接带上 --agent；否则保持 false。"
     },
     "latest": {
       "label": "省 token（PATH 里的 copilot，1.0.105）",
@@ -21,7 +22,7 @@
       "agent_flag": true,
       "launch_extra_args": [],
       "noninteractive_cmd": ["{launcher}", "--agent", "{agent}", "-p", "{prompt}"],
-      "_说明": "noninteractive_cmd 只给 run_evals.py --agent 用（会消耗额度）。先运行 copilot --help 确认有 -p / --prompt 和 --agent 参数。"
+      "_说明": "noninteractive_cmd 只给 run_evals.py --agent 和技能试用台的真实试跑用（会消耗额度）。先运行 copilot --help 确认有 -p 和 --agent 参数。"
     }
   },
   "projects": [
@@ -39,18 +40,20 @@
       "check_timeout": 900,
       "source_dirs": ["src"],
       "test_dirs": ["tests"],
-      "protected": ["src/tap_ai/plugins/extensions/knowledge/**"],
-      "protected_allow": ["src/tap_ai/plugins/extensions/knowledge/backends/kg_browse.py"],
+      "shared": ["src/tap_ai/plugins/extensions/knowledge/**"],
+      "shared_allow": ["src/tap_ai/plugins/extensions/knowledge/backends/kg_browse.py"],
+      "_shared_说明": "shared：共享模块，可以改但改之前要记录测试基线；shared_allow：其中不需要基线就能改的文件；shared_tests：可选，基线用的测试命令，不写就用 checks.tests；locked_areas：确实一个字都不能改的目录",
+      "locked_areas": [],
       "isolated_import_modules": [
         "tap_ai.bootstrap",
         "tap_ai.persistence.models",
         "tap_ai.plugins.ingest.sdk_ingest"
       ],
       "notes": [
-        "同事的问答知识插件 src/tap_ai/plugins/extensions/knowledge/ 不要改；唯一例外是 backends/kg_browse.py，且需要任务明确要求",
-        "jp-poc 搜索索引只读：只用查询密钥，绝对禁止写入或删除",
-        "共享 Neo4j：只允许写 jp-poc 范围；hk 的数据不删不改，写之前和写之后各数一次 hk 的数量",
-        "本地 TAP_AI_LIBRARY_KB_GRAPH_ENABLED=false；本地不要调用 hk 文档的删除接口",
+        "问答知识插件 src/tap_ai/plugins/extensions/knowledge/ 是和同事共同开发的共享模块：可以改和优化，但要保持对外接口兼容；改之前先 run_checks.py --shared-baseline，改完对比，不能改坏",
+        "数据可以写入；删除数据要先评估风险告诉我、等我同意后再删，不能乱删（包括运行测试）；测试和脚本通过 kit_run.py 运行",
+        "jp-poc 搜索索引手上只有查询密钥，实际只读",
+        "本地 TAP_AI_LIBRARY_KB_GRAPH_ENABLED=false；本地不要调用任何删除接口",
         "接口只用 GET 和 POST；配置直接用 settings.xxx；新功能开关默认关闭",
         "不要在 develop / master 上直接改，先建分支"
       ]
@@ -69,7 +72,9 @@
       "check_timeout": 900,
       "source_dirs": ["src"],
       "test_dirs": ["tests"],
-      "protected": [],
+      "shared": [],
+      "shared_allow": [],
+      "locked_areas": [],
       "isolated_import_modules": ["tap_ingest_sdk.kg_schema"],
       "notes": [
         "src/tap_ingest_sdk/kg_schema.py 是叶子模块：不得导入本包里的其他模块（曾经因此循环导入）",
@@ -80,17 +85,27 @@
   ],
   "guard": {
     "enabled": true,
+    "on_error": "allow",
     "extra_protected_files": [],
-    "block_git_write": true,
-    "block_shell_file_write": true,
-    "block_package_install": true,
-    "block_dangerous_delete": true,
-    "block_ruff_format": true,
     "check_python_markers": true,
     "enforce_scope": true,
-    "extra_deny_command_patterns": [
-      "(?i)DETACH\\s+DELETE"
-    ]
+    "extra_deny_command_patterns": [],
+    "extra_ask_command_patterns": [],
+    "_说明": "三档：红线直接拦（读 .env、删数据、git add . 等）；黄线弹出确认（装包、项目外的 git 写操作、项目外写文件等，同一类在一次会话里只问一次）；其余放行并记录。"
+  },
+  "nodelete": {
+    "enabled": true,
+    "require_wrapper": true,
+    "_说明": "删除前先问：AI 要删数据时，守卫先拦下并给出风险评估（删什么、范围、能否恢复、建议），你在对话里回复“同意”后才放行那一条命令，用一次就失效；回复“不要”就一直拦。测试和脚本通过 tools/kit_run.py 运行，没经同意的删除调用会被拦下并报 KitDeleteBlocked；同意后用 kit_run.py --allow-delete 运行，每一次删除都记日志。require_wrapper=true 时，在项目里直接运行 pytest / python 脚本会被要求改用 kit_run.py。"
+  },
+  "capabilities": {
+    "auto_suggest": true,
+    "extra_skill_dirs": [],
+    "_说明": "auto_suggest：每条消息先在本地匹配一次技能和代理，匹配上就提示模型“可能适用”，模型说明理由后再用（会改文件的先问你）。extra_skill_dirs：你自己写的技能所在目录，也可以用 kit_skill.py add 挂进来。"
+  },
+  "metrics": {
+    "enabled": true,
+    "_说明": "记录每轮对话的时长、等你回复的时长、token（拿得到就用真实值，拿不到标“估算”）、用到的技能和工具，只存在本机 ~/.ai-dev-kit/metrics/，桌面机器人右侧的面板读这里。"
   },
   "memory": {
     "digest_max_chars": 1200,
@@ -98,6 +113,6 @@
   },
   "session_context": {
     "enabled": true,
-    "max_chars": 1800
+    "max_chars": 3600
   }
 }

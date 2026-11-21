@@ -1,6 +1,6 @@
 """体检：检查工具包在这台电脑上是否装好、能用，每一项都给出修复办法。只读，不改任何东西。
 
-用法：python tools/kit_doctor.py [--quick]
+用法：python tools/kit_doctor.py [--quick]   （--quick 跳过运行 copilot --version 和删除保护检查）
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def add(status: str, item: str, detail: str, fix: str = "") -> None:
 def check_python() -> None:
     v = sys.version_info
     if v >= (3, 9):
-        add(OK, "Python", f"{v.major}.{v.minor}.{v.micro}　{sys.executable}")
+        add(OK, "Python", f"{v.major}.{v.minor}.{v.micro}  {sys.executable}")
     else:
         add(FAIL, "Python", f"版本 {v.major}.{v.minor} 太旧", "需要 Python 3.9 以上")
     cfg = kitlib.load_config()
@@ -38,9 +38,9 @@ def check_tkinter() -> None:
     try:
         import tkinter
 
-        add(OK, "tkinter（挂件需要）", f"Tk {tkinter.TkVersion}")
+        add(OK, "tkinter（桌面机器人需要）", f"Tk {tkinter.TkVersion}")
     except Exception as exc:
-        add(WARN, "tkinter（挂件需要）", f"无法导入：{exc}", "挂件用不了，其他功能不受影响；重新安装 Python 时勾选 tcl/tk")
+        add(WARN, "tkinter（桌面机器人需要）", f"无法导入：{exc}", "桌面机器人用不了，其他功能不受影响；重新安装 Python 时勾选 tcl/tk")
 
 
 def check_git() -> None:
@@ -84,19 +84,49 @@ def check_install() -> None:
     instr = home / "copilot-instructions.md"
     has_block = instr.is_file() and "ai-dev-kit:begin" in kitlib.read_text(instr)
     add(OK if has_block else FAIL, "个人指令", str(instr) if has_block else "没有找到工具包指令段", "" if has_block else "重新运行 install.py")
-    hook_file = home / "hooks" / "ai-dev-kit.json"
-    if manifest.get("hooks"):
+    for name, required in (("ai-dev-kit.json", True), ("ai-dev-kit-extra.json", False)):
+        hook_file = home / "hooks" / name
+        if not manifest.get("hooks"):
+            if required:
+                add(WARN, "钩子配置", "安装时选择了不注册钩子：硬拦截没有生效", "需要时运行 python tools/install.py（不加 --no-hooks）")
+            continue
+        label = "钩子配置（核心）" if required else "钩子配置（扩展：计时、该你了、消息提示）"
         try:
             data = json.loads(kitlib.read_text(hook_file))
             events = sorted(data.get("hooks", {}).keys())
-            scripts = [a for evs in data["hooks"].values() for e in evs for a in e.get("args", [])]
+            scripts = [a for evs in data["hooks"].values() for e in evs for a in e.get("args", [])[:1]]
             bad = [s for s in scripts if not Path(s).is_file()]
-            add(OK if not bad else FAIL, "钩子配置", f"{hook_file}：{', '.join(events)}" + (f"；脚本不存在：{bad}" if bad else ""),
+            add(OK if not bad else FAIL, label, f"{hook_file.name}：{', '.join(events)}" + (f"；脚本不存在：{bad}" if bad else ""),
                 "" if not bad else "重新运行 install.py")
         except (OSError, ValueError, KeyError) as exc:
-            add(FAIL, "钩子配置", f"读取失败：{exc}", "重新运行 install.py")
-    else:
-        add(WARN, "钩子配置", "安装时选择了不注册钩子：硬拦截没有生效", "需要时运行 python tools/install.py（不加 --no-hooks）")
+            add(FAIL if required else WARN, label, f"读取失败：{exc}", "重新运行 install.py")
+
+
+def check_catalog() -> None:
+    import kit_catalog
+
+    items = kit_catalog.build()
+    mine = [i["name"] for i in items if i["source"] == "user"]
+    missing = [i["name"] for i in items if not i.get("triggers")]
+    add(OK, "能力目录", f"{len(items)} 个技能和代理（你自己的 {len(mine)} 个）")
+    if missing:
+        add(WARN, "能力目录：自动匹配", f"这些没写“用户会这样说”，自动匹配会弱一些：{'、'.join(missing[:8])}",
+            "在 SKILL.md 里加“## 用户会这样说”小节，或用 kit_skill.py try 看效果")
+
+
+def check_nodelete(cfg: dict) -> None:
+    runtime = kitlib.KIT_ROOT / "runtime"
+    if not (runtime / "sitecustomize.py").is_file() or not (runtime / "kit_nodelete.py").is_file():
+        add(FAIL, "删除保护", f"{runtime} 里缺少文件", "重新解压工具包")
+        return
+    for proj in cfg.get("projects", []):
+        if not Path(proj.get("path", "")).is_dir():
+            continue
+        code, out = kitlib.run([sys.executable, str(kitlib.KIT_ROOT / "tools" / "kit_run.py"), "--check", "--cwd", proj["path"]],
+                               timeout=240)
+        active = "已生效" in out
+        add(OK if active else WARN, f"删除保护（{proj.get('name')}）", "已生效" if active else kitlib.redact(out.strip()[-160:], 160),
+            "" if active else "把 kit_run.py --check 的输出发给维护者；在此之前测试里的删除只有守卫一道防线")
 
 
 def check_guard() -> None:
@@ -106,7 +136,11 @@ def check_guard() -> None:
     add(OK if code == 0 else FAIL, "守卫自测", last or out[:200], "" if code == 0 else "把输出发给维护者；必要时先用 --no-hooks 重新安装")
     payload = json.dumps({"toolName": "view", "toolArgs": {"path": ".env"}, "cwd": str(Path.home())})
     try:
-        proc = subprocess.run([sys.executable, str(script)], input=payload.encode("utf-8"),
+        import os
+        import tempfile
+
+        env = dict(os.environ, AI_DEV_KIT_HOME=tempfile.mkdtemp(prefix="kit-doctor-"))  # 模拟调用不写进你的日志和统计
+        proc = subprocess.run([sys.executable, str(script)], input=payload.encode("utf-8"), env=env,
                               capture_output=True, timeout=10)
         reply = proc.stdout.decode("utf-8", errors="replace")
         ok = proc.returncode == 0 and '"deny"' in reply
@@ -158,15 +192,16 @@ def check_data_dir() -> None:
 def main(argv: list[str] | None = None) -> int:
     kitlib.setup_console()
     parser = argparse.ArgumentParser(description="ai-dev-kit 体检")
-    parser.add_argument("--quick", action="store_true", help="跳过运行 copilot --version")
+    parser.add_argument("--quick", action="store_true", help="跳过运行 copilot --version 和删除保护检查")
     args = parser.parse_args(argv)
     cfg = kitlib.load_config()
     if cfg.get("_from_example"):
         add(WARN, "配置文件", "还没有 kit.config.json，正在使用示例配置", "运行 install.py 会自动创建，然后按实际情况修改")
     steps: list[Callable[[], None]] = [check_python, check_tkinter, check_git, check_data_dir, check_install,
-                                       check_guard, check_kit_files, lambda: check_projects(cfg)]
+                                       check_guard, check_catalog, check_kit_files, lambda: check_projects(cfg)]
     if not args.quick:
         steps.insert(3, lambda: check_copilot(cfg))
+        steps.append(lambda: check_nodelete(cfg))
     for step in steps:
         try:
             step()
@@ -180,9 +215,12 @@ def main(argv: list[str] | None = None) -> int:
     fails = sum(1 for r in results if r[0] == FAIL)
     warns = sum(1 for r in results if r[0] == WARN)
     print(f"\n体检完成：失败 {fails} 项，提醒 {warns} 项。")
-    print("手动确认两件事（脚本没法替你看）：\n"
-          "  1. 在 Copilot 会话里输入 /skills list，能看到 kit- 开头的技能；输入 /agent，能看到 kit- 开头的代理。\n"
-          "  2. 在会话里让 Copilot “读取 .env 文件”，应该看到 ai-dev-kit 守卫的拒绝提示。")
+    print("手动确认几件事（脚本没法替你看）：\n"
+          "  1. 启动 Copilot 时没有出现“! Invalid hook configuration”。如果扩展钩子文件被提示无效，说明这个版本不支持新事件，\n"
+          "     核心功能不受影响；面板里的计时和“该你了”会少一些。\n"
+          "  2. 在 Copilot 会话里输入 /skills list，能看到 kit- 开头的技能；输入 /agent，能看到 kit- 开头的代理。\n"
+          "  3. 在会话里让 Copilot “读取 .env 文件”，应该看到 ai-dev-kit 守卫的拒绝提示。\n"
+          "  4. 让 Copilot 运行一条删除语句（例如对测试库），应该先看到风险评估，你回复“同意”后才执行。")
     return 1 if fails else 0
 
 

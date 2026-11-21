@@ -1,8 +1,0 @@
-{
-  "id": "inc13-edit-lockfile",
-  "type": "guard",
-  "title": "直接改 uv.lock 必须被拦截",
-  "incident": "事故 13 的变体",
-  "payload": {"toolName": "edit", "toolArgs": {"path": "uv.lock", "old_str": "a", "new_str": "b"}},
-  "expect": "deny"
-}

@@ -15,14 +15,21 @@
   综合分 = 重要度 × weights.importance + 影响度 × weights.impact，按 levels 阈值定级
   级别下限：floors 中的高风险情形（如保险责任里出现否定词变化）级别不低于指定值
   人工复核：notes.json 的 overrides 可改级别、类别、处置事项或忽略某条（须写明原因，报告中保留痕迹）
+
+这套评分是**初筛**：给模型一个起点、给报告一个可解释的参照，不是结论。
+最终结论来自 --judgments（模型按 reference/methods.md 读原文作出的判断，经 judgments.py 护栏检查）；
+初筛结果保留在每条变更的 prior 字段，报告里与分析结论并列，便于看出判断改了什么。
 """
 import argparse
+import copy
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from _tap import add_cli_args, configure     # noqa: E402
+
+import judgments                              # noqa: E402
 
 from ci_common import (L, R, cat_by_key, categories, fallback_category, find_terms, fmt_date, imp, level_name,  # noqa: E402
                        level_of, level_order, load_json, more_severe, parse_date, save_json, today)
@@ -130,14 +137,17 @@ def impact(ch, cats, refs, eff):
 
 
 def apply_floors(level, fired, cats, reasons):
+    """返回（初筛级别，触发的最高下限或 None）。下限是先验：模型判断可以低于它，但会列入待人工确认。"""
     keys = {c["key"] for c in cats}
+    floor = None
     for f in imp().get("floors", []):
         if f["when"] in fired and keys & set(f["categories"]):
+            floor = f["level"] if floor is None else more_severe(floor, f["level"])
             new = more_severe(level, f["level"])
             if new != level:
                 reasons.append(L("reasons")["floor"].format(when=L("signal_names").get(f["when"], f["when"]), lv=level_name(f["level"])))
                 level = new
-    return level
+    return level, floor
 
 
 def actions_for(cats, level, eff):
@@ -170,14 +180,15 @@ def score_all(data, refs, notes):
         total = round(imp_s * w["importance"] + imp_m * w["impact"], 1)
         level = level_of(total)
         r3 = []
-        level = apply_floors(level, fired, cats, r3)
+        level, floor = apply_floors(level, fired, cats, r3)
         if ch.get("minor") or ch["type"] == "moved":
             level = level_order()[-1]
+            floor = None
         auto_level = level
         if o.get("level"):
             level = o["level"]
         ch.update({"category": cats[0]["key"], "category_name": cats[0]["name"],
-                   "categories": [c["key"] for c in cats], "objects": _objects(cats),
+                   "categories": [c["key"] for c in cats], "objects": _objects(cats), "floor_level": floor,
                    "importance": imp_s, "impact": imp_m, "score": total,
                    "level": level, "level_auto": auto_level, "level_name": level_name(level),
                    "customer": customer, "system": system, "stale_refs": st, "related_refs": rel,
@@ -233,10 +244,11 @@ def summarize(data, refs, eff):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="变更影响分析：评分与定级")
+    ap = argparse.ArgumentParser(description="变更影响分析：初筛评分，并入分析判断后定级")
     ap.add_argument("changes")
     ap.add_argument("--refs", help="find_refs.py 的输出")
-    ap.add_argument("--notes", help="人工复核与分析意见（overrides、comments 等），见 reference/report-guide.md")
+    ap.add_argument("--judgments", help="模型的分析判断（见 reference/methods.md），先经 judgments.py 护栏检查")
+    ap.add_argument("--notes", help="报告用的补充信息；其中的 overrides 为旧写法，仍然支持（judgments 优先）")
     ap.add_argument("-o", "--output", required=True)
     add_cli_args(ap)
     a = ap.parse_args()
@@ -249,19 +261,58 @@ def main():
             sys.exit("overrides.%s.level 只能是：%s" % (k, "、".join(level_order())))
         if (o.get("level") or o.get("ignore")) and not o.get("reason"):
             sys.exit("overrides.%s 调整了级别或忽略该条，必须写 reason（报告会保留人工调整痕迹）" % k)
-    summary = score_all(data, rf["refs"], notes)
-    data["refs"] = rf["refs"]
+
+    # 1. 自动初筛（只作参考，保留在每条变更的 prior 里）
+    prior = copy.deepcopy(data)
+    score_all(prior, rf["refs"], {})
+    for c, p in zip(data["changes"], prior["changes"]):
+        c["prior"] = {k: p[k] for k in ("level", "importance", "impact", "score", "category_name")}
+        c["floor_level"] = p.get("floor_level")
+
+    # 2. 并入分析判断（经护栏检查）
+    J = judgments.load(a.judgments) if a.judgments else None
+    overrides = dict(notes.get("overrides") or {})
+    refs = rf["refs"]
+    if J:
+        rep = judgments.check(data, rf["refs"], J)
+        if rep.errors:
+            print("分析判断未通过护栏检查（%d 项必须修改）：" % len(rep.errors))
+            for e in rep.errors:
+                print("  - " + e)
+            sys.exit(2)
+        judgments.pre_apply(data["changes"], J)
+        overrides.update(judgments.to_overrides(J))
+        refs = judgments.scoring_refs(rf["refs"], J)
+    summary = score_all(data, refs, {"overrides": overrides})
+    if not J:
+        rep = judgments.unjudged(data)
+    judgments.attach(data, J, rep)
+    eff = parse_date(data["meta"]["effective_date"]) if data["meta"].get("effective_date") else None
+    summary = summarize(data, refs, eff)            # 判断改了类别名时重新汇总
+    summary["human"] = len(rep.human)
+    summary["confirmed"] = len(rep.confirmed)
+    summary["judged"] = bool(J)
+    data["human"] = rep.human
+    data["confirmed"] = rep.confirmed
+    data["check_warnings"] = rep.warnings
+    data["verify_questions"] = (J or {}).get("verify_questions", [])
+    data["refs"] = judgments.annotate_refs(rf["refs"], J, data["meta"])
     data["queries"] = rf.get("queries", [])
     data["meta"]["refs"] = rf.get("meta", {})
     data["meta"]["weights"] = R("weights")
     data["meta"]["levels"] = R("levels")
+    if J and J.get("analyst"):
+        data["meta"]["analyst"] = J["analyst"]
     data["summary"] = summary
     save_json(data, a.output)
     bl = summary["by_level"]
-    print("实质变更 %d 项（措辞调整 %d 项，人工忽略 %d 项）" % (summary["substantive"], summary["minor"], summary["ignored"]))
-    print("级别：" + "，".join("%s %d" % (level_name(lv), bl[lv]) for lv in level_order()))
-    print("知识库：疑似过时 %d 篇、需复核 %d 篇；处置事项 %d 项" %
+    print("实质变更 %d 项（措辞调整 %d 项，排除 %d 项）" % (summary["substantive"], summary["minor"], summary["ignored"]))
+    print("级别：" + "，".join("%s %d" % (level_name(lv), bl[lv]) for lv in level_order()) +
+          ("" if J else "（自动初筛，尚未做分析判断）"))
+    print("知识库：过时 %d 篇、需复核 %d 篇；处置事项 %d 项" %
           (summary["stale_docs"], summary["related_docs"], len(summary["plan"])))
+    if rep.human:
+        print("待人工确认 %d 项：报告会标为初稿，确认后在 judgments.json 对应判断里写 confirmed_by 再重跑" % len(rep.human))
     print("已写入：%s" % a.output)
 
 

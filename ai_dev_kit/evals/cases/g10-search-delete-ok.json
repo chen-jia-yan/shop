@@ -1,0 +1,8 @@
+{
+  "id": "g10-search-delete-ok",
+  "type": "guard",
+  "title": "反向：在代码里搜索 DETACH DELETE 不能被当成删除",
+  "incident": "防止规则过宽：评审时需要查找删除语句",
+  "payload": {"toolName": "powershell", "toolArgs": {"command": "git --no-pager grep -n \"DETACH DELETE\" src"}},
+  "expect": "none"
+}

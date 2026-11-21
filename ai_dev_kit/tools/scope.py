@@ -27,7 +27,7 @@ def project_root(name: str) -> tuple[Path, Path]:
     """返回 (git 仓库根, 项目根)。两者可能不同，例如 fwd-tap-ingest 在 fwd-tap-common 仓库里。"""
     proj = kitlib.get_project(kitlib.load_config(), name)
     if not proj:
-        raise SystemExit(f"kit.config.json 里没有登记项目：{name}")
+        raise SystemExit(f"找不到项目：{name}（当前目录不在 git 仓库里，也没有在 kit.config.json 登记）")
     return Path(proj.get("git_root") or proj["path"]), Path(proj["path"])
 
 
@@ -143,16 +143,16 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     for name in ("set", "add"):
         p = sub.add_parser(name)
-        p.add_argument("--project", required=True)
+        p.add_argument("--project", default=".")
         p.add_argument("--task")
         p.add_argument("--files", nargs="*")
         p.add_argument("--globs", nargs="*")
         p.add_argument("--allow-locked", action="store_true", help="允许修改 pyproject.toml / uv.lock 等")
     for name in ("show", "clear"):
         p = sub.add_parser(name)
-        p.add_argument("--project", required=True)
+        p.add_argument("--project", default=".")
     p = sub.add_parser("from-prompt")
-    p.add_argument("--project", required=True)
+    p.add_argument("--project", default=".")
     p.add_argument("--task")
     p.add_argument("--allow-locked", action="store_true")
     p.add_argument("prompt_file")

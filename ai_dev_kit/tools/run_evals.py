@@ -1,7 +1,7 @@
 """评估运行器：用真实事故做成的用例，确认工具包的防线一直有效（改了技能、规则、检查之后必跑）。
 
 用例类型（evals/cases/*.json）：
-    guard   给守卫一个模拟的工具调用，期望 deny 或 none
+    guard   给守卫一个模拟的工具调用，期望 deny / ask / none（可再指定命中的规则）
     prompt  给提示词体检一段草稿，期望识别出缺少的维度
     static  在临时 git 仓库里重现事故（before → after），期望静态检查报出问题（fail）或不报（pass）
     output  给一段测试命令的输出，期望一键验证判定为失败（例如 0 条测试、收集中断）或通过
@@ -39,9 +39,9 @@ CASE_DIR = kitlib.KIT_ROOT / "evals" / "cases"
 
 
 def _fill_cwd(value: Any, cwd: str) -> Any:
-    """把用例里的 {cwd} 换成临时目录，方便写“项目内的绝对路径”。"""
+    """把用例里的 {cwd} 换成临时目录、{kit} 换成工具包目录，方便写“项目内的绝对路径”。"""
     if isinstance(value, str):
-        return value.replace("{cwd}", cwd.replace("\\", "/"))
+        return value.replace("{cwd}", cwd.replace("\\", "/")).replace("{kit}", str(kitlib.KIT_ROOT).replace("\\", "/"))
     if isinstance(value, list):
         return [_fill_cwd(v, cwd) for v in value]
     if isinstance(value, dict):
@@ -50,18 +50,35 @@ def _fill_cwd(value: Any, cwd: str) -> Any:
 
 
 def run_guard(case: dict[str, Any]) -> tuple[bool, str]:
+    """守卫用例。context=project（默认）时临时目录登记成项目；other 时是普通目录。
+    可选：shared / shared_allow（共享模块）、baseline（已记录基线）、files（预先写入的文件）、
+    scope（修改范围）、mode（强制模式）、expect_rule（期望命中的规则）、guard_config。"""
     cwd = tempfile.mkdtemp(prefix="kit-eval-")
-    projects = []
-    if case.get("protected"):
-        projects.append({"name": "eval", "path": cwd, "protected": case["protected"],
-                         "protected_allow": case.get("protected_allow", [])})
+    context = case.get("context", "project")
+    projects: list[dict[str, Any]] = []
+    if context == "project":
+        proj: dict[str, Any] = {"name": "eval", "path": cwd}
+        shared = case.get("shared") or case.get("protected")
+        if shared:
+            proj["shared"] = shared
+            proj["shared_allow"] = case.get("shared_allow") or case.get("protected_allow") or []
+        projects.append(proj)
+        if case.get("baseline"):
+            kitlib.save_json(kitlib.shared_state_path(proj), {"baseline": {"passed": 10, "failed": 0, "ts": "eval"}})
+    for rel, content in (case.get("files") or {}).items():
+        _write_fixture(Path(cwd) / rel, _fill_cwd(content, cwd))
     if case.get("scope"):
         kitlib.save_json(Path(cwd) / kitlib.SCOPE_DIRNAME / kitlib.SCOPE_FILENAME, case["scope"])
-    guard = Guard({"guard": case.get("guard_config", {}), "projects": projects})
+    mode = case.get("mode") or ("project" if context == "project" else "workbench")
+    guard = Guard({"guard": case.get("guard_config", {}), "projects": projects}, forced_mode=mode)
     payload = _fill_cwd(dict(case["payload"]), cwd)
     payload["cwd"] = cwd
-    decision, reason, rule = guard.decide(payload)
-    return decision == case["expect"], f"期望 {case['expect']}，实际 {decision} {rule}"
+    payload.setdefault("sessionId", f"eval-{case.get('id', '')}-{time.time()}")
+    verdict = guard.decide(payload)
+    ok = verdict.decision == case["expect"]
+    if ok and case.get("expect_rule"):
+        ok = verdict.rule == case["expect_rule"]
+    return ok, f"期望 {case['expect']}{'/' + case['expect_rule'] if case.get('expect_rule') else ''}，实际 {verdict.decision}/{verdict.rule or '-'}"
 
 
 def run_output(case: dict[str, Any]) -> tuple[bool, str]:
@@ -152,6 +169,8 @@ def run_agent(case: dict[str, Any], profile_name: str | None) -> tuple[bool, str
 
 def main(argv: list[str] | None = None) -> int:
     kitlib.setup_console()
+    # 用例产生的“待同意删除”记录写到临时文件，不留在你的数据目录里
+    kitlib.DELETE_REQ_PATH = Path(tempfile.mkdtemp(prefix="kit-eval-")) / "delete_requests.json"
     parser = argparse.ArgumentParser(description="运行评估用例")
     parser.add_argument("--only", help="只跑某类：guard,prompt,static,output,agent")
     parser.add_argument("--agent", action="store_true", help="同时运行 agent 类（会消耗额度）")

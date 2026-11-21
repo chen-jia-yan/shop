@@ -1,9 +1,0 @@
-{
-  "id": "p02-specific",
-  "type": "prompt",
-  "title": "反向：具体的需求应当得高分",
-  "incident": "防止体检过严",
-  "text": "修复 src/tap_ai/application/library_kb.py 的上传逻辑：目前同名同内容文件重复上传会生成第二份数据。绝对禁止修改问答插件。完成标准：重复上传返回 status == \"skipped\"，document_id 不变。验证：运行 uv run pytest tests/unit/test_library_kb_service.py -q 并贴出原始输出。最后附核对表。参考 documents/retry 接口的写法。",
-  "expect_missing": [],
-  "expect_min_score": 75
-}

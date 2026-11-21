@@ -1,8 +1,0 @@
-{
-  "id": "g01-read-env",
-  "type": "guard",
-  "title": "读取 .env 必须被拦截",
-  "incident": "安全约束：Copilot 不得读取 .env",
-  "payload": {"toolName": "view", "toolArgs": {"path": "C:/Users/234393/Desktop/tap-ai-backend/.env"}},
-  "expect": "deny"
-}

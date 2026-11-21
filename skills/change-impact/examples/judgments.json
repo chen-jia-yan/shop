@@ -1,0 +1,213 @@
+{
+  "_说明": "示例样本：配合 event.json 使用，演示判断文件怎么写。变更编号以实际运行 run.py prepare 后 judgments.template.json 中的为准，编号不同时先核对再改。示例未填 effective_date，生效日切换的内容会列入待人工确认（缺切换日）。",
+  "analyst": "示例分析人",
+  "changes": {
+    "C01": {
+      "verdict": "ignore",
+      "reasoning": "仅文档标题中的版本号由 v2.3 改为 v3.0，不涉及条款内容。",
+      "confidence": "high"
+    },
+    "C02": {
+      "verdict": "substantive",
+      "summary": "投保年龄上限由 60 周岁调整为 65 周岁",
+      "level": "P2",
+      "category": "投保规则",
+      "direction": "favorable",
+      "applies": "new",
+      "reasoning": "只影响生效后的新投保，61-65 周岁人群可以投保。投保须知、FAQ、说明书和核心系统年龄校验要同步改，否则会拒绝符合条件的投保。存量保单不受影响。",
+      "evidence": [{"side": "old", "quote": "出生满 28 日至 60 周岁"}, {"side": "new", "quote": "出生满 28 日至 65 周岁"}],
+      "confidence": "high",
+      "actions": [
+        {"action": "核心系统投保年龄校验上限改为 65 周岁并回归测试", "owner": "信息技术部", "offset": -10},
+        {"action": "核保部确认 61-65 周岁的核保规则和健康告知是否需要调整", "owner": "核保部", "offset": -15}
+      ],
+      "comment": "年龄上限放宽可能影响定价假设，需由精算部确认是否已在定价中考虑。"
+    },
+    "C03": {
+      "verdict": "substantive",
+      "summary": "犹豫期由 15 日调整为 20 日",
+      "level": "P1",
+      "category": "重要期间",
+      "direction": "favorable",
+      "applies": "new",
+      "reasoning": "犹豫期从签收合同起算，只对新契约有意义，存量保单的犹豫期早已届满。销售话术、回访脚本、FAQ 都写着 15 日，生效后仍按 15 日告知，会让客户误以为第 16-20 日不能无息退保，属于误导。",
+      "evidence": [{"side": "old", "quote": "有 15 日的犹豫期"}, {"side": "new", "quote": "有 20 日的犹豫期"}],
+      "confidence": "high",
+      "actions": [
+        {"action": "核心系统犹豫期参数改为 20 日", "owner": "信息技术部", "offset": -10},
+        {"action": "回访脚本、销售话术中的犹豫期改为 20 日并完成培训", "owner": "培训部", "offset": -5}
+      ]
+    },
+    "C04": {
+      "verdict": "substantive",
+      "summary": "等待期由 90 天调整为 30 天",
+      "level": "P0",
+      "category": "重要期间",
+      "direction": "favorable",
+      "applies": "new",
+      "reasoning": "等待期缩短后，30-90 天内确诊的新契约客户由“不赔”变为“可赔”。FAQ、说明书、话术都写着 90 天：生效后仍按旧口径答复，会导致误导和错误拒赔；系统参数没改，会直接错拒。存量保单按原合同 90 天执行，所以面向全部客户的内容要新旧并列。",
+      "evidence": [{"side": "old", "quote": "自本合同生效之日起 90 天内为等待期"}, {"side": "new", "quote": "自本合同生效之日起 30 天内为等待期"}],
+      "confidence": "high",
+      "actions": [
+        {"action": "核心系统等待期参数改为 30 天，按投保日区分新旧规则并回归测试", "owner": "信息技术部", "offset": -10},
+        {"action": "理赔部明确新旧保单等待期的判定口径", "owner": "理赔部", "offset": -10}
+      ],
+      "comment": "等待期缩短会提高早期理赔率，建议精算部评估对定价和再保安排的影响。",
+      "lesson": "等待期这类按保单生效日起算的期间，修订一般只对新契约生效。面向全部客户的 FAQ 要新旧并列，系统参数要按投保日区分，而不是一刀切替换。"
+    },
+    "C05": {
+      "verdict": "substantive",
+      "summary": "轻症疾病保险金给付比例由基本保险金额的 20% 调整为 30%",
+      "level": "P1",
+      "category": "保险责任",
+      "direction": "favorable",
+      "applies": "new",
+      "reasoning": "直接提高新契约轻症的给付金额，累计 3 次的限制没变。说明书、FAQ、话术都写着 20%，生效后仍按旧比例说明，属于误导；理赔系统按旧比例计算，会少赔。",
+      "evidence": [{"side": "old", "quote": "按基本保险金额的 20% 给付轻症疾病保险金"}, {"side": "new", "quote": "按基本保险金额的 30% 给付轻症疾病保险金"}],
+      "confidence": "high",
+      "actions": [{"action": "理赔系统轻症给付比例按投保日区分 20% / 30%", "owner": "信息技术部", "offset": -10}]
+    },
+    "C06": {
+      "verdict": "substantive",
+      "summary": "新增中症疾病保险金：按基本保险金额的 50% 给付，累计以 2 次为限",
+      "level": "P1",
+      "category": "保险责任",
+      "direction": "favorable",
+      "applies": "new",
+      "reasoning": "新增了一项保险责任。说明书、FAQ、话术里都没有中症，生效后客户问起时一线无法回答；理赔系统没有这个责任项，无法受理。",
+      "evidence": [{"side": "new", "quote": "按基本保险金额的 50% 给付中症疾病保险金"}],
+      "confidence": "high",
+      "actions": [
+        {"action": "理赔系统新增中症疾病保险金责任项和疾病清单", "owner": "信息技术部", "offset": -15},
+        {"action": "说明书、FAQ、话术补充中症责任", "owner": "产品部", "offset": -10}
+      ]
+    },
+    "C07": {
+      "verdict": "substantive",
+      "summary": "责任免除删除“遗传性疾病，先天性畸形、变形或染色体异常”一项",
+      "level": "P1",
+      "category": "责任免除",
+      "direction": "favorable",
+      "applies": "new",
+      "reasoning": "免责范围缩小，新契约这类情形将由“不赔”变为“可赔”。免责条款提示书仍列着这一项，会让新客户误以为不保。存量保单按原合同仍属于免责，理赔时要按投保日判断。",
+      "evidence": [{"side": "old", "quote": "遗传性疾病，先天性畸形、变形或染色体异常"}],
+      "confidence": "high",
+      "actions": [{"action": "理赔部明确生效前后投保的保单在此类情形下的判定口径", "owner": "理赔部", "offset": -10}]
+    },
+    "C08": {
+      "verdict": "substantive",
+      "summary": "保险事故通知由“应当”在 10 日内通知改为“可以”在 10 日内通知",
+      "level": "P2",
+      "category": "理赔规则与时效",
+      "direction": "favorable",
+      "applies": "new",
+      "reasoning": "客户没有在 10 日内通知不再构成违反义务。理赔操作指引里写的是“应当”，如果理赔人员据此要求客户承担迟延通知的后果，对新契约客户不当。对存量保单是否同样从宽，需要合规确认。",
+      "evidence": [{"side": "old", "quote": "应当在知道保险事故发生之日起 10 日内通知本公司"}, {"side": "new", "quote": "可以在知道保险事故发生之日起 10 日内通知本公司"}],
+      "confidence": "medium",
+      "comment": "对存量保单是否同样从宽处理，以合规部意见为准。"
+    },
+    "C09": {
+      "verdict": "substantive",
+      "summary": "理赔核定时限由 5 个工作日调整为 3 个工作日",
+      "level": "P2",
+      "category": "理赔规则与时效",
+      "direction": "favorable",
+      "applies": "all",
+      "reasoning": "这是公司对自己的时效要求，按 3 个工作日执行对存量客户也没有不利影响，内部可以统一按新时效。理赔操作指引、时效监控参数要同步改，否则会按旧时效考核。",
+      "evidence": [{"side": "old", "quote": "将在 5 个工作日内作出核定"}, {"side": "new", "quote": "将在 3 个工作日内作出核定"}],
+      "confidence": "medium",
+      "actions": [{"action": "理赔时效监控阈值改为 3 个工作日", "owner": "理赔部", "offset": -5}],
+      "lesson": "公司单方面缩短自身服务时效的变更，可以对新旧保单统一执行，理赔指引直接替换即可，不需要新旧并列。"
+    }
+  },
+  "refs": {
+    "KB-FAQ-0101": {
+      "changes": ["C02", "C03"],
+      "verdict": "outdated",
+      "applies": "new",
+      "disposal": "switch_on_date",
+      "reasoning": "投保篇 FAQ 面向准备投保的客户。生效前旧口径仍然正确，所以建议稿先备好，在生效日切换上线。",
+      "evidence": ["出生满 28 日至 60 周岁", "有 15 日犹豫期"],
+      "revisions": [
+        {"original": "答：被保险人投保年龄为出生满 28 日至 60 周岁", "proposed": "答：被保险人投保年龄为出生满 28 日至 65 周岁"},
+        {"original": "答：签收合同之日起有 15 日犹豫期，犹豫期内解除合同无息退还已交保险费", "proposed": "答：签收合同之日起有 20 日犹豫期，犹豫期内解除合同无息退还已交保险费"}
+      ],
+      "confidence": "high"
+    },
+    "KB-FAQ-0102": {
+      "changes": ["C04", "C05"],
+      "verdict": "partly",
+      "applies": "all",
+      "disposal": "parallel",
+      "reasoning": "保障篇 FAQ 新旧客户都会看。存量保单仍按 90 天等待期和 20% 的轻症比例执行，所以要新旧并列，不能直接替换。",
+      "evidence": ["等待期为 90 天", "按基本保险金额的 20% 给付"],
+      "revisions": [
+        {"original": "答：等待期为 90 天，等待期内确诊重大疾病的不承担保险责任，无息退还已交保险费", "proposed": "答：新版条款生效后投保的，等待期为 30 天；此前投保的，按原合同约定等待期为 90 天。等待期内确诊重大疾病的不承担保险责任，无息退还已交保险费"},
+        {"original": "答：轻症疾病保险金按基本保险金额的 20% 给付，最多 3 次", "proposed": "答：新版条款生效后投保的，轻症疾病保险金按基本保险金额的 30% 给付；此前投保的，按原合同约定为 20%。累计最多 3 次"}
+      ],
+      "confidence": "high",
+      "lesson": "同时面向新旧客户的 FAQ 用“生效后投保的……；此前投保的按原合同约定……”的句式并列，客服按投保日回答。"
+    },
+    "KB-MAN-0210": {
+      "changes": ["C02", "C04", "C05", "C06"],
+      "verdict": "outdated",
+      "applies": "new",
+      "disposal": "switch_on_date",
+      "reasoning": "产品说明书随新契约交付，对应条款版本。生效日后新出单使用新版说明书，旧版说明书随原合同保留，不做回改。",
+      "evidence": ["等待期 90 天", "轻症疾病保险金为基本保险金额的 20%"],
+      "revisions": [
+        {"original": "示例重大疾病保险保障重大疾病与轻症疾病两类责任", "proposed": "示例重大疾病保险保障重大疾病、中症疾病与轻症疾病责任。中症疾病保险金为基本保险金额的 50%，累计给付以 2 次为限"},
+        {"original": "等待期 90 天", "proposed": "等待期 30 天"},
+        {"original": "轻症疾病保险金为基本保险金额的 20%，累计给付以 3 次为限", "proposed": "轻症疾病保险金为基本保险金额的 30%，累计给付以 3 次为限"},
+        {"original": "投保年龄：出生满 28 日至 60 周岁", "proposed": "投保年龄：出生满 28 日至 65 周岁"}
+      ],
+      "confidence": "high"
+    },
+    "KB-TIP-0033": {
+      "changes": ["C07"],
+      "verdict": "outdated",
+      "applies": "new",
+      "disposal": "switch_on_date",
+      "reasoning": "免责条款提示书在投保时交给客户，对应条款版本。生效后新契约使用删去该项的版本；存量客户已签收的版本仍然有效，不回收。",
+      "evidence": ["遗传性疾病，先天性畸形、变形或染色体异常"],
+      "revisions": [
+        {"original": "故意伤害、故意犯罪、醉酒或吸毒、艾滋病、战争暴乱；遗传性疾病，先天性畸形、变形或染色体异常", "proposed": "故意伤害、故意犯罪、醉酒或吸毒、艾滋病、战争暴乱"}
+      ],
+      "confidence": "high"
+    },
+    "KB-SCR-0405": {
+      "changes": ["C03", "C04", "C05"],
+      "verdict": "outdated",
+      "applies": "new",
+      "disposal": "switch_on_date",
+      "reasoning": "销售话术只用于新投保。生效前仍按旧口径销售，生效日切换并完成培训。",
+      "evidence": ["犹豫期为 15 日", "等待期 90 天内确诊不赔", "轻症赔 20% 保额"],
+      "revisions": [
+        {"original": "要提示犹豫期为 15 日，并提示等待期 90 天内确诊不赔", "proposed": "要提示犹豫期为 20 日，并提示等待期 30 天内确诊不赔"},
+        {"original": "轻症赔 20% 保额，最多赔 3 次", "proposed": "轻症赔 30% 保额，最多赔 3 次；中症赔 50% 保额，最多赔 2 次"}
+      ],
+      "confidence": "high"
+    },
+    "KB-CLM-0120": {
+      "changes": ["C08", "C09"],
+      "verdict": "partly",
+      "applies": "all",
+      "disposal": "parallel",
+      "reasoning": "理赔操作指引同时用于新旧保单。核定时限可以统一按 3 个工作日（见 C09）。事故通知义务对存量保单仍按原合同“应当”执行，所以要新旧并列。",
+      "evidence": ["客户应当在知道保险事故发生之日起 10 日内通知本公司", "5 个工作日内作出核定"],
+      "revisions": [
+        {"original": "客户应当在知道保险事故发生之日起 10 日内通知本公司", "proposed": "新版条款生效后投保的，客户可以在知道保险事故发生之日起 10 日内通知本公司；此前投保的按原合同约定。【待补充：存量保单迟延通知的处理口径，待合规部确认】"},
+        {"original": "材料齐全后 5 个工作日内作出核定", "proposed": "材料齐全后 3 个工作日内作出核定"}
+      ],
+      "confidence": "medium"
+    }
+  },
+  "verify_questions": [
+    {"change_id": "C04", "question": "示例重大疾病保险的等待期是多少天？", "expect": ["30 天"], "reject": ["等待期为 90 天"]},
+    {"change_id": "C03", "question": "示例重大疾病保险的犹豫期有多长？", "expect": ["20 日"], "reject": ["15 日犹豫期"]},
+    {"change_id": "C07", "question": "示例重大疾病保险对遗传性疾病赔不赔？", "expect": ["生效后投保"], "reject": []}
+  ],
+  "lessons": [
+    "判断受影响内容时先问“这篇内容是给谁看的、什么时候看”：随合同交付的材料（说明书、提示书）跟着条款版本走，用生效日切换；客服 FAQ 和理赔指引新旧客户都会用，通常要新旧并列。"
+  ]
+}

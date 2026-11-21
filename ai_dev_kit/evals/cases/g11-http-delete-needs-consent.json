@@ -1,0 +1,9 @@
+{
+  "id": "g11-http-delete-needs-consent",
+  "type": "guard",
+  "title": "调用 HTTP DELETE 接口：先拦下等用户同意",
+  "incident": "本地调用删除接口会删掉共享数据",
+  "payload": {"toolName": "bash", "toolArgs": {"command": "curl -X DELETE http://localhost:8000/tap/ai/library/kb/documents/12"}},
+  "expect": "deny",
+  "expect_rule": "delete-needs-consent"
+}

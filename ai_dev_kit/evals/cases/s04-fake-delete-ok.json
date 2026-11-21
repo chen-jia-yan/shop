@@ -1,0 +1,10 @@
+{
+  "id": "s04-fake-delete-ok",
+  "type": "static",
+  "title": "反向：测试里对假对象调用 delete 不算删数据",
+  "incident": "防止规则过宽：假仓储的 delete 方法是测试正常写法",
+  "check": "data_delete_in_tests",
+  "before": {"tests/__init__.py": ""},
+  "after": {"tests/test_service.py": "def test_remove(fake_repo):\n    fake_repo.delete(\"doc-1\")\n    assert fake_repo.items == {}\n"},
+  "expect": "pass"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "g14-workbench-install-ask",
+  "type": "guard",
+  "title": "工作台里装包：弹确认，而不是直接拒绝",
+  "incident": "用户反馈：非项目工作被强行套项目规则，太死板",
+  "context": "other",
+  "payload": {"toolName": "powershell", "toolArgs": {"command": "pip install openpyxl python-docx"}},
+  "expect": "ask"
+}

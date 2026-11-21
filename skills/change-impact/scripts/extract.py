@@ -18,6 +18,7 @@ import re
 from ci_common import imp, norm
 
 SENT_END = "。；;!！?？"
+NON_TEXT = ("drawing", "pict", "object", "oMath", "oMathPara")
 
 
 def _heading_rules():
@@ -44,6 +45,8 @@ class Builder(object):
         self.blocks = []
         self.path = []
         self.anchor_rx = _anchor_re()
+        self.non_text = 0          # 图片、公式、嵌入对象：不参与比对，只计数提示
+        self.empty_pages = 0       # PDF 中没有抽到文字的页（疑似扫描件）
 
     def heading(self, text, level):
         t = norm(text)
@@ -101,6 +104,8 @@ def _from_docx(path, bd):
     doc = Document(path)
     for child in doc.element.body.iterchildren():
         tag = child.tag.rsplit("}", 1)[-1]
+        if tag in ("p", "tbl"):
+            bd.non_text += sum(1 for el in child.iter() if el.tag.rsplit("}", 1)[-1] in NON_TEXT)
         if tag == "p":
             p = Paragraph(child, doc)
             style = (p.style.name if p.style is not None else "") or ""
@@ -226,7 +231,10 @@ def _from_pdf(path, bd):
         raise SystemExit("读取 .pdf 需要 pdfplumber：pip install pdfplumber（扫描件需先 OCR）")
     with pdfplumber.open(path) as pdf:
         for page in pdf.pages:
-            for ln in (page.extract_text() or "").splitlines():
+            txt = page.extract_text() or ""
+            if not txt.strip():
+                bd.empty_pages += 1
+            for ln in txt.splitlines():
                 bd.para(ln)
 
 
@@ -247,9 +255,11 @@ def load(path):
             import json
             _from_json(json.loads(raw), bd)
         elif ext in (".md", ".markdown"):
+            bd.non_text += len(re.findall(r"!\[[^\]]*\]\(", raw))
             _from_md(raw, bd)
         else:
             _from_txt(raw, bd)
     if not bd.blocks:
         raise SystemExit("没有从 %s 读到任何内容（扫描版 PDF 需先 OCR）" % path)
-    return {"name": os.path.basename(path), "path": os.path.abspath(path), "blocks": bd.blocks}
+    return {"name": os.path.basename(path), "path": os.path.abspath(path), "blocks": bd.blocks,
+            "non_text": bd.non_text, "empty_pages": bd.empty_pages}

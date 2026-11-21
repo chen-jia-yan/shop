@@ -1,8 +1,0 @@
-{
-  "id": "g04-git-readonly",
-  "type": "guard",
-  "title": "反向：只读 git 命令不能被误拦",
-  "incident": "防止规则过宽，影响评审",
-  "payload": {"toolName": "powershell", "toolArgs": {"command": "git --no-pager log --oneline -5; git --no-pager diff --stat"}},
-  "expect": "none"
-}

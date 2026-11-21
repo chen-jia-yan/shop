@@ -1,0 +1,2 @@
+# 只用 Python 自带的库，不需要 pip 安装。
+# Python 3.10+（Windows）。

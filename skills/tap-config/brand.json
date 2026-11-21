@@ -1,0 +1,121 @@
+{
+  "_说明": "品牌、配色、字体。Word / Excel / PPT / 变更影响分析共用。色值上线前请品牌部按 VI 手册核对；改这里即全局生效，不需要改脚本。",
+
+  "org": {
+    "name": "富卫人寿",
+    "short": "FWD",
+    "author_default": "富卫人寿"
+  },
+
+  "colors": {
+    "primary": "#E87722",
+    "primary_dark": "#B85A12",
+    "primary_mid": "#F2A65A",
+    "primary_light": "#FCE9D9",
+    "primary_pale": "#FEF6EF",
+
+    "secondary": "#183028",
+    "secondary_mid": "#2F5747",
+    "secondary_soft": "#6B9A8B",
+    "secondary_light": "#E3ECE8",
+    "secondary_tint": "#D4E2DC",
+
+    "accent": "#FED141",
+    "accent_light": "#FFF6D6",
+    "accent_warm": "#F6A23C",
+    "accent_glow": "#F7A93A",
+
+    "ink": "#1F2329",
+    "ink_soft": "#4A5058",
+    "muted": "#8B8E8F",
+    "line": "#D9DCDF",
+    "bg_soft": "#F5F6F7",
+    "bg_grey": "#ECEDEF",
+    "white": "#FFFFFF",
+    "cream": "#FFFBF6",
+    "warm_line": "#F1E4D6",
+
+    "red": "#C8372D",
+    "red_light": "#FBE7E5",
+    "teal": "#1E8C7E",
+    "teal_light": "#E2F3F0",
+    "blue": "#2B6CB0",
+    "blue_light": "#E6EFF8",
+
+    "_演示色系": "以下为 PPT 新增主题用色（淡雅米橙 / 信赖科技蓝 / 康护青绿），在 themes.json 的 themes.ppt.styles 中引用；科技蓝与 Excel 蓝色系共用 tb_ 色",
+    "sf_main": "#C97B4E", "sf_dark": "#9C5A35", "sf_mid": "#E2AE8C", "sf_light": "#F3E5DA", "sf_pale": "#FAF4EE",
+    "sf_grey": "#6F7C85", "sf_grey_pale": "#EEF0F1", "sf_bg": "#FBF9F6", "sf_line": "#ECE6DE", "sf_gold": "#E3C27E", "sf_ink": "#3B3F45",
+    "tl_dark": "#146B60", "tl_mid": "#6FC1B4", "tl_soft": "#3FAE9E", "tl_light": "#D6EFEA", "tl_pale": "#F0F8F6", "tl_line": "#DDE9E6",
+    "bl_light": "#DCE7FB", "bl_line": "#DFE5EC", "bl_ice": "#7FD3E0",
+    "cream_deep": "#FFF3E6",
+
+    "_表格色系": "以下为 Excel 表格专用色（蓝色系 / 淡色系 / 橙色系），在 themes.json 的 themes.excel.styles 中引用",
+    "tb_blue": "#2B6BE0", "tb_blue_dark": "#1B4FB0", "tb_blue_mid": "#7FA6EE", "tb_blue_light": "#B8CEF6", "tb_blue_pale": "#EEF4FE",
+    "tb_navy": "#18304F", "tb_navy_mid": "#3C5F8E", "tb_navy_pale": "#E7EEF8", "tb_cyan": "#1AA3B5", "tb_cyan_pale": "#E3F5F7",
+    "tb_head_blue": "#F1F5FB", "tb_band_blue": "#FAFCFE", "tb_grid_blue": "#DFE5EC",
+    "tb_soft": "#5B8EC2", "tb_soft_dark": "#3F6E9B", "tb_soft_mid": "#9DBDDE", "tb_soft_light": "#D0E1F1", "tb_soft_pale": "#F4F8FC",
+    "tb_slate": "#4A5B6C", "tb_slate_mid": "#7E93A8", "tb_slate_pale": "#EEF2F6", "tb_sage": "#8CC2B6", "tb_sage_pale": "#EEF7F4",
+    "tb_head_soft": "#F7F9FB", "tb_band_soft": "#FCFDFE", "tb_grid_soft": "#E6EAEE",
+    "tb_head_orange": "#F3F4F4", "tb_band_orange": "#FAFAFA", "tb_grid_orange": "#E1E3E5",
+    "tb_fx_head": "#EEF3F1", "tb_ai": "#5B5FC7", "tb_ai_dark": "#3E4291", "tb_ai_pale": "#EEEFFB",
+    "tb_input": "#FFFBEA", "tb_aux": "#F4F5F6", "tb_amber": "#9A6A00", "tb_amber_pale": "#FFF4D6",
+    "tb_ok": "#1F9D6B", "tb_ok_pale": "#E2F3EF", "tb_link": "#2563A6", "tb_status_grey": "#EEF0F1", "tb_status_grey_fg": "#59636A",
+
+    "_文档色系": "以下为 Word 蓝色系 / 淡色系补充色（隔行底纹、章节标题底纹），其余沿用上面的 tb_ 色，与 Excel、PPT 蓝色系一致",
+    "wd_stripe_blue": "#F6F9FD", "wd_stripe_soft": "#F9FAFB", "wd_h1_blue": "#F0F5FC", "wd_rule_soft": "#B9C8D8",
+    "warn": "#D69E2E",
+    "warn_text": "#9C6500",
+    "todo_bg": "#FFE699",
+
+    "grey_bar": "#C9CDD1",
+    "grey_mid": "#A6A9AC",
+    "grey_future": "#E6E8EA",
+    "grid": "#E4E6E8",
+    "grid_light": "#EEEEEE",
+    "grid_faint": "#F3F3F3",
+    "legend_border": "#DDDDDD",
+    "shadow": "#1F2329",
+
+    "on_dark": "#C9D6D1",
+    "on_dark_muted": "#9DB3AA",
+    "on_dark_soft": "#D9E2DE",
+    "on_dark_good": "#7FD1C2",
+    "on_dark_bad": "#FF9B8F"
+  },
+
+  "colors_by_scope": {
+    "ppt": { "line": "#E1E3E5" }
+  },
+
+  "chart_palette": ["@primary", "@secondary", "@accent", "@secondary_soft", "@primary_mid", "@muted", "@primary_dark", "@on_dark"],
+
+  "fonts": {
+    "_说明": "每个角色写一个“候选链”，按顺序选。cn 中文正文、head 中文标题（不写则同 cn）、en 西文、num 数字。mode=first：直接用第一个（文件在别人电脑上打开，以对方装的字体为准）；mode=installed：优先选本机已安装的。图表图片总是按本机已安装的选。可在内容 JSON 的 meta.fonts 或命令行 --font-cn / --font-en / --font-num / --font-mode / --font-scale 临时覆盖。",
+    "mode": "first",
+    "scale": 1.0,
+    "cn": ["微软雅黑", "Microsoft YaHei", "PingFang SC", "思源黑体", "Source Han Sans SC", "Noto Sans CJK SC", "SimHei"],
+    "en": ["Arial", "Helvetica Neue", "Helvetica", "Liberation Sans"],
+    "num": ["Arial", "Helvetica Neue", "Helvetica", "Liberation Sans"],
+    "quote": ["Georgia", "Times New Roman", "Liberation Serif"],
+    "mono": ["Consolas", "Menlo", "Courier New"],
+    "chart_extra": ["WenQuanYi Micro Hei", "DejaVu Sans"]
+  },
+
+  "fonts_by_scope": {},
+
+  "font_presets": {
+    "_说明": "字体方案。Word 按文档类型自动选（rules.json 的 rules.word.font_preset），也可 meta.font_preset 或 --font-preset 指定。modern：黑体系，适合方案、报告、产品资料、屏幕阅读；formal：标题黑体、正文宋体、西文 Times New Roman，适合制度、通知、合规等正式公文。",
+    "modern": {
+      "head": ["微软雅黑", "Microsoft YaHei", "PingFang SC", "思源黑体", "Source Han Sans SC", "Noto Sans CJK SC"],
+      "cn": ["微软雅黑", "Microsoft YaHei", "PingFang SC", "思源黑体", "Source Han Sans SC", "Noto Sans CJK SC"],
+      "en": ["Arial", "Helvetica Neue", "Helvetica", "Liberation Sans"],
+      "num": ["Arial", "Helvetica Neue", "Helvetica", "Liberation Sans"]
+    },
+    "formal": {
+      "head": ["黑体", "SimHei", "Heiti SC", "微软雅黑", "思源黑体"],
+      "cn": ["宋体", "SimSun", "Songti SC", "思源宋体", "Source Han Serif SC", "Noto Serif CJK SC"],
+      "en": ["Times New Roman", "Liberation Serif"],
+      "num": ["Times New Roman", "Liberation Serif"]
+    }
+  }
+}

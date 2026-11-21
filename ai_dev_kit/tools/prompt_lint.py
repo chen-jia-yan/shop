@@ -37,7 +37,7 @@ DIMENSIONS = [
     Dimension("goal", "目标", 20,
               re.compile(r"(实现|新增|增加|添加|修复|修改|改成|改为|删除|移除|重构|迁移|编写|写一个|写个|生成|排查|定位|评审|审查|检查|整理|设计|支持|接入|拆分|合并|替换|升级|补充|implement|add|fix|remove|refactor|migrate|write|review)", re.I),
               "这次具体要做成什么？用一句话说出动作和对象。",
-              "例：给 /tap/ai/library/kb/documents 新增 delete 接口"),
+              "例：给 /tap/ai/library/kb/documents 新增按名称查重的接口"),
     Dimension("location", "位置", 15,
               re.compile(r"([\w\-]+/[\w\-./]+|\b[\w\-]+\.(py|ts|js|md|json|toml|sql|yaml|yml)\b|模块|目录|文件|接口|函数|方法|类|路由|表|字段|页面|组件)", re.I),
               "涉及哪些文件、模块或接口？不知道具体文件时，说出模块或接口路径也行。",

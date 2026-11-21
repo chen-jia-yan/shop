@@ -1,0 +1,10 @@
+{
+  "id": "g16-chat-write-ask",
+  "type": "guard",
+  "title": "随手问模式下改文件：先问用户",
+  "incident": "随手问时不应该悄悄改文件",
+  "context": "other",
+  "mode": "chat",
+  "payload": {"toolName": "create", "toolArgs": {"path": "{cwd}/notes.md", "file_text": "x\n"}},
+  "expect": "ask"
+}

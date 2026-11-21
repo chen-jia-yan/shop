@@ -9,9 +9,13 @@
 
 输出：
   <名称>_报告内容.json     kb-to-word 的内容 JSON（可人工微调后再渲染）
-  <名称>_跟踪表内容.json   kb-to-excel 的内容 JSON（变更清单 / 处置跟踪甘特 / 受影响内容）
+  <名称>_跟踪表内容.json   kb-to-excel 的内容 JSON（变更清单 / 受影响内容 / 修订建议 / 处置跟踪甘特）
+  <名称>_修订建议.json     逐条“原文 → 建议改为”，供 TAP 审核队列导入（状态均为待审核，本 skill 不写回知识库）
   加 --render 时直接调用 kb-to-word、kb-to-excel 渲染，并对 Word 做质检：
   <名称>.docx、<名称>_跟踪表.xlsx、<名称>_质检报告.md
+
+有分析判断（scored.json 由 score.py --judgments 生成）时，逐条分析写“分析结论 + 依据原文”，自动初筛降为参考；
+有待人工确认事项时，摘要后列出清单、报告标为初稿。
 
 报告结构（full）：结论摘要 → 变更概览 → 重点变更逐条分析 → 影响范围 → 处置计划 → 合规与对客告知
                → 附录（措辞类修订、全部变更明细、分析方法与口径）→ 签批
@@ -88,7 +92,19 @@ def extra_notes(ch):
 
 
 def short(ch, n=26):
-    return "%s %s" % (ch["id"], clip(ch["desc"], n))
+    return "%s %s" % (ch["id"], clip(ch.get("judged_summary") or ch["desc"], n))
+
+
+def ref_state(r):
+    """受影响内容的结论：有分析判断用判断，没有用脚本的匹配结果。"""
+    return L("ref_verdicts")[r["verdict"]] if r.get("verdict") else L("match")[r["match"]]
+
+
+def ref_do(r):
+    if r.get("disposal"):
+        d = L("disposals")[r["disposal"]]
+        return d + ("（%s）" % r["switch_date"] if r.get("switch_date") else "")
+    return L("match_action")[r["match"]]
 
 
 # ---------------- 报告各部分 ----------------
@@ -124,7 +140,31 @@ def sec_summary(data, notes, sub):
         blocks.append({"type": "callout", "kind": "risk", "title": RP["risk_title"], "text": RP["risk_text"].format(n=p0)})
     if notes.get("conclusions"):
         blocks.append({"type": "bullets", "items": notes["conclusions"]})
+    if data.get("human"):
+        blocks.append({"type": "callout", "kind": "warning", "title": RP["draft_title"].format(n=len(data["human"])),
+                       "text": RP["draft_text"]})
+        cap = R("human_max_in_report")
+        rows = [[h["target"], clip(h["item"], 40), h["why"]] for h in data["human"][:cap]]
+        if len(data["human"]) > cap:
+            rows.append(["", RP["more"].format(n=len(data["human"])), ""])
+        blocks += [H(RP["s_human"], 2), {"type": "table", "columns": RP["human_cols"], "rows": rows,
+                                         "widths": [2.6, 7.4, 6.4]}]
     return blocks
+
+
+def sec_limits(data, sub):
+    """比对局限：图片 / 扫描页等没参与比对的内容，以及脚本提示需要复核的比对（拆分、同义改写、表格结构）。"""
+    RP, F = L("report"), L("flags")
+    items = list(data["meta"].get("warnings") or [])
+    for c in sub:
+        for f in c.get("review_flags", []):
+            note = "（关联 %s）" % f["with"] if f.get("with") else ""
+            done = "；已复核：%s" % clip(c["diff_review"], 40) if c.get("diff_review") else ""
+            items.append(RP["flag_item"].format(id=c["id"], flag=F.get(f["flag"], f["flag"]), note=note + done))
+    if not items:
+        return []
+    return [{"type": "callout", "kind": "info", "title": RP["s_limits"], "items": items[:12] +
+             ([RP["more"].format(n=len(items))] if len(items) > 12 else [])}]
 
 
 def sec_overview(data, sub):
@@ -154,27 +194,50 @@ def sec_overview(data, sub):
 def detail_block(ch, data, refs, eff, limit):
     RP = L("report")
     meta = data["meta"]
-    b = [H(RP["detail_title"].format(id=ch["id"], desc=clip(ch["desc"], 40), lv=ch["level_name"]), 2)]
+    title = ch.get("judged_summary") or ch["desc"]
+    b = [H(RP["detail_title"].format(id=ch["id"], desc=clip(title, 40), lv=ch["level_name"]), 2)]
     old_x = excerpt(ch["segments"], "old", limit) if ch.get("old") else RP["empty"]
     new_x = excerpt(ch["segments"], "new", limit) if ch.get("new") else RP["empty"]
     b.append({"type": "compare", "cards": [
         {"title": RP["before"], "subtitle": meta["old"]["label"], "points": [old_x]},
         {"title": RP["after"], "subtitle": meta["new"]["label"], "points": [new_x], "highlight": True,
          "tag": RP["after_tag"]}]})
-    what = [ch["desc"]] + extra_notes(ch)
+    what = [title] + extra_notes(ch)
     b.append({"type": "paragraph", "text": "**%s**：%s" % (RP["what_changed"], "；".join(what)), "align": "left"})
-    b.append({"type": "paragraph", "align": "left", "text": "**%s**：%s" % (RP["why_level"], RP["score_line"].format(
-        i=ch["importance"], m=ch["impact"], s=ch["score"], lv=ch["level_name"]))})
-    reasons = ch["reasons"]["importance"] + ch["reasons"]["impact"] + ch["reasons"]["floor"]
-    if ch.get("override_reason"):
-        reasons.append(RP["override"].format(r=ch["override_reason"], a=level_name(ch["level_auto"])))
-    b.append({"type": "bullets", "items": reasons})
+    pr = ch.get("prior") or {}
+    prior_line = RP["prior_line"].format(i=pr.get("importance", ch["importance"]), m=pr.get("impact", ch["impact"]),
+                                         s=pr.get("score", ch["score"]), lv=level_name(pr.get("level") or ch["level_auto"]))
+    if ch.get("judged"):
+        facts = [RP["judged_line"].format(lv=ch["level_name"], c=L("confidence").get(ch.get("confidence"), "—"))]
+        if ch.get("direction"):
+            facts.append("%s：%s" % (RP["direction_label"], L("directions")[ch["direction"]]))
+        if ch.get("applies"):
+            facts.append("%s：%s" % (RP["applies_label"], L("applies")[ch["applies"]]))
+        b.append({"type": "paragraph", "align": "left", "text": "**%s**：%s" % (RP["why_level"], "；".join(facts))})
+        b.append({"type": "paragraph", "align": "left", "text": "**%s**：%s" % (RP["reasoning_label"], _safe(ch["reasoning"]))})
+        if ch.get("evidence"):
+            b.append({"type": "paragraph", "align": "left", "text": "**%s**：" % RP["evidence_label"]})
+            b.append({"type": "bullets", "items": ["“%s”" % _safe(clip(q, 90)) for q in ch["evidence"][:4]]})
+        if ch.get("diff_review"):
+            b.append({"type": "paragraph", "align": "left", "text": "**%s**：%s" % (RP["diff_review_label"], _safe(ch["diff_review"]))})
+        if ch.get("precedents"):
+            b.append({"type": "paragraph", "align": "left", "text": "**%s**：%s" % (RP["precedent_label"], "、".join(ch["precedents"]))})
+        b.append({"type": "note", "label": RP["prior_title"],
+                  "text": prior_line + "。" + "；".join(ch["reasons"]["importance"] + ch["reasons"]["floor"])})
+    else:
+        b.append({"type": "paragraph", "align": "left", "text": "**%s**：%s" % (RP["why_level"], RP["score_line"].format(
+            i=ch["importance"], m=ch["impact"], s=ch["score"], lv=ch["level_name"]))})
+        reasons = ch["reasons"]["importance"] + ch["reasons"]["impact"] + ch["reasons"]["floor"]
+        if ch.get("override_reason"):
+            reasons.append(RP["override"].format(r=ch["override_reason"], a=level_name(ch["level_auto"])))
+        b.append({"type": "bullets", "items": reasons})
+    if ch.get("human"):
+        b.append({"type": "callout", "kind": "warning", "title": RP["s_human"], "items": ch["human"]})
     b.append({"type": "paragraph", "align": "left", "text": "**%s**：%s" % (RP["objects"], "、".join(ch["objects"]))})
     mine = [r for r in refs if r["change_id"] == ch["id"]]
     if mine:
-        M, A = L("match"), L("match_action")
         b.append({"type": "table", "columns": [RP["refs_cols"][0], RP["refs_cols"][3], RP["refs_cols"][4], RP["refs_cols"][6]],
-                  "rows": [[clip(r["title"], 24), M[r["match"]], clip(r["evidence"], 48), A[r["match"]]]
+                  "rows": [[clip(r["title"], 24), ref_state(r), clip(r["evidence"], 48), ref_do(r)]
                            for r in sorted(mine, key=lambda r: (r["match"] != "stale", -r["score"]))[:8]]})
     if ch["actions"]:
         b.append({"type": "paragraph", "align": "left", "text": "**%s**：" % RP["actions"]})
@@ -218,7 +281,6 @@ def sec_scope(data, sub):
                "caption": RP["matrix_title"]}]
     refs = [r for r in data["refs"] if r["change_id"] in {c["id"] for c in sub}]
     if refs:
-        M, A = L("match"), L("match_action")
         merged = {}
         for r in refs:
             k = r["doc_id"]
@@ -226,16 +288,54 @@ def sec_scope(data, sub):
             m["changes"].append(r["change_id"])
             if r["match"] == "stale":
                 m["match"], m["evidence"] = "stale", r["evidence"]
-        rows = [[clip(m["title"], 22), m["type"] or "—", m["owner"] or _todo(), M[m["match"]], clip(m["evidence"], 40),
-                 "、".join(sorted(set(m["changes"]))), A[m["match"]]]
+        cols = RP["refs_cols_judged"] if data["summary"].get("judged") else RP["refs_cols"]
+        rows = [[clip(m["title"], 22), m["type"] or "—", m["owner"] or _todo(), ref_state(m), clip(m["evidence"], 40),
+                 "、".join(sorted(set(m["changes"]))), ref_do(m)]
                 for m in sorted(merged.values(), key=lambda m: (m["match"] != "stale", m["title"]))]
-        blocks.append({"type": "table", "caption": RP["s_scope"], "columns": RP["refs_cols"], "rows": rows})
+        blocks.append({"type": "table", "caption": RP["s_scope"], "columns": cols, "rows": rows})
     else:
         blocks.append({"type": "callout", "kind": "warning", "text": RP["refs_none"]})
     if not data["meta"].get("refs", {}).get("docs_scanned") and data.get("queries"):
         P = RP["query_purpose"]
         blocks.append({"type": "table", "caption": RP["queries_title"], "columns": RP["queries_cols"],
                        "rows": [[q["change_id"], P.get(q["purpose"], q["purpose"]), q["query"]] for q in data["queries"][:20]]})
+    return blocks + sec_revisions(data, sub)
+
+
+def revision_rows(data, sub=None):
+    """每篇内容的修订建议稿（同一篇关联多条变更时只取一次）。"""
+    ids = {c["id"] for c in sub} if sub is not None else None
+    seen, out = set(), []
+    for r in data["refs"]:
+        if r["doc_id"] in seen or (ids is not None and r["change_id"] not in ids) or not r.get("revisions"):
+            continue
+        seen.add(r["doc_id"])
+        chs = sorted({x["change_id"] for x in data["refs"] if x["doc_id"] == r["doc_id"]})
+        for rv in r["revisions"]:
+            out.append({"doc_id": r["doc_id"], "title": r["title"], "url": r.get("url", ""), "owner": r.get("owner", ""),
+                        "original": rv.get("original", ""), "proposed": rv.get("proposed", ""),
+                        "disposal": r.get("disposal"), "switch_date": r.get("switch_date", ""),
+                        "applies": r.get("applies"), "changes": chs, "basis": r.get("ref_reason", "")})
+    return out
+
+
+def sec_revisions(data, sub):
+    if not data["summary"].get("judged"):
+        return []
+    RP = L("report")
+    rows = revision_rows(data, sub)
+    blocks = []
+    if rows:
+        cap = R("revisions_max_in_report")
+        blocks += [H(RP["s_revisions"], 2), {"type": "paragraph", "text": RP["revisions_lead"], "align": "left"},
+                   {"type": "table", "columns": RP["rev_cols"],
+                    "rows": [[clip(x["title"], 18), clip(x["original"], 46), clip(x["proposed"], 60),
+                              L("disposals").get(x["disposal"], "—"), x["switch_date"] or "—"] for x in rows[:cap]],
+                    "widths": [2.6, 4.6, 5.4, 2.0, 1.8]}]
+    with_rev = {x["doc_id"] for x in rows}
+    missing = {r["doc_id"] for r in data["refs"] if r.get("verdict") in ("outdated", "partly") and r["doc_id"] not in with_rev}
+    if missing:
+        blocks.append({"type": "callout", "kind": "warning", "text": RP["revisions_missing"].format(n=len(missing))})
     return blocks
 
 
@@ -310,19 +410,20 @@ def sec_appendix(data, sub, live, notes):
     return blocks
 
 
-def build_report(data, notes, variant, style):
+def build_report(data, notes, variant, style, precheck=False):
     meta = data["meta"]
     eff = parse_date(meta.get("effective_date")) if meta.get("effective_date") else None
     live = [c for c in data["changes"] if not c.get("ignored")]
     sub = [c for c in live if not c.get("minor")]
-    blocks = sec_summary(data, notes, sub) + sec_overview(data, sub) + sec_detail(data, sub, eff, variant)
+    blocks = sec_summary(data, notes, sub) + sec_overview(data, sub) + sec_limits(data, sub) + \
+        sec_detail(data, sub, eff, variant)
     if variant != "brief":
         blocks += sec_scope(data, sub)
     blocks += sec_plan(data, eff) + sec_compliance(notes)
     if variant != "brief":
         blocks += sec_appendix(data, sub, live, notes)
     m = {"title": notes.get("title") or L("title", doc=meta["doc"]),
-         "subtitle": L("subtitle", old=meta["old"]["label"], new=meta["new"]["label"]),
+         "subtitle": L("report.subtitle_precheck" if precheck else "subtitle", old=meta["old"]["label"], new=meta["new"]["label"]),
          "short_title": L("short_title", doc=meta["doc"]), "category": L("doc_category"), "doc_type": "impact",
          "date": meta.get("analysed"), "toc": variant != "brief"}
     for k in ("department", "audience", "confidentiality", "version", "doc_no"):
@@ -336,9 +437,10 @@ def build_report(data, notes, variant, style):
     return {"meta": m, "blocks": blocks}
 
 
-def build_tracker(data, notes):
+def build_tracker(data, notes, verify=None):
+    """跟踪表：变更清单、受影响内容、修订建议三张数据表，处置事项用甘特跟踪；
+    重大变更、未分派、待人工确认、旧口径未改由提醒规则直接在表里标色；有核验结果时一并写入。"""
     T = L("tracker")
-    RP = L("report")
     meta = data["meta"]
     eff = parse_date(meta.get("effective_date")) if meta.get("effective_date") else None
     win = R("default_window_days")
@@ -346,50 +448,108 @@ def build_tracker(data, notes):
     live = [c for c in data["changes"] if not c.get("ignored") and not c.get("minor")]
     order = level_order()
     st = L("status")
+    VS = L("verify_status")
     owners = notes.get("owners", {})
-    lv_rules = [{"type": "text", "value": level_name(order[0]), "style": "bad"},
-                {"type": "text", "value": level_name(order[1]), "style": "warn"}]
-    changes_sheet = {"type": "table", "name": T["sheet_changes"], "title": T["sheet_changes"],
-                     "columns": [{"name": T["change_cols"][0], "width": 7}, {"name": T["change_cols"][1], "wrap": True, "width": 22},
-                                 {"name": T["change_cols"][2], "width": 12}, {"name": T["change_cols"][3], "wrap": True, "width": 48},
-                                 {"name": T["change_cols"][4], "align": "center", "options": [level_name(x) for x in order], "rule": lv_rules},
-                                 {"name": T["change_cols"][5], "format": "int", "databar": True},
-                                 {"name": T["change_cols"][6], "input": True},
-                                 {"name": T["change_cols"][7], "options": list(st.values()), "input": True}],
-                     "rows": [[c["id"], clip(c["location"], 30), c["category_name"], clip(c["desc"], 80), c["level_name"],
-                               c["score"], owners.get(c["actions"][0]["owner"], "") if c["actions"] else "", st["todo"]]
-                              for c in sorted(live, key=lambda c: (order.index(c["level"]), c["id"]))],
-                     "freeze_first_col": True}
-    tasks = []
+    lv_names = [level_name(x) for x in order]
+    yes, no = T["yes"], T["no"]
+    cc = T["change_cols"]                     # 编号 位置 类别 变更内容 级别 综合分 负责人 状态
+    hc = T["human_col"]
+    changes = {
+        "name": T["sheet_changes"], "title": T["sheet_changes"], "key": cc[0], "expect_rows": len(live),
+        "source": meta["doc"], "date": meta.get("analysed"),
+        "fields": [{"name": cc[0], "type": "text", "required": True},
+                   {"name": cc[1], "type": "text"},
+                   {"name": cc[2], "type": "text"},
+                   {"name": cc[3], "type": "longtext"},
+                   {"name": cc[4], "type": "select", "options": lv_names,
+                    "styles": {lv_names[0]: "bad", lv_names[1]: "warn"}},
+                   {"name": cc[5], "type": "number", "databar": True},
+                   {"name": hc, "type": "select", "options": [yes, no], "input": True, "styles": {yes: "warn"}},
+                   {"name": cc[6], "type": "person", "input": True},
+                   {"name": cc[7], "type": "select", "options": list(st.values()), "input": True,
+                    "styles": {st["done"]: "good"}}],
+        "rows": [[c["id"], c["location"], c["category_name"], c.get("judged_summary") or c["desc"], c["level_name"], c["score"],
+                  yes if c.get("human") else no,
+                  owners.get(c["actions"][0]["owner"], "") if c["actions"] else "", st["todo"]]
+                 for c in sorted(live, key=lambda c: (order.index(c["level"]), c["id"]))]}
+    tables = [changes]
+    rules = [{"name": T["rule_major"], "when": 'AND({@%s}="%s",{@%s}<>"%s")' % (cc[4], lv_names[0], cc[7], st["done"]),
+              "level": "bad", "fields": [cc[0]], "table": changes["name"]},
+             {"name": T["rule_owner"], "when": 'AND({@%s}<>"%s",{@%s}="")' % (cc[7], st["done"], cc[6]), "level": "warn",
+              "fields": [cc[6]], "table": changes["name"]},
+             {"name": T["rule_human"], "when": '{@%s}="%s"' % (hc, yes), "level": "warn",
+              "fields": [cc[0]], "table": changes["name"]}]
+    refs = [r for r in data["refs"] if r["change_id"] in {c["id"] for c in live}]
+    vmap = {x["doc_id"]: x for x in (verify or {}).get("refs", [])}
+    if refs:
+        M = L("match")
+        states = list(M.values()) + list(L("ref_verdicts").values())
+        bad_states = {M["stale"], L("ref_verdicts")["outdated"], L("ref_verdicts")["partly"]}
+        rc = T["ref_cols"]                     # 内容 类型 负责人 匹配情况 关联变更 处理 状态
+        fields = [{"name": T["ref_key"], "type": "text"}, {"name": rc[0], "type": "text"},
+                  {"name": rc[1], "type": "text"}, {"name": rc[2], "type": "person", "input": True},
+                  {"name": rc[3], "type": "select", "options": states, "styles": {s: "bad" for s in bad_states}},
+                  {"name": T["evidence"], "type": "longtext"},
+                  {"name": rc[4], "type": "text"}, {"name": rc[5], "type": "text"},
+                  {"name": rc[6], "type": "select", "options": list(st.values()), "input": True,
+                   "styles": {st["done"]: "good"}}]
+        if verify:
+            fields.append({"name": T["verify_col"], "type": "select", "options": list(VS.values()),
+                           "styles": {VS["pass"]: "good", VS["fail"]: "bad", VS["changed"]: "warn"}})
+        rows = []
+        for i, r in enumerate(sorted(refs, key=lambda r: (r["match"] != "stale", r["title"]))):
+            v = vmap.get(r["doc_id"])
+            row = ["R%03d" % (i + 1), r["title"], r["type"], r["owner"], ref_state(r), r["evidence"], r["change_id"],
+                   ref_do(r), st["done"] if v and v["status"] in ("pass", "skip") else st["todo"]]
+            if verify:
+                row.append(VS[v["status"]] if v else VS["pending"])
+            rows.append(row)
+        tables.append({
+            "name": T["sheet_refs"], "title": T["sheet_refs"], "key": T["ref_key"], "expect_rows": len(refs),
+            "source": L("report.sources_title"), "date": meta.get("analysed"), "fields": fields, "rows": rows})
+        rules.append({"name": T["rule_stale"],
+                      "when": 'AND(OR(%s),{@%s}<>"%s")' % (",".join('{@%s}="%s"' % (rc[3], s) for s in sorted(bad_states)),
+                                                          rc[6], st["done"]),
+                      "level": "warn", "fields": [rc[0]], "table": T["sheet_refs"]})
+    revs = revision_rows(data, live)
+    if revs:
+        rv = T["rev_cols"]                      # 内容 原文 建议改为 处置方式 切换日期 关联变更 审核人 状态
+        tables.append({
+            "name": T["sheet_revisions"], "title": T["sheet_revisions"], "key": T["rev_key"], "expect_rows": len(revs),
+            "source": L("report.s_revisions"), "date": meta.get("analysed"),
+            "fields": [{"name": T["rev_key"], "type": "text"}, {"name": rv[0], "type": "text"},
+                       {"name": rv[1], "type": "longtext"}, {"name": rv[2], "type": "longtext"},
+                       {"name": rv[3], "type": "select", "options": list(L("disposals").values())},
+                       {"name": rv[4], "type": "text"}, {"name": rv[5], "type": "text"},
+                       {"name": rv[6], "type": "person", "input": True},
+                       {"name": rv[7], "type": "select", "options": list(st.values()), "input": True,
+                        "styles": {st["done"]: "good"}}],
+            "rows": [["V%03d" % (i + 1), x["title"], x["original"], x["proposed"], L("disposals").get(x["disposal"], ""),
+                      x["switch_date"] or "", "、".join(x["changes"]), "",
+                      st["done"] if vmap.get(x["doc_id"], {}).get("status") == "pass" else st["todo"]]
+                     for i, x in enumerate(revs)]})
+    sheets, tasks = [], []
     for i, p in enumerate(data["summary"]["plan"], 1):
         end = base + dt.timedelta(days=p["offset"] or 0)
         start = min(today(), end)              # 时限已过的保留真实日期，甘特表会自动标“逾期”
         tasks.append({"id": "A%02d" % i, "task": p["action"], "dept": p["owner"], "owner": owners.get(p["owner"], ""),
                       "start": fmt_date(start), "end": fmt_date(end)})
-    sheets = [{"type": "cover", "name": T["sheet_cover"],
-               "purpose": T["cover_purpose"], "how_to": T["how_to"]}, changes_sheet]
     if tasks:
         g = {"type": "gantt", "name": T["sheet_tasks"], "title": T["sheet_tasks"], "tasks": tasks,
              "unit": "week" if (max(_d(t["end"]) for t in tasks) - today()).days > 45 else "day"}
         if not eff:
             g["note"] = T["no_date"].format(n=win)
         sheets.append(g)
-    refs = [r for r in data["refs"] if r["change_id"] in {c["id"] for c in live}]
-    if refs:
-        M, A = L("match"), L("match_action")
-        sheets.append({"type": "table", "name": T["sheet_refs"], "title": T["sheet_refs"],
-                       "columns": [{"name": T["ref_cols"][0], "wrap": True, "width": 30}, {"name": T["ref_cols"][1]},
-                                   {"name": T["ref_cols"][2], "input": True}, {"name": T["ref_cols"][3], "width": 18},
-                                   {"name": T["ref_cols"][4]}, {"name": T["ref_cols"][5], "align": "center"},
-                                   {"name": T["ref_cols"][6], "options": list(st.values()), "input": True}],
-                       "rows": [[r["title"], r["type"], r["owner"], M[r["match"]], r["change_id"], A[r["match"]], st["todo"]]
-                                for r in sorted(refs, key=lambda r: (r["match"] != "stale", r["title"]))]})
     m = {"title": T["title"].format(doc=meta["doc"]), "kind": "impact", "date": meta.get("analysed"),
-         "category": L("doc_category")}
+         "purpose": T["cover_purpose"], "source": meta["doc"]}
     for k in ("department", "confidentiality", "brand", "fonts", "config"):
         if notes.get(k):
             m[k] = notes[k]
-    return {"meta": m, "sheets": sheets}
+    if notes.get("excel_style"):
+        m["style"] = notes["excel_style"]
+    views = [{"type": "board", "name": T["board"], "from": changes["name"], "group": cc[7], "card": [cc[4], cc[2], cc[6]],
+              "desc": T["board_desc"]}]
+    return {"meta": m, "data": tables, "rules": rules, "views": views, "sheets": sheets}
 
 
 def _d(s):
@@ -430,6 +590,8 @@ def main():
     ap.add_argument("--style", help="Word 风格名（默认按 themes.word.default_by_type.impact）")
     ap.add_argument("--no-tracker", action="store_true")
     ap.add_argument("--render", action="store_true", help="直接渲染 .docx / .xlsx 并质检")
+    ap.add_argument("--verify", help="verify.py 的输出：把核验结果写进跟踪表")
+    ap.add_argument("--precheck", action="store_true", help="审核前预分析（自动触发时使用），封面副标题注明")
     add_cli_args(ap)
     a = ap.parse_args()
     configure("impact", a)
@@ -437,16 +599,28 @@ def main():
     if "summary" not in data:
         sys.exit("请先运行 score.py（输入应为 scored.json）")
     notes = load_json(a.notes) if a.notes else {}
+    verify = load_json(a.verify) if a.verify else None
     name = a.name or "%s_%s" % (data["meta"]["doc"], L("doc_category"))
     os.makedirs(a.out_dir, exist_ok=True)
     FN = L("tracker")["files"]
     rp = os.path.join(a.out_dir, name + FN["report_json"])
-    save_json(build_report(data, notes, a.variant, a.style), rp)
+    save_json(build_report(data, notes, a.variant, a.style, a.precheck), rp)
     print("报告内容：%s" % rp)
+    revs = revision_rows(data, [c for c in data["changes"] if not c.get("ignored") and not c.get("minor")])
+    if revs:
+        # 供 TAP 审核队列导入的修订建议稿：每条都是“待审核”，由责任部门按正常流程改，本 skill 不写回知识库
+        vp = os.path.join(a.out_dir, name + FN["revisions_json"])
+        save_json({"meta": {"doc": data["meta"]["doc"], "from": data["meta"]["old"]["label"],
+                            "to": data["meta"]["new"]["label"], "analysed": data["meta"].get("analysed"),
+                            "status": "待审核", "precheck": a.precheck},
+                   "items": [dict(x, disposal_name=L("disposals").get(x["disposal"], ""), status="待审核") for x in revs]}, vp)
+        print("修订建议稿：%s（%d 条，待审核）" % (vp, len(revs)))
+    if data.get("human"):
+        print("报告为初稿：有 %d 项待人工确认" % len(data["human"]))
     tp = None
     if not a.no_tracker:
         tp = os.path.join(a.out_dir, name + FN["tracker_json"])
-        save_json(build_tracker(data, notes), tp)
+        save_json(build_tracker(data, notes, verify), tp)
         print("跟踪表内容：%s" % tp)
     if not a.render:
         print("加 --render 可直接生成 .docx / .xlsx；也可人工调整内容 JSON 后用 kb-to-word / kb-to-excel 渲染")

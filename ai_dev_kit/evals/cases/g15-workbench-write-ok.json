@@ -1,0 +1,9 @@
+{
+  "id": "g15-workbench-write-ok",
+  "type": "guard",
+  "title": "反向：工作台里在当前目录写文档直接放行",
+  "incident": "用户反馈：写文档、写技能也被当成项目开发拦住",
+  "context": "other",
+  "payload": {"toolName": "create", "toolArgs": {"path": "{cwd}/notes/使用说明.md", "file_text": "# 使用说明\n"}},
+  "expect": "none"
+}
