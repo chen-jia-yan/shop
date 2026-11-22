@@ -22,7 +22,7 @@ RULES_FILE = ROOT / "config" / "rules.json"
 DEFAULT_RULES_FILE = ROOT / "config" / "rules.default.json"
 
 CATS = {
-    "ENVIRONMENT": {"name": "环境问题", "owner": "环境/运维", "color": "purple"},
+    "ENVIRONMENT": {"name": "环境问题", "owner": "测试", "color": "purple"},
     "POPUP_INTERFERENCE": {"name": "弹窗干扰", "owner": "测试", "color": "orange"},
     "SCRIPT_ISSUE": {"name": "脚本问题", "owner": "测试", "color": "blue"},
     "TEST_DATA": {"name": "测试数据问题", "owner": "测试", "color": "blue"},
@@ -328,7 +328,7 @@ def evidence_of(c):
         add("shot", "截图（路径）", c.get("screenshot"))
     o = c.get("obs") or {}
     if o.get("kind") or o.get("text"):
-        add("obs", "截图观察（人工记录）", (OBS_KINDS.get(o.get("kind"), "") if o.get("kind") else "") +
+        add("obs", "截图观察（AI 看图）" if o.get("by") == "AI" else "截图观察（人工记录）", (OBS_KINDS.get(o.get("kind"), "") if o.get("kind") else "") +
             (("；" if o.get("kind") else "") + "截图中的文字：" + o["text"] if o.get("text") else ""))
     if c.get("ocrText"):
         add("ocr", "截图文字（自动识别，可能有误）", c["ocrText"])
@@ -414,7 +414,7 @@ def classify_core(c, ctx, rules, use_ocr):
         sys_ev = "、".join(x for x in [E("sys") if L and (L["popupText"] is not None or L["sysMsgs"]) else None, EO() if obs_t else None] if x)
         if L and L["popupText"] == "" and not sysm:
             return out("NEEDS_HUMAN", "suspected", "SYS-EMPTY", ["提交后出现了弹窗，脚本报“pop-up error”，但没有读到弹窗文字（" + _s(E("sys")) + "）"],
-                       ["看截图" + ("（" + E("shot") + "）" if E("shot") else "") + "，把弹窗文字抄到“截图观察”里，页面会重新判断；建议修改弹窗处理函数，读取对话框内全部文字后再关闭"], [], reason="unknown_popup")
+                       ["看截图" + ("（" + E("shot") + "）" if E("shot") else "") + "，弹窗文字写进截图观察（ta.py record）后会重新判断；建议修改弹窗处理函数，读取对话框内全部文字后再关闭"], [], reason="unknown_popup")
         lock = find_any(sysm, rules.get("lock_messages"))
         if lock:
             k = check_of(c, "lock")
@@ -671,6 +671,18 @@ def validate_custom(items) -> list[str]:
 
 
 def classify(c, ctx, rules, custom=None):
+    r = _classify(c, ctx, rules, custom)
+    o = c.get("obs") or {}
+    # AI 看图写的截图观察：结论因它而变时一律“待复核”，要人打开截图确认
+    if o.get("by") == "AI" and (o.get("kind") or o.get("text")):
+        r0 = _classify(dict(c, obs=None), ctx, rules, custom)
+        if (r0["cat"], r0["rule"]) != (r["cat"], r["rule"]):
+            r.update(status="suspected", why=r["why"] + ["截图观察是 AI 看图写的（" + _s(ev_id(r["ev"], "obs")) + "）；不看截图时判断为：" + RULE_NAMES.get(r0["rule"], r0["rule"])],
+                     need=r["need"] + ["打开截图核对 AI 的描述，无误后点“确认 / 改分类”"])
+    return r
+
+
+def _classify(c, ctx, rules, custom=None):
     # 自定义规则优先：先只看日志和弹窗文字；人工记录（截图观察）也在弹窗文字里
     m = custom_match(c, custom, False)
     if m:
@@ -689,7 +701,7 @@ def classify(c, ctx, rules, custom=None):
                 r["why"] = r["why"] + ["截图识别的文字提示可能是另一种情况：" + RULE_NAMES.get(r2["rule"], r2["rule"]) + "（" + _s(id_o) + "）。日志证据已能确认，保持原判断；如截图与日志矛盾请人工确认"]
             else:
                 r2.update(status="suspected", ocr=True, why=r2["why"] + ["这个判断用到了截图自动识别的文字（" + _s(id_o) + "），识别可能有误；只看日志时判断为：" + was],
-                          need=["打开截图核对识别出的文字；无误就点“采用识别文字”，结论会变为已确认"] + r2["need"])
+                          need=["打开截图核对识别出的文字；无误后点“确认 / 改分类”"] + r2["need"])
                 r = r2
     if not o.get("kind") or o["kind"] == "unclear" or (r["status"] == "confirmed" and r["cat"] != "NEEDS_HUMAN") or OBS_SKIP.search(r["rule"]):
         return r
@@ -708,7 +720,7 @@ def classify(c, ctx, rules, custom=None):
     if k == "popup":
         if T:
             return setr("NEEDS_HUMAN", "suspected", "OBS-POPU", "截图中有弹窗挡在前面，文字" + T + "不在任何弹窗清单中", ["判断这个弹窗是干扰（与被测功能无关）还是系统报错，然后在“配置 → 判断规则 → 弹窗清单”里补上，以后会自动判断"], reason="unknown_popup")
-        return setr("POPUP_INTERFERENCE", "suspected", "OBS-POP", "截图中有弹窗挡在前面", ["把弹窗上的文字抄到“截图中的文字”里，页面会判断它是干扰还是系统报错"])
+        return setr("POPUP_INTERFERENCE", "suspected", "OBS-POP", "截图中有弹窗挡在前面", ["把弹窗上的文字写进截图观察（ta.py record），会判断它是干扰还是系统报错"])
     if k == "blank":
         return setr("PRODUCT_DEFECT", "suspected", "OBS-BLANK", "截图中页面没有正常显示（空白、报错页或一直在加载）", ["手工打开同一页面确认能否重现：能重现 → 提缺陷；不能重现 → 重跑确认是否偶发"])
     if k == "other":
@@ -838,6 +850,12 @@ def classify_all(cases, rules, custom=None):
         c["auto"] = classify(c, {"mass": {} if c.get("parent") else mass}, rules, custom)
         c["sig"] = c["auto"].get("groupKey") or c["sig0"]
         c["final"] = c["override"]["cat"] if c.get("override") else c["auto"]["cat"]
+        # AI 判断（ta.py record 写入）：只补规则没能确认的用例，结论“待复核”
+        ai, a = c.get("ai") or {}, c["auto"]
+        c["aiUsed"] = bool(not c.get("override") and ai.get("cat") in CATS and _s(ai.get("reason")).strip() and (a["status"] != "confirmed" or a["cat"] == "NEEDS_HUMAN"))
+        if c["aiUsed"]:
+            c["final"] = ai["cat"]
+            a.update(status="suspected", flags=a["flags"] + ["AI 判断"], why=["AI 判断为" + CATS[ai["cat"]]["name"] + "：" + _s(ai["reason"]) + "（规则判断：" + RULE_NAMES.get(a["rule"], a.get("ruleName") or a["rule"]) + " → " + CATS[a["cat"]]["name"] + "）"] + a["why"])
         if c.get("rerun") == "fail":
             diff = (c.get("r2") or {}).get("same") is False
             c["auto"]["flags"].append("重跑报错不同" if diff else "重跑仍失败")
@@ -872,6 +890,8 @@ RULE_NAMES = {
 def rule_name(c):
     if c.get("override"):
         return "人工判定"
+    if c.get("aiUsed"):
+        return "AI 判断"
     a = c["auto"]
     return a.get("ruleName") or RULE_NAMES.get(a["rule"], a["rule"])
 
@@ -883,6 +903,8 @@ def _q(s):
 def brief(c):
     if c.get("override"):
         return "人工判定：" + _s(c["override"].get("reason"))
+    if c.get("aiUsed"):
+        return "AI 判断：" + _s(c["ai"].get("reason"))
     a, L = c["auto"], c.get("L") or {}
     hits = a["hits"]
     hit = hits[0] if hits else None
@@ -1026,7 +1048,7 @@ def result_of(c) -> dict:
     a = c["auto"]
     return {"category": c["final"], "auto_category": a["cat"], "status": a["status"], "rule_id": a["rule"], "rule_name": rule_name(c),
             "brief": a.get("brief", ""), "why": a["why"], "need": a["need"], "flags": a["flags"], "reason_code": a.get("reason"),
-            "check_kind": a.get("checkKind"), "phase": a.get("phase"), "from_ocr": bool(a.get("ocr")),
+            "check_kind": a.get("checkKind"), "phase": a.get("phase"), "from_ocr": bool(a.get("ocr")), "ai_used": bool(c.get("aiUsed")),
             "evidence": [{k: e[k] for k in ("id", "kind", "label", "text")} for e in a["ev"]],
             "rerun_plan": {"advice": c["plan"]["b"], "reason": c["plan"]["why"]}, "signature": c.get("sig")}
 

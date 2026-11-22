@@ -86,7 +86,7 @@ window.APP = (function () {
   const now = () => new Date().toLocaleString();
   const runName = id => (S.runs.find(r => r.id === id) || {}).name || "-";
   const catTag = cat => { const c = M.CATS[cat] || M.CATS.NEEDS_HUMAN; return '<span class="tag ' + c.color + '">' + c.name + "</span>"; };
-  const statusTag = c => c.override ? '<span class="dot" style="--c:#409eff">人工已改</span>' : c.auto.status === "confirmed" ? '<span class="dot" style="--c:#67c23a">规则确认</span>' : '<span class="dot" style="--c:#e6a23c">待复核</span>';
+  const statusTag = c => c.override ? '<span class="dot" style="--c:#409eff">人工已改</span>' : c.aiUsed ? '<span class="dot" style="--c:#8e6fd8">AI 判断·待复核</span>' : c.auto.status === "confirmed" ? '<span class="dot" style="--c:#67c23a">规则确认</span>' : '<span class="dot" style="--c:#e6a23c">待复核</span>';
   const planTag = c => { const p = c.plan || { b: "no" }; return '<span class="tag ' + M.PLAN_COLOR[p.b] + '" title="' + esc(p.why) + '">' + (p.b === "done" ? (c.rerun === "pass" ? "重跑通过" : c.r2 && c.r2.same === false ? "重跑失败·报错不同" : "重跑失败·同一问题") : M.PLAN[p.b]) + "</span>"; };
   const caseLabel = c => esc(c.id) + (c.parent ? ' <span class="tag gray" style="font-size:11px;line-height:16px">重跑第2次</span>' : "");
   const emptyBlock = (title, text, btn) => '<div class="empty"><b>' + title + "</b>" + (text || "") + (btn ? '<div style="margin-top:12px">' + btn + "</div>" : "") + "</div>";

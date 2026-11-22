@@ -17,35 +17,132 @@
       } }]);
   }
 
-  /* ============================== 判断规则 ============================== */
-  const RULE_SECTIONS = [
-    ["环境问题", [["env_exceptions", "异常类型"], ["env_patterns", "报错关键字"]]],
-    ["大面积相同报错", [["mass_min_cases", "至少几个用例", "num"], ["mass_ratio", "占失败数比例（%）", "num"], ["mass_window_min", "时间窗口（分钟）", "num"]]],
-    ["弹窗清单", [["noise_popups", "干扰弹窗文字"], ["business_errors", "业务报错文字"], ["overlay_keywords", "遮挡元素特征"]]],
-    ["系统提示", [["lock_messages", "数据被占用 → 测试数据问题"], ["config_messages", "缺少配置 → 需核查"], ["crash_messages", "程序未处理异常 → 疑似产品缺陷"]]],
+  /* ============================== 判断规则（一张表，按判断顺序，先命中先生效） ============================== */
+  // [名称, 查找范围, 条件 [[规则项, 说明, num?]] 或固定条件文字, 判为, 判定, 核查后可能变为, 规则编号（统计命中）, 说明]
+  const ST_NAME = { c: "规则确认", s: "待复核", k: "需人工核查" };
+  const RULE_TABLE = [
+    ["一、环境问题", [
+      ["浏览器/设备无法启动", "异常类型", [["env_exceptions"]], "ENVIRONMENT", "c", "", ["ENV1"], "驱动、浏览器或设备起不来，和用例无关"],
+      ["连接、服务或桌面故障", "报错和日志", [["env_patterns"]], "ENVIRONMENT", "c", "", ["ENV2", "ENV-DESK"], "网络、数据库、服务中断，或执行机没有可用桌面；单个用例超时不算"],
+      ["大面积相同报错", "整批统计", [["mass_min_cases", "至少几个用例", "num"], ["mass_ratio", "占失败数 %", "num"], ["mass_window_min", "时间窗口（分钟）", "num"]], "ENVIRONMENT", "s", "", ["ENV3"], "同一报错连续出现或集中在一段时间内；如果是同一个产品问题，人工改为缺陷"],
+    ]],
+    ["二、系统提示（弹窗里的文字）", [
+      ["数据被占用", "系统提示、截图文字", [["lock_messages"]], "TEST_DATA", "c", "被本批次前面的用例占用 → 脚本问题", ["DATA-LOCK", "CHK-LOCK1"], "保单/合同被别的会话占用"],
+      ["缺少配置", "系统提示、截图文字", [["config_messages"]], "NEEDS_HUMAN", "k", "核查后 → 环境问题 / 疑似产品缺陷 / 脚本问题", ["SYS-CFG", "CHK-CFG"], "要确认测试环境里这项配置是否应该存在"],
+      ["被测程序崩溃", "系统提示、截图文字", [["crash_messages"]], "PRODUCT_DEFECT", "s", "", ["SYS-CRASH"], "未处理异常对话框"],
+      ["弹窗文字没读到", "系统提示", "脚本报 pop-up error，但没读到弹窗文字", "NEEDS_HUMAN", "s", "", ["SYS-EMPTY"], "看截图补上弹窗文字"],
+    ]],
+    ["三、弹窗与业务报错", [
+      ["干扰弹窗", "对话框、页面弹框、截图文字", [["noise_popups"]], "POPUP_INTERFERENCE", "c", "", ["POP1", "POP2", "OBS-POPN"], "公告、会话过期、浏览器提示这类和被测功能无关的弹窗"],
+      ["原生对话框", "异常类型", [["alert_exceptions"]], "NEEDS_HUMAN", "s", "文字在干扰清单 → 弹窗干扰；是业务报错 → 按业务报错判断", ["POP1-未知"], "对话框文字不在任何清单里时要人工判断"],
+      ["业务报错", "页面、弹窗、报错", [["business_errors"]], "NEEDS_HUMAN", "k", "核查后：数据有问题 → 测试数据问题；数据正常 → 疑似产品缺陷", ["BIZ1", "BIZ2", "BIZ3"], "业务报错弹窗不是干扰；只凭文字分不清是数据还是系统问题"],
+      ["点击被遮挡", "异常类型 + 遮挡元素", [["intercept_exceptions"], ["overlay_keywords", "遮挡元素特征"]], "POPUP_INTERFERENCE", "s", "", ["POP3", "POP3-弱"], "遮挡元素像弹框/蒙层时更可信"],
+    ]],
+    ["四、桌面端控件（pywinauto）", [
+      ["掩盖型报错", "根因报错", [["masked_patterns"]], "NEEDS_HUMAN", "s", "", ["MASK1"], "真实原因被 'NoneType' 之类的报错盖住了，要看截图"],
+      ["匹配到多个控件", "异常类型", [["desk_ambiguous"]], "SCRIPT_ISSUE", "c", "", ["DSK-AMB"], "定位条件太宽"],
+      ["下拉框没有该选项", "根因报错", [["desk_option_missing"]], "SCRIPT_ISSUE", "s", "", ["DSK-OPT"], "选项名写错，或数据里本来没有这个选项"],
+      ["日期控件设置失败", "根因报错", [["desk_datetime"]], "SCRIPT_ISSUE", "s", "核查后：超出范围 → 测试数据问题", ["DSK-DTP", "CHK-DTP"], "记录要设置的日期和控件允许的范围"],
+      ["控件不可用（灰色）", "异常类型", [["desk_not_enabled"]], "NEEDS_HUMAN", "s", "", ["DSK-DIS"], "通常是业务规则限制，要看前置条件"],
+      ["控件不可见", "异常类型", [["desk_not_visible"]], "SCRIPT_ISSUE", "s", "", ["DSK-VIS"], "页面可能还没切换完，先重跑"],
+      ["找不到窗口/控件", "异常类型、根因报错", [["desk_not_found"]], "NEEDS_HUMAN", "s", "截图：页面正常 → 脚本问题", ["DSK-NF"], "可能是上一步没生效，也可能是定位写错，要看截图"],
+      ["笼统报错", "根因报错", "Exception 只写了结果，没写原因（不含业务报错文字）", "NEEDS_HUMAN", "s", "", ["GEN1"], "真实原因在前面的日志里"],
+    ]],
+    ["五、网页脚本与断言", [
+      ["定位写法错误", "异常类型", [["invalid_selector"]], "SCRIPT_ISSUE", "c", "", ["SCR2"], "XPath / CSS 本身写错"],
+      ["测试代码错误", "异常类型 + 出错位置", [["code_errors"], ["test_code_paths", "测试代码路径特征"]], "SCRIPT_ISSUE", "c", "出错位置不在测试代码里 → 待复核", ["SCR3"], "NameError、KeyError 之类，出在测试代码里才算确认"],
+      ["找不到元素或超时", "异常类型", [["locator_exceptions"]], "SCRIPT_ISSUE", "s", "截图：页面空白 → 疑似产品缺陷", ["SCR1"], "也可能是页面没加载出来，要看截图"],
+      ["断言失败", "异常类型 + 报错格式", [["assertion_exceptions"], ["expected_actual", "期望值/实际值格式"]], "PRODUCT_DEFECT", "s", "没有期望值和实际值 → 需人工判断", ["AST1", "AST2"], "期望值可能已经过时，先对照需求"],
+      ["没有规则命中", "—", "以上都没命中，或没有报错信息", "NEEDS_HUMAN", "s", "", ["NONE"], "补规则：先加纠错样本，再加自定义规则"],
+    ]],
+    ["六、截图修正（AI 看图或人工记录后，只改没确认的结论）", [
+      ["截图：页面正常", "截图观察", "页面正常，要操作的控件在屏幕上", "SCRIPT_ISSUE", "c", "", ["OBS-OK"], "页面和环境没问题，是脚本没找到控件"],
+      ["截图：有弹窗", "截图观察", "有弹窗挡在前面，没写文字 / 文字不在清单", "POPUP_INTERFERENCE", "s", "文字不在任何清单 → 需人工判断", ["OBS-POP", "OBS-POPU"], "写上弹窗文字后会按第二、三组重新判断"],
+      ["截图：页面异常", "截图观察", "页面空白、报错页或一直在加载", "PRODUCT_DEFECT", "s", "", ["OBS-BLANK"], "先重跑，能重现再提缺陷"],
+      ["截图：停在别处", "截图观察", "停在别的窗口或页面", "NEEDS_HUMAN", "s", "", ["OBS-OTHER"], "上一步没生效，先重跑"],
+      ["截图：控件灰色", "截图观察", "要操作的控件是灰色不可用的", "NEEDS_HUMAN", "s", "", ["OBS-DIS"], "看数据和前置步骤"],
+      ["截图：桌面不可用", "截图观察", "锁屏、黑屏或远程桌面断开", "ENVIRONMENT", "c", "", ["OBS-DESK"], "执行机当时没有可用桌面"],
+    ]],
+    ["七、辅助规则（不直接分类）", [
+      ["框架和第三方库路径", "堆栈", [["framework_paths"]], "", "", "", [], "定位出错位置时跳过这些文件"],
+      ["失败后的处理函数", "堆栈", [["handler_funcs"]], "", "", "", [], "截图、清理函数里的报错不当作根因"],
+      ["业务已成功的文字", "步骤日志", [["success_marks"]], "", "", "", [], "出现这些文字说明业务已经做成功，失败发生在之后"],
+      ["表示失败的执行结果", "执行结果列", [["fail_words"]], "", "", "", [], "导入时判断哪些用例算失败"],
+    ]],
   ];
-  const RULE_ADV = [
-    ["异常类型", [["alert_exceptions", "原生对话框"], ["intercept_exceptions", "点击被遮挡"], ["locator_exceptions", "找不到元素 / 超时"], ["invalid_selector", "定位表达式错误"], ["code_errors", "测试代码运行错误"], ["assertion_exceptions", "断言失败"]]],
-    ["桌面端控件（pywinauto）", [["masked_patterns", "掩盖型报错"], ["desk_ambiguous", "匹配到多个控件"], ["desk_not_found", "找不到窗口 / 控件"], ["desk_not_visible", "控件不可见"], ["desk_not_enabled", "控件不可用"], ["desk_option_missing", "下拉框没有该选项"], ["desk_datetime", "日期控件设置失败"]]],
-    ["日志解析", [["framework_paths", "框架和第三方库路径"], ["handler_funcs", "失败后执行的处理函数"], ["success_marks", "业务已成功的文字"]]],
-    ["其他", [["test_code_paths", "测试代码路径特征"], ["expected_actual", "期望值/实际值格式"], ["fail_words", "执行结果中表示失败的文字"]]],
-  ];
-  const changed = k => JSON.stringify(S.rules[k]) !== JSON.stringify(M.DEFAULT_RULES[k]);
-  const ruleBlock = ([t, items]) => '<div class="card"><div class="card-h"><b>' + t + "</b>" + (items.some(([k]) => changed(k)) ? '<span class="tag orange xs">已改</span>' : "") + '</div><div class="rgrid">' +
-    items.map(([k, label, type]) => '<label><div class="hint" style="margin-bottom:3px">' + label + (changed(k) ? ' <span class="orange">*</span>' : "") + "</div>" + (type === "num" ? '<input class="inp" type="number" data-r="' + k + '" value="' + S.rules[k] + '">' : '<textarea class="ta" rows="6" data-r="' + k + '" id="r_' + k + '">' + esc((S.rules[k] || []).join("\n")) + "</textarea>") + "</label>").join("") + "</div></div>";
+  const DEF = k => M.DEFAULT_RULES[k];
+  const changed = k => JSON.stringify(S.rules[k]) !== JSON.stringify(DEF(k));
+  const kwHtml = (list, base, q) => {
+    list = list || []; base = base || [];
+    const added = list.filter(x => !base.includes(x)), removed = base.filter(x => !list.includes(x));
+    const chip = (x, cls) => '<span class="kw' + cls + (q && x.toLowerCase().includes(q) ? " hit" : "") + '"' + (cls === " del" ? ' title="默认有，已删除"' : cls === " add" ? ' title="新增（默认没有）"' : "") + ">" +
+      (x.startsWith("re:") ? '<i>re:</i>' + esc(x.slice(3)) : esc(x)) + "</span>";
+    return list.map(x => chip(x, added.includes(x) ? " add" : "")).join("") + removed.map(x => chip(x, " del")).join("") || '<span class="hint">（空）</span>';
+  };
+  function condCell(cond, edit, q) {
+    if (typeof cond === "string") return '<span class="rt-fix">' + esc(cond) + "</span>";
+    if (cond[0][2] === "num") {
+      if (edit) return '<div class="rt-nums">' + cond.map(([k, label]) => '<label>' + label + ' <input class="inp" type="number" data-r="' + k + '" id="r_' + k + '" value="' + S.rules[k] + '"></label>').join("") + "</div>";
+      const n = k => '<b class="' + (changed(k) ? "rt-chg" : "") + '" title="默认 ' + DEF(k) + '">' + S.rules[k] + "</b>";
+      return "同一报错 ≥ " + n("mass_min_cases") + " 个用例，占失败 ≥ " + n("mass_ratio") + "%，连续出现或在 " + n("mass_window_min") + " 分钟内";
+    }
+    return cond.map(([k, label]) => '<div class="rt-kws">' + (cond.length > 1 ? '<span class="rt-sub">' + (label || "异常类型") + "</span>" : "") +
+      (edit ? '<textarea class="ta" rows="' + Math.min(8, Math.max(2, (S.rules[k] || []).length + 1)) + '" data-r="' + k + '" id="r_' + k + '">' + esc((S.rules[k] || []).join("\n")) + "</textarea>"
+        : kwHtml(S.rules[k], DEF(k), q)) + "</div>").join("");
+  }
+  const resCell = (cat, st, alt) => (cat ? A.catTag(cat) + '<span class="rt-st ' + st + '">' + ST_NAME[st] + "</span>" : '<span class="hint">—</span>') + (alt ? '<div class="hint">' + esc(alt) + "</div>" : "");
   function rulesPage(root, v) {
-    const last = S.changelog[S.changelog.length - 1];
-    let html = '<div class="card"><div class="card-h"><b>判断规则</b><span class="hint">每行一项，不区分大小写；<code>re:</code> 开头是模糊匹配。' + (last ? "最近修改：" + esc(last.at) + " " + esc(last.by || "") : "") + '</span><span class="sp"></span>' +
-      '<button class="btn sm" id="rFile">查看规则文件</button><button class="btn sm" id="rImport">导入</button><a class="btn sm" href="/api/rules/file" download="rules.json">下载</a><button class="btn sm" id="rReset">恢复默认</button><button class="btn sm pri" id="rSave">保存并重新分类</button></div></div>';
-    html += RULE_SECTIONS.map(ruleBlock).join("");
-    html += '<details class="adv"' + (v.adv ? " open" : "") + "><summary>高级（异常名称、桌面端控件、日志解析）</summary>" + RULE_ADV.map(ruleBlock).join("") + "</details>";
+    if (v.focus) v.edit = true;
+    // 编辑时显示全部规则（搜索会重画页面，没保存的修改会丢）
+    const last = S.changelog[S.changelog.length - 1], q = v.edit ? "" : (v.q || "").trim().toLowerCase();
+    const hits = {}; S.cases.forEach(c => { if (c.failed && c.auto) hits[c.auto.rule] = (hits[c.auto.rule] || 0) + 1; });
+    const hitN = ids => ids.reduce((a, id) => a + (hits[id] || 0), 0);
+    const keysOf = cond => typeof cond === "string" ? [] : cond.map(x => x[0]);
+    const nChg = Object.keys(M.DEFAULT_RULES).filter(changed).length;
+    const match = (name, where, cond, note) => !q || (name + where + note).toLowerCase().includes(q) || keysOf(cond).some(k => [].concat(S.rules[k] || []).some(x => String(x).toLowerCase().includes(q))) || (typeof cond === "string" && cond.toLowerCase().includes(q));
+    let no = 0, shown = 0, body = "";
+    // 零、自定义规则：最先判断
+    const cu = S.custom.filter(u => !q || JSON.stringify(u).toLowerCase().includes(q));
+    body += '<tr class="rg"><td colspan="6">零、自定义规则（最先判断）<a data-go="custom">去编辑 ›</a></td></tr>' +
+      (cu.length ? cu.map(u => {
+        const w = u.when || {}, t = u.then || {}; shown++;
+        const parts = [["出现任一", w.any], ["全部出现", w.all], ["不能出现", w.none], ["异常类型", w.exceptions]].filter(x => x[1] && x[1].length);
+        return '<tr class="' + (u.enabled === false ? "off" : "") + '"><td class="rt-no"><b class="mono">' + esc(u.id) + "</b>" + (u.enabled === false ? '<span class="tag gray xs">已停用</span>' : "") + '</td><td><b>' + esc(u.name || u.id) + '</b><div class="hint">' + (w.in || ["log", "popup"]).map(k => esc(M.CUSTOM_SOURCES[k] || k)).join("、") + "</div></td>" +
+          "<td>" + parts.map(([l, xs]) => '<div class="rt-kws"><span class="rt-sub">' + l + "</span>" + kwHtml(xs, xs, q) + "</div>").join("") + "</td><td>" + resCell(t.category, t.status === "confirmed" ? "c" : "s", t.rerun ? M.PLAN[t.rerun] : "") +
+          '</td><td class="hint">' + esc(u.note || t.brief || "") + '</td><td class="rt-n">' + (hits[u.id] || "") + "</td></tr>";
+      }).join("") : '<tr><td colspan="6" class="hint">' + (q ? "没有匹配的自定义规则" : "还没有自定义规则。内置规则判不对时，先“加入纠错样本”，再去补一条。") + "</td></tr>");
+    RULE_TABLE.forEach(([title, rows]) => {
+      const list = rows.map(r => [++no].concat(r)).filter(([, name, where, cond, , , , , note]) => match(name, where, cond, note));
+      if (!list.length) return;
+      body += '<tr class="rg"><td colspan="6">' + esc(title) + "</td></tr>";
+      list.forEach(([n, name, where, cond, cat, st, alt, ids, note]) => {
+        shown++;
+        const chg = keysOf(cond).some(changed), h = hitN(ids);
+        body += "<tr" + (chg ? ' class="chg"' : "") + '><td class="rt-no"><b class="mono">R' + String(n).padStart(2, "0") + "</b>" + (chg ? '<span class="tag orange xs">已改</span>' : "") +
+          '</td><td><b>' + esc(name) + '</b><div class="hint">' + esc(where) + (ids.length ? ' · <span class="mono">' + ids.join(" ") + "</span>" : "") + "</div></td>" +
+          "<td>" + condCell(cond, v.edit, q) + "</td><td>" + resCell(cat, st, alt) + '</td><td class="hint">' + esc(note) + '</td><td class="rt-n">' + (h || "") + "</td></tr>";
+      });
+    });
+    let html = '<div class="card"><div class="card-h"><b>判断规则</b><span class="hint">' + (last ? "最近修改：" + esc(last.at) + " " + esc(last.by || "") : "") + '</span><span class="sp"></span>' +
+      '<input class="inp" id="rQ" placeholder="搜规则名或关键字" value="' + esc(v.edit ? "" : v.q || "") + '"' + (v.edit ? " disabled" : "") + ">" +
+      '<button class="btn sm" id="rFile">查看规则文件</button><button class="btn sm" id="rImport">导入</button><a class="btn sm" href="/api/rules/file" download="rules.json">下载</a><button class="btn sm" id="rReset">恢复默认</button>' +
+      (v.edit ? '<button class="btn sm" id="rCancel">取消</button><button class="btn sm pri" id="rSave">保存并重新分类</button>' : '<button class="btn sm pri" id="rEdit">编辑关键字</button>') + "</div>" +
+      '<div class="rt-note">按表格顺序判断，<b>先命中先生效</b>：自定义规则 → 环境 → 系统提示 → 弹窗与业务报错 → 桌面端控件 → 网页脚本与断言；看过截图后再用第六组修正没确认的结论。</div>' +
+      '<div class="rt-note">关键字不区分大小写，<code>re:</code> 开头是模糊匹配。' + (nChg ? "有 <b>" + nChg + "</b> 项和默认不同：<span class=\"kw add\">新增</span>的标绿，<span class=\"kw del\">默认有、已删除</span>的划线。" : "现在全部是默认规则。") +
+      (v.edit ? " <b>编辑中：</b>每行一项，改完点“保存并重新分类”。" : "") + "</div>" +
+      '<div class="tbl-wrap rt-wrap"><table class="tbl rt"><colgroup><col style="width:64px"><col style="width:170px"><col><col style="width:200px"><col style="width:220px"><col style="width:48px"></colgroup>' +
+      "<thead><tr><th>编号</th><th>规则 · 查找范围</th><th>条件（关键字）</th><th>判为</th><th>说明</th><th title=\"当前失败用例里命中这条规则的数量\">命中</th></tr></thead><tbody>" +
+      (shown ? body : '<tr><td colspan="6">' + A.emptyBlock("没有匹配的规则") + "</td></tr>") + "</tbody></table></div></div>";
     root.innerHTML = html;
-    $("details.adv", root).ontoggle = e => { v.adv = e.target.open; };
-    if (v.focus) { const el = $("#r_" + v.focus); if (el) { if (el.closest("details")) el.closest("details").open = true; el.scrollIntoView(); el.focus(); } v.focus = null; }
-    $("#rSave").onclick = () => {
+    A.bindGo(root);
+    $("#rQ").onchange = e => { v.q = e.target.value; A.render(); };
+    if ($("#rEdit")) $("#rEdit").onclick = () => { v.edit = true; A.render(); };
+    if ($("#rCancel")) $("#rCancel").onclick = () => { v.edit = false; A.render(); };
+    if (v.focus) { const el = $("#r_" + v.focus); if (el) { el.scrollIntoView({ block: "center" }); el.focus(); } v.focus = null; }
+    if ($("#rSave")) $("#rSave").onclick = () => {
       const rules = {};
       $$("[data-r]", root).forEach(el => { rules[el.dataset.r] = el.type === "number" ? +el.value : lines(el.value); });
-      whoDialog("保存判断规则", "", (by, note) => A.act("/api/rules/save", { rules, by, note }, afterMsg));
+      whoDialog("保存判断规则", "", async (by, note) => { const r = await A.act("/api/rules/save", { rules, by, note }, afterMsg); if (r) { v.edit = false; A.render(); } return r; });
     };
     $("#rReset").onclick = () => whoDialog("恢复默认规则", "<p style=\"margin-top:0\">判断规则恢复为默认值（自定义规则、纠错样本保留）。</p>", (by, note) => A.act("/api/rules/reset", { by, note }, afterMsg));
     $("#rFile").onclick = () => { A.dialog("config/rules.json", '<pre class="json">' + esc(JSON.stringify({ tool: "ta-rules", v: 2, rules: S.rules, custom: S.custom, changelog: S.changelog }, null, 2)) + "</pre>", [{ t: "关闭" }]); $("#dlg").style.width = "80vw"; };

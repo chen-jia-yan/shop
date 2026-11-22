@@ -3,10 +3,9 @@
   const A = APP, S = A.S, M = A.M, esc = A.esc, $ = A.$, $$ = A.$$;
   const flagTags = c => { const f = c.auto.flags.filter(x => x !== "重跑第2次"); return f.length ? '<div class="flags">' + f.map(x => '<span class="tag ' + (x === "重跑通过" ? "green" : "orange") + '">' + esc(x) + "</span>").join("") + "</div>" : ""; };
   const DISPATCH = [
-    { k: "test", name: "交给测试", cats: ["SCRIPT_ISSUE", "TEST_DATA", "POPUP_INTERFERENCE"], todo: "修脚本、换数据、补弹窗处理，处理后重跑" },
+    { k: "test", name: "交给测试", cats: ["SCRIPT_ISSUE", "TEST_DATA", "POPUP_INTERFERENCE", "ENVIRONMENT"], todo: "修脚本、换数据、补弹窗处理；环境问题由测试联系恢复，处理后重跑" },
     { k: "dev", name: "交给开发", cats: ["PRODUCT_DEFECT"], todo: "起草 Jira，附截图和执行情况" },
-    { k: "env", name: "交给环境/运维", cats: ["ENVIRONMENT"], todo: "确认执行机、数据库、服务，恢复后重跑" },
-    { k: "human", name: "待判断", cats: ["NEEDS_HUMAN"], todo: "看截图记录观察，或做人工核查" },
+    { k: "human", name: "待判断", cats: ["NEEDS_HUMAN"], todo: "让 AI 看截图，或人工确认后改分类" },
   ];
   const causeName = c => { const h = c.auto.hits[0] || c.error1; return c.ruleName + (h && !c.override ? " · “" + String(h).replace(/\s+/g, " ").slice(0, 70) + "”" : ""); };
   function causesOf(cs) {
@@ -50,15 +49,15 @@
       '<div class="card-h"><b>失败 ' + list.length + " 条</b><span class=\"sp\"></span><a id=\"fAll\">" + (cats.length && cats.every(k => v.open.includes(k)) ? "全部收起" : "全部展开") + "</a></div>";
     if (!list.length) html += A.emptyBlock("没有符合条件的用例");
     else {
-      html += '<div class="tbl-wrap"><table class="tbl cat"><thead><tr><th style="width:24px"></th><th>分类</th><th>用例</th><th>原因</th><th>待复核</th><th>待核查</th><th>建议重跑</th><th>处理方</th><th>下一步</th></tr></thead><tbody>';
+      html += '<div class="tbl-wrap"><table class="tbl cat"><thead><tr><th style="width:24px"></th><th>分类</th><th>用例</th><th>待复核</th><th>待核查</th><th>建议重跑</th><th>处理方</th><th>下一步</th></tr></thead><tbody>';
       cats.forEach(k => {
-        const cs = byCat[k], open = v.open.includes(k), causes = causesOf(cs);
+        const cs = byCat[k], open = v.open.includes(k);
         const sus = cs.filter(c => !c.override && c.auto.status === "suspected").length, chk = cs.filter(needCheck).length, go = cs.filter(c => c.plan.b === "go").length;
-        html += '<tr class="crow' + (open ? " open" : "") + '" data-cat="' + k + '"><td class="fold">' + (open ? "▾" : "▸") + "</td><td>" + A.catTag(k) + "</td><td><b>" + cs.length + "</b></td><td>" + causes.length + "</td><td>" + (sus ? '<span class="num o">' + sus + "</span>" : "-") + "</td><td>" + (chk ? '<span class="num o">' + chk + "</span>" : "-") + "</td><td>" + (go ? '<span class="num b">' + go + "</span>" : "-") + "</td><td>" + M.CATS[k].owner + '</td><td class="hint">' + A.NEXT[k] + "</td></tr>";
+        html += '<tr class="crow' + (open ? " open" : "") + '" data-cat="' + k + '"><td class="fold">' + (open ? "▾" : "▸") + "</td><td>" + A.catTag(k) + "</td><td><b>" + cs.length + "</b></td><td>" + (sus ? '<span class="num o">' + sus + "</span>" : "-") + "</td><td>" + (chk ? '<span class="num o">' + chk + "</span>" : "-") + "</td><td>" + (go ? '<span class="num b">' + go + "</span>" : "-") + "</td><td>" + M.CATS[k].owner + '</td><td class="hint">' + A.NEXT[k] + "</td></tr>";
         if (!open) return;
-        html += '<tr class="cdet"><td colspan="9"><div class="cbox"><div class="cbar"><a data-gsel="' + k + '">全选本类</a><a data-gedit="' + k + '">整类改分类</a><a data-gcopy="' + k + '">复制用例编号</a></div>' +
+        html += '<tr class="cdet"><td colspan="8"><div class="cbox"><div class="cbar"><a data-gsel="' + k + '">全选本类</a><a data-gedit="' + k + '">整类改分类</a><a data-gcopy="' + k + '">复制用例编号</a></div>' +
           '<table class="tbl inner"><thead><tr><th class="ck"></th><th>用例</th><th>名称</th><th>判断依据</th><th>判定</th><th>重跑</th><th>人工核查</th><th>操作</th></tr></thead><tbody>' +
-          causes.map((x, xi) => '<tr class="g2"><td colspan="8">原因 ' + (xi + 1) + "：" + esc(causeName(x.cs[0])) + " <b>" + x.cs.length + ' 条</b><span class="g-ops"><a data-gsel="' + k + "|" + xi + '">全选</a><a data-gedit="' + k + "|" + xi + '">整组改分类</a><a data-gcopy="' + k + "|" + xi + '">复制用例编号</a></span></td></tr>' + x.cs.map(c => caseRow(c, v)).join("")).join("") +
+          cs.slice().sort((a, b) => a.seq - b.seq || (a.parent ? 1 : -1)).map(c => caseRow(c, v)).join("") +
           "</tbody></table></div></td></tr>";
       });
       html += "</tbody></table></div>";
@@ -71,7 +70,7 @@
     $$("[data-st]", root).forEach(b => b.onclick = () => { v.st = b.dataset.st; if (v.st) v.open = A.CAT_ORDER.slice(); A.render(); });
     if ($("#fAll")) $("#fAll").onclick = () => { v.open = cats.every(k => v.open.includes(k)) ? [] : cats.slice(); A.render(); };
     $$("tr.crow", root).forEach(tr => tr.onclick = () => { const k = tr.dataset.cat; v.open = v.open.includes(k) ? v.open.filter(x => x !== k) : v.open.concat(k); A.render(); });
-    const groupOf = key => { const [k, xi] = key.split("|"); const cs = byCat[k] || []; return xi === undefined ? cs : causesOf(cs)[+xi].cs; };
+    const groupOf = k => byCat[k] || [];
     $$("[data-gsel]", root).forEach(a => a.onclick = () => { const ids = groupOf(a.dataset.gsel).map(c => c.uid); const on = ids.every(u => v.sel.includes(u)); v.sel = on ? v.sel.filter(u => !ids.includes(u)) : Array.from(new Set(v.sel.concat(ids))); A.render(); });
     $$("[data-gedit]", root).forEach(a => a.onclick = () => batchDialog(groupOf(a.dataset.gedit).map(c => c.uid)));
     $$("[data-gcopy]", root).forEach(a => a.onclick = () => A.copy(Array.from(new Set(groupOf(a.dataset.gcopy).map(c => c.id))).join("\n")));
@@ -159,7 +158,7 @@
   function openCase(uid) {
     const c = S.byUid[uid]; if (!c) { A.closeDrawer(); return; }
     pasteUid = uid;
-    const a = c.auto, sus = a.status === "suspected", o = c.obs || {};
+    const a = c.auto, sus = a.status === "suspected";
     const hits = a.hits.concat(c.exception ? [c.exception] : []);
     const kind = a.checkKind && !c.override && M.CHECK_KINDS[a.checkKind];
     const sameN = S.cases.filter(x => x.failed && x.sig === c.sig && x.final === c.final).length;
@@ -170,9 +169,6 @@
       '<label class="shot add"><input type="file" accept="image/*" multiple id="dShotF" hidden><span>＋ 选择图片<br><small>或 Ctrl+V</small></span></label></div>' +
       (!c.shots.length && c.screenshot ? '<p class="hint">报告里的截图路径：' + esc(c.screenshot) + "</p>" : "") +
       (c.shots2.length ? '<h5 style="margin-top:8px">截图（第 2 次）</h5><div class="shots">' + shotsHtml(c.shots2, false) + "</div>" : "") + "</div>";
-    b += '<div class="sec obs"><h5>截图观察</h5><div class="obs-k">' + Object.entries(M.OBS_KINDS).map(([k, n]) => '<label><input type="radio" name="obsK" value="' + k + '"' + (o.kind === k ? " checked" : "") + ">" + esc(n) + "</label>").join("") + "</div>" +
-      '<input class="inp" id="obsT" style="width:100%;margin-top:6px" placeholder="弹窗或页面上的文字（照抄原文）" value="' + esc(o.text || "") + '">' +
-      '<div style="margin-top:6px;display:flex;gap:6px;align-items:center"><button class="btn sm pri" id="obsGo">保存并重新分析</button>' + (c.ocrText && !o.text ? '<button class="btn sm" id="ocrUse">填入识别文字</button>' : "") + (o.kind || o.text ? '<button class="btn sm" id="obsClr">清除</button>' : "") + "</div></div>";
     if (kind) b += '<div class="sec"><h5>人工核查：' + esc(kind.name) + '</h5><div class="verdict sus"><div>' + esc(kind.what) + '</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"><select class="sel" id="dData"><option value="">未核查</option>' + Object.entries(kind.options).map(([k, op]) => '<option value="' + k + '"' + (c.dataCheck === k ? " selected" : "") + ">" + esc(op[0]) + " → " + M.CATS[op[1]].name + "</option>").join("") + '</select><input class="inp" id="dNote" placeholder="查了什么、谁查的" value="' + esc(c.dataNote || "") + '"></div><button class="btn sm pri" id="dSave" style="margin-top:6px">保存核查结果</button></div></div>';
     // 证据：完整日志、截图识别文字默认收起
     const evBody = e => e.kind === "shot" && e.src ? '<img class="evimg" src="' + e.src + '" data-big="' + e.src + '" alt="">' : "<pre>" + A.highlight(e.text, hits) + "</pre>";
@@ -194,13 +190,6 @@
     $("#dShotF").onchange = e => A.addImgs(uid, Array.from(e.target.files));
     $$("[data-delshot]").forEach(x => x.onclick = () => A.act("/api/shots/del", { uid, idx: +x.dataset.delshot }, "已删除"));
     $$("[data-big]").forEach(img => img.onclick = () => { A.dialog("截图", '<img src="' + img.dataset.big + '" style="max-width:100%">', [{ t: "关闭" }]); $("#dlg").style.width = "90vw"; });
-    if ($("#ocrUse")) $("#ocrUse").onclick = () => { $("#obsT").value = c.ocrText.replace(/\s*\n\s*/g, " / ").slice(0, 500); $("#obsT").focus(); };
-    $("#obsGo").onclick = () => {
-      const k = ($$('input[name="obsK"]').find(r => r.checked) || {}).value || "", t = $("#obsT").value.trim();
-      if (!k && !t) { A.toast("请选择看到的现象，或填写截图中的文字", true); return; }
-      save({ obs: { kind: k, text: t, at: A.now() } }, "已重新分析");
-    };
-    if ($("#obsClr")) $("#obsClr").onclick = () => save({ obs: null }, "已清除");
     if ($("#dSave")) $("#dSave").onclick = () => save({ dataCheck: $("#dData").value || null, dataNote: $("#dNote").value.trim() }, "核查结果已保存");
     if ($("#dRerun")) $("#dRerun").onchange = e => setRerun(c, e.target.value);
   }
@@ -269,7 +258,7 @@
   }
   function dispatchPage(root, v) {
     if (!S.runs.length) return A.noData(root);
-    v.run = S.runs.find(r => r.id === v.run) ? v.run : A.lastRun(); v.who = v.who || "dev";
+    v.run = S.runs.find(r => r.id === v.run) ? v.run : A.lastRun(); if (!DISPATCH.some(x => x.k === v.who)) v.who = "dev";
     const scope = A.failed(v.run), skip = scope.filter(c => c.rerun === "pass").length;
     const d = DISPATCH.find(x => x.k === v.who), rows = packRows(d, scope);
     const title = "【" + d.name + "】" + A.runName(v.run) + "：共 " + rows.length + " 条";

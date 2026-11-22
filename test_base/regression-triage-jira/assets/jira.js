@@ -57,7 +57,7 @@
   function form(d, v) {
     v.tab = v.tab || "preview";
     const c = caseOf(d), lock = d.status === "submitted";
-    let h = '<div class="bar"><span class="tag ' + ST[d.status][1] + '">' + ST[d.status][0] + "</span>" + (d.issueKey ? '<span class="tag green">' + esc(d.issueKey) + "</span>" : "") + '<span class="hint">起草于 ' + esc(d.created) + (d.reviewer ? " · 审核：" + esc(d.reviewer) : "") + '</span><span class="sp"></span>' +
+    let h = '<div class="bar"><span class="tag ' + ST[d.status][1] + '">' + ST[d.status][0] + "</span>" + (d.issueKey ? '<span class="tag green">' + esc(d.issueKey) + "</span>" : "") + '<span class="hint">起草于 ' + esc(d.created) + (d.reviewedAt ? " · 审核于 " + esc(d.reviewedAt) : "") + '</span><span class="sp"></span>' +
       '<div class="seg"><button data-jt="preview" class="' + (v.tab === "preview" ? "on" : "") + '">① 预览</button><button data-jt="edit" class="' + (v.tab === "edit" ? "on" : "") + '"' + (lock || d.v !== 2 ? " disabled" : "") + ">② 编辑</button></div></div>";
     if (c) h += '<div class="verdict info"><b class="mono">' + esc(c.id) + "</b>" + (c.parent ? '<span class="tag orange">重跑第2次的新问题</span>' : c.rerun === "fail" ? '<span class="tag orange">重跑仍失败</span>' : "") + " " + esc(c.name || "") + " · " + A.catTag(c.final) + " " + esc(c.auto.brief) + ' <a data-jopen="' + c.uid + '">看证据</a></div>';
     if (v.tab !== "edit" || lock || d.v !== 2) return h + preview(d) + checksBlock(d, lock) + actions(d, lock);
@@ -73,7 +73,7 @@
       (d.mode === "comment" ? '<label class="fi"><span>已有单号</span><input class="inp" id="jTarget" value="' + esc(d.target) + '" placeholder="ROTQA-5339"></label>' : "") + '<span class="hint">项目 ' + esc(C.project) + "</span></div>" +
       '<div class="fgrid">' + row("issueType", sel("issueType", Array.from(new Set([C.issueType, C.issueTypeEnv, "Bug", "Task"])))) +
       row("priority", sel("priority", ["Highest", "High", "Medium", "Low", "Lowest"]), d.meta ? '<div class="hint">' + esc(d.meta.priorityWhy) + "</div>" : "") +
-      row("system", txt("system")) + row("components", txt("components")) + row("labels", txt("labels")) + row("assignee", txt("assignee")) + "</div>" +
+      row("system", txt("system")) + row("components", txt("components")) + row("labels", txt("labels")) + "</div>" +
       row("environment", '<textarea class="ta" rows="4" data-jf="environment">' + esc(d.f.environment) + "</textarea>") + "</div>";
     return h + checksBlock(d, lock) + actions(d, lock);
   }
@@ -110,8 +110,8 @@
     if ($("#jRefresh")) $("#jRefresh").onclick = () => upd(d, "refresh", null, "已刷新；改过的字段没有变");
     if ($("#jDiscard")) $("#jDiscard").onclick = () => upd(d, "discard");
     if ($("#jUnapprove")) $("#jUnapprove").onclick = () => upd(d, "unapprove");
-    if ($("#jApprove")) $("#jApprove").onclick = () => A.dialog("审核通过", '<p style="margin-top:0">原因有证据、没有编造、没有个人信息。</p><label class="fi"><span>审核人</span><input class="inp" id="jRev" value="' + esc(A.who()) + '"></label>',
-      [{ t: "取消" }, { t: "确认通过", pri: true, fn: async () => { const r = $("#jRev").value.trim(); if (!r) { A.toast("请填写审核人", true); return false; } return !!(await upd(d, "approve", { reviewer: r }, "已审核通过")); } }]);
+    if ($("#jApprove")) $("#jApprove").onclick = () => A.dialog("审核通过", '<p style="margin-top:0">确认：原因有证据、没有编造、没有个人信息。</p>',
+      [{ t: "取消" }, { t: "确认通过", pri: true, fn: async () => !!(await upd(d, "approve", {}, "已审核通过")) }]);
   }
 
   function renderWiki(t, srcOf) {
@@ -135,7 +135,7 @@
   function preview(d) {
     const C = S.jira, c = caseOf(d), pool = c ? c.shots.concat(c.shots2) : [];
     const srcOf = n => { const s = pool.find(x => base(x.name) === n); return s && s.src; };
-    const det = [["Project", C.project], ["Issue Type", d.f.issueType], ["Priority", d.f.priority], ["Labels", d.labelsAll.join(", ")], ["Components", d.f.components], ["System", d.f.system], ["Assignee", d.f.assignee || "未指派"]]
+    const det = [["Project", C.project], ["Issue Type", d.f.issueType], ["Priority", d.f.priority], ["Labels", d.labelsAll.join(", ")], ["Components", d.f.components], ["System", d.f.system]]
       .concat(C.envMode === "field" ? [["Environment", d.f.environment]] : []).concat([["提交方式", d.mode === "comment" ? "追加评论到 " + d.target : "新建"], ["附件", (d.meta ? d.meta.attach : []).join(", ") || "无"]]);
     return '<table class="ptbl"><tr class="ph"><td colspan="2">1. Title</td></tr><tr><th class="pk">Summary</th><td class="pv"><b>' + esc(d.f.summary) + "</b></td></tr>" +
       '<tr class="ph"><td colspan="2">2. Description</td></tr><tr><td class="pv wiki" colspan="2">' + renderWiki(d.wiki, srcOf) + "</td></tr>" +
@@ -151,8 +151,8 @@
     let html = '<div class="kpis">' + [["待审核", S.drafts.filter(d => d.status === "draft").length, "#e6a23c"], ["已审核待提交", ready.length, "#409eff"], ["已提交", sub.length, "#67c23a"], ["已放弃", S.drafts.filter(d => d.status === "discarded").length, "#909399"]]
       .map(([l, n, c]) => '<div class="kpi" style="--c:' + c + '"><b>' + n + "</b><span>" + l + "</span></div>").join("") + "</div>";
     html += '<div class="card"><div class="card-h"><b>已审核待提交</b><span class="sp"></span><button class="btn sm" data-go="jira" data-opts=\'{"sub":"draft"}\'>回到起草</button></div>' +
-      (ready.length ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="ck"><input type="checkbox" id="sAll"' + (pick.length === ready.length ? " checked" : "") + "></th><th>用例</th><th>标题</th><th>方式</th><th>Priority</th><th>附件</th><th>审核人</th><th>操作</th></tr></thead><tbody>" +
-        ready.map(d => '<tr><td class="ck"><input type="checkbox" data-ss="' + d.id + '"' + (v.sel.includes(d.id) ? " checked" : "") + '></td><td class="mono nw">' + esc(caseId(d)) + '</td><td class="nm2">' + esc(d.f.summary) + "</td><td>" + (d.mode === "create" ? '<span class="tag blue">新建</span>' : '<span class="tag purple">追加到 ' + esc(d.target) + "</span>") + "</td><td>" + esc(d.f.priority) + "</td><td>" + (d.meta ? d.meta.attach.length : 0) + "</td><td>" + esc(d.reviewer || "") + '</td><td class="ops nw"><a data-sopen="' + d.id + '">查看</a><a data-skey="' + d.id + '">回填单号</a></td></tr>').join("") + "</tbody></table></div>"
+      (ready.length ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="ck"><input type="checkbox" id="sAll"' + (pick.length === ready.length ? " checked" : "") + "></th><th>用例</th><th>标题</th><th>方式</th><th>Priority</th><th>附件</th><th>操作</th></tr></thead><tbody>" +
+        ready.map(d => '<tr><td class="ck"><input type="checkbox" data-ss="' + d.id + '"' + (v.sel.includes(d.id) ? " checked" : "") + '></td><td class="mono nw">' + esc(caseId(d)) + '</td><td class="nm2">' + esc(d.f.summary) + "</td><td>" + (d.mode === "create" ? '<span class="tag blue">新建</span>' : '<span class="tag purple">追加到 ' + esc(d.target) + "</span>") + "</td><td>" + esc(d.f.priority) + "</td><td>" + (d.meta ? d.meta.attach.length : 0) + '</td><td class="ops nw"><a data-sopen="' + d.id + '">查看</a><a data-skey="' + d.id + '">回填单号</a></td></tr>').join("") + "</tbody></table></div>"
         : A.emptyBlock("没有已审核的单")) + "</div>";
     html += '<div class="card"><div class="card-h"><b>提交方式</b><span class="hint">已选 ' + pick.length + " 张</span></div><div class=\"flow\">" +
       '<div class="step"><h6><span class="n ' + (M.jiraEnv ? "auto" : "later") + '">A</span>直接提交到 Jira</h6><p>' + (M.jiraEnv ? "先预检（查重、确认单号存在），确认后建单并上传截图，单号自动回填。" : "需要在本机环境变量设置 JIRA_BASE_URL、JIRA_API_TOKEN" + (C.deploy === "cloud" ? "、JIRA_EMAIL" : "") + "，然后重新打开助手。") + '</p><div class="acts-row l"><button class="btn sm" id="sPayload"' + (pick.length ? "" : " disabled") + '>查看请求内容</button><button class="btn sm pri" id="sSubmit"' + (pick.length && M.jiraEnv ? "" : " disabled") + ">预检</button></div></div>" +

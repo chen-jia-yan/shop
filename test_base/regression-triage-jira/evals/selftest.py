@@ -89,6 +89,20 @@ def t_store(tmp: Path):
     # 人工记录
     st.set_case([u4], {"obs": {"kind": "popup", "text": "Policy is being edited by batch job"}})
     check("截图观察后重新分析", st.case(u4)["auto"]["rule"].startswith("OBS"), st.case(u4)["auto"]["rule"])
+    # AI 看图（ta.py record）：分类要变，结论是“待复核”
+    st.set_case([u4], {"obs": {"kind": "normal", "by": "AI"}})
+    c4 = st.case(u4)
+    check("AI 看图后重新分类", c4["final"] == "SCRIPT_ISSUE" and c4["auto"]["status"] == "suspected", (c4["final"], c4["auto"]["status"]))
+    st.set_case([u4], {"obs": None, "ai": {"cat": "TEST_DATA", "reason": "批处理占用保单"}})
+    c4 = st.case(u4)
+    check("AI 判断补充规则", c4["final"] == "TEST_DATA" and c4["aiUsed"] and "AI 判断" in c4["auto"]["flags"], (c4["final"], c4["auto"]["flags"]))
+    for bad_v in ({"obs": {"kind": "nope"}}, {"ai": {"cat": "NOPE", "reason": "x"}}, {"ai": {"cat": "TEST_DATA", "reason": ""}}):
+        try:
+            st.set_case([u4], bad_v)
+            check("AI 写入内容要检查：" + json.dumps(bad_v, ensure_ascii=False), False)
+        except T.UserError:
+            pass
+    st.set_case([u4], {"ai": None, "obs": {"kind": "popup", "text": "Policy is being edited by batch job"}})
     try:
         st.set_case([u4], {"override": {"cat": "TEST_DATA", "reason": ""}})
         check("改判必须写原因", False)
@@ -125,11 +139,11 @@ def t_store(tmp: Path):
     check("重跑通过的不起草", len(ids) == 1, ids)
     d = st.draft(ids[0])
     check("草稿标题", "TC04" in d["f"]["summary"] and "{" not in d["f"]["summary"], d["f"]["summary"])
-    st.jira_update(d["id"], "fields", {"f": {"assignee": "someone", "desc": d["f"]["desc"] + "\ncall 91234567 phone 98765432"}})
+    st.jira_update(d["id"], "fields", {"f": {"desc": d["f"]["desc"] + "\ncall 91234567 phone 98765432"}})
     v = st.draft_view(d)["val"]
     check("个人信息检查", any("个人信息" in e for e in v["errs"]), v)
     st.jira_update(d["id"], "mask", {})
-    st.jira_update(d["id"], "approve", {"reviewer": "自检"})
+    st.jira_update(d["id"], "approve", {})
     check("审核通过", st.draft(d["id"])["status"] == "approved")
     csv_text = st.jira_csv([d["id"]])
     check("Jira CSV", csv_text.startswith("﻿Summary") and "triage-" + d["id"] in csv_text)

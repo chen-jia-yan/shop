@@ -33,7 +33,7 @@ CORR_FILE = ROOT / "config" / "corrections.json"
 JIRA_FILE = ROOT / "config" / "jira.json"
 RAW = ("uid", "run", "seq", "id", "name", "result", "error", "stack", "exceptionRaw", "pageText", "screenshot", "start",
        "module", "device", "failed", "parent", "attempt")
-HUMAN = ("obs", "dataCheck", "dataNote", "override", "rerun", "rerunNote", "rerunReq", "r2")
+HUMAN = ("obs", "ai", "dataCheck", "dataNote", "override", "rerun", "rerunNote", "rerunReq", "r2")
 IMG_EXT = {"image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/gif": ".gif", "image/bmp": ".bmp", "image/webp": ".webp"}
 
 
@@ -314,6 +314,12 @@ class Store:
             raise UserError("不能修改：" + "、".join(bad))
         if values.get("override") and not str(values["override"].get("reason") or "").strip():
             raise UserError("人工改判必须写原因")
+        o = values.get("obs")
+        if o and o.get("kind") and o["kind"] not in E.OBS_KINDS:
+            raise UserError("截图观察的现象只能是：" + "、".join(E.OBS_KINDS))
+        ai = values.get("ai")
+        if ai and (ai.get("cat") not in E.CATS or not str(ai.get("reason") or "").strip()):
+            raise UserError("AI 判断要写分类（" + "、".join(E.CATS) + "）和原因")
         with self.lock:
             touched = {}
             for u in uids:
@@ -654,15 +660,10 @@ class Store:
                 touched("一键脱敏")
             elif act == "approve":
                 v = J.validate(d, self.case(d["uids"][0]), self.drafts, self._case_of)
-                rev = str(data.get("reviewer") or "").strip()
                 if not v["ok"]:
                     raise UserError("还有必须修改的问题：" + (v["errs"] or ["请确认“待复核”"])[0])
-                if not rev:
-                    raise UserError("请填写审核人")
-                self.settings["reviewer"] = rev
-                self.save_settings()
-                d.update(status="approved", reviewer=rev, reviewedAt=now())
-                hist(rev + " 审核通过")
+                d.update(status="approved", reviewedAt=now())
+                hist("审核通过")
             elif act == "unapprove":
                 d["status"] = "draft"
                 hist("撤回审核")
@@ -789,7 +790,7 @@ class Store:
                 a = c["auto"]
                 v["auto"] = {k: a.get(k) for k in ("cat", "status", "rule", "why", "need", "hits", "flags", "brief", "checkKind", "reason", "phase", "ocr", "custom")}
                 v["auto"]["ev"] = [{k: e.get(k) for k in ("id", "kind", "label", "text", "src", "derived")} for e in a["ev"]]
-                v["final"], v["plan"], v["ruleName"] = c["final"], c["plan"], E.rule_name(c)
+                v["final"], v["plan"], v["ruleName"], v["aiUsed"] = c["final"], c["plan"], E.rule_name(c), c.get("aiUsed")
             out.append(v)
         return out
 

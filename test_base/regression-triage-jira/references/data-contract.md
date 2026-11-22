@@ -32,7 +32,8 @@ workspace/
 | `screenshot` | 报告里写的截图路径或网址（内嵌截图已存成文件，不在这里） |
 | `shots` / `shots2` | 第 1 次 / 重跑的截图：`[{name, file, sha}]` |
 | `parent`、`attempt` | 第 2 次记录指向第 1 次的 `uid` |
-| `obs` | 截图观察 `{kind, text, at}`，`kind` 见 `ta_engine.OBS_KINDS` |
+| `obs` | 截图观察 `{kind, text, by, at}`，`kind` 见 `ta_engine.OBS_KINDS`；`by: "AI"` 表示 AI 看图写入（结论因它而变时为待复核） |
+| `ai` | AI 判断 `{cat, reason, at}`，只对规则没能确认的用例生效，页面显示“AI 判断·待复核” |
 | `dataCheck`、`dataNote` | 人工核查结果（见 `ta_engine.CHECK_KINDS`）和说明 |
 | `override` | 人工改判 `{cat, reason, at}` |
 | `rerun`、`rerunNote`、`rerunReq`、`r2` | 重跑结果 `pass`/`fail`、说明、发起时间、第 2 次信息 `{start, screenshot, error, same}` |

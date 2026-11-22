@@ -33,7 +33,7 @@ DEFAULT_CFG = {
     "draftCats": ["PRODUCT_DEFECT", "NEEDS_HUMAN"], "rerunUrl": "", "maskOnExport": True,
 }
 FIELD_NAMES = {"summary": "Summary", "issueType": "Issue Type", "priority": "Priority", "system": "System", "components": "Components",
-               "labels": "Labels", "assignee": "Assignee", "environment": "Environment", "data": "Test Data", "desc": "Description"}
+               "labels": "Labels", "environment": "Environment", "data": "Test Data", "desc": "Description"}
 
 
 def now() -> str:
@@ -363,7 +363,7 @@ def script_fields(d, c, run, cfg, case_of) -> dict:
                              "Test plan: " + (run.get("plan") or "-"), "Executed at: " + (c.get("start") or run.get("at") or "-") + " (UTC+8)"])
     sh = shot_list(c.get("shots"), c.get("screenshot")) + ([] if c.get("parent") else shot_list(c.get("shots2"), (c.get("r2") or {}).get("screenshot")))
     return {"summary": summary, "issueType": cfg["issueTypeEnv"] if c["final"] == "ENVIRONMENT" else cfg["issueType"], "priority": pr["v"], "system": cfg["system"],
-            "components": cfg["components"], "labels": cfg["labels"], "assignee": "", "environment": environment,
+            "components": cfg["components"], "labels": cfg["labels"], "environment": environment,
             "desc": "\n".join(x for x in [opening, chk] if x) + "\n\n" + "\n".join(run_lines(c, case_of)),
             "data": "\n".join(k + ": " + v for k, v in test_data(c).items()),
             "_priorityWhy": pr["why"], "_causeSure": cause["sure"], "_attach": list(dict.fromkeys(sh))}
@@ -444,8 +444,6 @@ def validate(d, c, drafts, case_of) -> dict:
     dup = dup_of(d, drafts, case_of)
     if dup:
         warns.append({"t": dup["text"]})
-    if not f.get("assignee"):
-        warns.append({"t": "没有填写 Assignee（经办人），提交后需在 Jira 里指派"})
     return {"errs": errs, "warns": warns, "ok": not errs and not any(w.get("k") == "sus" for w in warns)}
 
 
@@ -468,8 +466,6 @@ def payload(d, cfg, cases, run) -> dict:
         fields["environment"] = mk(f["environment"])
     if cfg.get("systemField"):
         fields[cfg["systemField"]] = {"value": f["system"]}
-    if f.get("assignee"):
-        fields["assignee"] = {"accountId": f["assignee"]} if cfg["deploy"] == "cloud" else {"name": f["assignee"]}
     c = cases[0] if cases else {}
     pool = (c.get("shots") or []) + (c.get("shots2") or [])
     return {"draftId": d["id"], "mode": d["mode"], "target": d.get("target") if d["mode"] == "comment" else None, "idempotencyLabel": "triage-" + d["id"],
@@ -477,7 +473,7 @@ def payload(d, cfg, cases, run) -> dict:
             "comment": mk("h4. Automated regression " + _s(run.get("name")) + ": occurred again in " + _s(c.get("id")) + "\n\n" + wiki(d, cfg)) if d["mode"] == "comment" else None,
             "attachments": [{"fileName": n, "file": next((s.get("file") for s in pool if _base(s["name"]) == n), None)} for n in (d.get("meta") or {}).get("attach") or []],
             "cases": [{"id": x["id"], "name": x.get("name"), "category": x["final"], "rule": "人工" if x.get("override") else x["auto"]["rule"], "attempt": 2 if x.get("parent") else 1} for x in cases],
-            "reviewer": d.get("reviewer"), "reviewedAt": d.get("reviewedAt")}
+            "reviewedAt": d.get("reviewedAt")}
 
 
 def to_csv(rows) -> str:
@@ -491,12 +487,12 @@ def jira_csv(lst, cfg) -> str:
     max_l = max([1] + [len(labels_of(d)) for d in lst])
     max_c = max([1] + [len(comps(d)) for d in lst])
     env = cfg["envMode"] == "field"
-    head = ["Summary", "Issue Type", "Priority"] + ["Component/s"] * max_c + ["Labels"] * max_l + (["Environment"] if env else []) + ["System", "Assignee", "Description", "Draft ID"]
+    head = ["Summary", "Issue Type", "Priority"] + ["Component/s"] * max_c + ["Labels"] * max_l + (["Environment"] if env else []) + ["System", "Description", "Draft ID"]
     rows = [head]
     for d in lst:
         L, C, f = labels_of(d), comps(d), d["f"]
         rows.append([mk(f["summary"]), f["issueType"], f["priority"]] + [C[i] if i < len(C) else "" for i in range(max_c)] + [L[i] if i < len(L) else "" for i in range(max_l)] +
-                    ([mk(f["environment"])] if env else []) + [f["system"], f["assignee"], mk(wiki(d, cfg)), d["id"]])
+                    ([mk(f["environment"])] if env else []) + [f["system"], mk(wiki(d, cfg)), d["id"]])
     return to_csv(rows)
 
 

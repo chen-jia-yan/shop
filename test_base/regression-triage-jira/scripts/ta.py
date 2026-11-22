@@ -1,11 +1,13 @@
 """测试分析助手（命令行入口）。页面和命令行用的是同一套分析，结果相同。
 
-    python scripts/ta.py open                      打开页面（本机服务，只监听 127.0.0.1；已开着时直接打开页面）
+    python scripts/ta.py open                      打开页面（本机服务，只监听 127.0.0.1；已开着时直接打开页面）；--bg 后台启动后立即返回
     python scripts/ta.py shortcut                  在桌面创建快捷方式（双击打开，不出现命令行窗口）
     python scripts/ta.py analyze 报告.mhtml [...]   导入执行结果、识别截图文字、分析，打印结果
           --name 批次名 --plan 测试计划 --device 设备 --env 环境；--rerun-of <批次编号> 导入重跑结果
     python scripts/ta.py list                      已导入的批次
     python scripts/ta.py show [批次编号] [--json]   失败用例的分析结果（--json 给 AI 或其他程序读取）
+    python scripts/ta.py shots [批次编号] [--all]   要看截图的用例、当前判断、截图完整路径（JSON，给 AI 看图用）
+    python scripts/ta.py record ai.json            AI 写入看图结果（obs）和判断（ai），写完重新分析，打印前后变化
     python scripts/ta.py export [批次编号] --out 失败分诊.csv
     python scripts/ta.py ocr [--import 结果.ocr.json]   识别还没识别的截图 / 导入手动识别的结果
     python scripts/ta.py check                     改规则或代码后运行：规则写法、纠错样本、基准样本
@@ -21,6 +23,7 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 import webbrowser
 from pathlib import Path
@@ -72,6 +75,21 @@ def cmd_open(a):
         if not a.no_browser:
             webbrowser.open(url)
         return
+    if a.bg:
+        # 给 AI 用：在后台启动服务后立即返回，不占住终端
+        exe = Path(sys.executable)
+        if os.name == "nt" and exe.with_name("pythonw.exe").exists():
+            exe = exe.with_name("pythonw.exe")
+        args = [str(exe), str(Path(__file__).resolve()), "open", "--port", str(a.port)] + (["--no-browser"] if a.no_browser else [])
+        kw = {"creationflags": 0x00000008 | 0x00000200 | 0x08000000} if os.name == "nt" else {"start_new_session": True}
+        subprocess.Popen(args, cwd=str(E.ROOT), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True, **kw)
+        for _ in range(40):
+            time.sleep(0.25)
+            p = _running(a.port)
+            if p:
+                print("测试分析助手已在后台启动：http://127.0.0.1:" + str(p) + "/（页面关闭 " + str(IDLE_MIN) + " 分钟后自动退出）")
+                return
+        raise T.UserError("后台启动没有成功，请双击“测试分析助手”打开；日志在 workspace/server.log")
     st = T.Store()
     srv, port = ta_server.serve(st, a.port)
     url = "http://127.0.0.1:" + str(port) + "/"
@@ -167,6 +185,74 @@ def cmd_export(a):
     print("已导出", out)
 
 
+def _need_look(c):
+    """规则没能确认、需要看截图或 AI 补充判断的用例。"""
+    a = c["auto"]
+    return not c.get("override") and (a["status"] != "confirmed" or a["cat"] == "NEEDS_HUMAN")
+
+
+def cmd_shots(a):
+    """给 AI 看图用：列出要看的用例、当前判断、截图的完整路径（JSON）。"""
+    st = T.Store(auto_ocr=False)
+    r = _run(st, a.run)
+    out = []
+    for c in st.analyzed():
+        if c["run"] != r["id"] or not c.get("failed") or not (a.all or _need_look(c)):
+            continue
+        files = [str((st.ws / "runs" / r["id"] / "shots" / s["file"]).resolve()) for s in c["shots"] + c["shots2"]]
+        out.append({"uid": c["uid"], "case_id": c["id"], "name": c.get("name"), "category": c["final"], "status": c["auto"]["status"],
+                    "rule": E.rule_name(c), "brief": c["auto"]["brief"], "error": (c.get("error") or c.get("stack") or "")[:600],
+                    "screenshots": files, "screenshot_in_report": c.get("screenshot") if not files else None,
+                    "obs": c.get("obs"), "ai": c.get("ai"), "ocr_text": (c.get("ocrText") or "")[:600] or None})
+    print(json.dumps({"run": r["id"], "n": len(out), "obs_kinds": E.OBS_KINDS, "categories": {k: v["name"] for k, v in E.CATS.items()}, "cases": out},
+                     ensure_ascii=False, indent=1))
+
+
+def _post(port, path, body):
+    req = urllib.request.Request("http://127.0.0.1:" + str(port) + path, data=json.dumps(body).encode("utf-8"), method="POST",
+                                 headers={"Content-Type": "application/json", "X-TA": "1"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        raise T.UserError(json.loads(e.read() or b"{}").get("error") or str(e))
+
+
+def cmd_record(a):
+    """AI 看图、分析后写入：[{"uid", "obs": {"kind", "text"}, "ai": {"cat", "reason"}}]，写完重新分析并打印前后变化。
+    页面开着时通过页面的服务写入（否则页面保存时会把命令行写的内容覆盖掉）。"""
+    items = json.loads(Path(a.file).read_text(encoding="utf-8-sig"))
+    items = items.get("items") if isinstance(items, dict) else items
+    port = _running(8765)
+    st = None if port else T.Store(auto_ocr=False)
+    finals = lambda: {c["uid"]: c for c in (json.loads(urllib.request.urlopen("http://127.0.0.1:" + str(port) + "/api/state", timeout=30).read())["cases"] if port else st.cases_view())}
+    before, at = finals(), time.strftime("%Y-%m-%d %H:%M")
+    done = []
+    for it in items:
+        u = it.get("uid")
+        if u not in before or not before[u].get("failed"):
+            print("✗ 没有失败用例 " + str(u) + "（用 ta.py shots 查看 uid）")
+            continue
+        v = {}
+        if "obs" in it:
+            v["obs"] = dict(it["obs"], by="AI", at=at) if it["obs"] else None
+        if "ai" in it:
+            v["ai"] = dict(it["ai"], at=at) if it["ai"] else None
+        if not v:
+            continue
+        try:
+            _post(port, "/api/case", {"uids": [u], "set": v}) if port else st.set_case([u], v)
+            done.append(u)
+        except T.UserError as e:
+            print("✗ " + str(before[u]["id"]) + "：" + str(e))
+    after = finals()
+    name = lambda c: E.CATS[c["final"]]["name"] + "（" + c["ruleName"] + "）"
+    for u in done:
+        b, n = before[u], after[u]
+        print(("  " if b["final"] == n["final"] else "→ ") + str(n["id"]) + "：" + (name(b) + " → " if b["final"] != n["final"] or b["ruleName"] != n["ruleName"] else "不变 ") + name(n))
+    print("已写入 " + str(len(done)) + " 条" + ("（页面已同步，刷新即可看到）" if port else ""))
+
+
 def cmd_ocr(a):
     st = T.Store(auto_ocr=False)
     if a.import_file:
@@ -240,6 +326,7 @@ def main():
     p.add_argument("--port", type=int, default=8765)
     p.add_argument("--no-browser", action="store_true")
     p.add_argument("--keep", action="store_true", help="页面关闭后也不自动退出")
+    p.add_argument("--bg", action="store_true", help="在后台启动后立即返回（给 AI 用）")
     sp.add_parser("shortcut")
     p = sp.add_parser("analyze")
     p.add_argument("files", nargs="+")
@@ -252,13 +339,19 @@ def main():
     p = sp.add_parser("export")
     p.add_argument("run", nargs="?")
     p.add_argument("--out")
+    p = sp.add_parser("shots")
+    p.add_argument("run", nargs="?")
+    p.add_argument("--all", action="store_true", help="包括规则已确认的用例")
+    p = sp.add_parser("record")
+    p.add_argument("file")
     p = sp.add_parser("ocr")
     p.add_argument("--import", dest="import_file")
     sp.add_parser("check")
     a = ap.parse_args()
-    fn = {"open": cmd_open, "shortcut": cmd_shortcut, "analyze": cmd_analyze, "list": cmd_list, "show": cmd_show, "export": cmd_export, "ocr": cmd_ocr, "check": cmd_check}.get(a.cmd or "open")
+    fn = {"open": cmd_open, "shortcut": cmd_shortcut, "analyze": cmd_analyze, "list": cmd_list, "show": cmd_show, "export": cmd_export,
+          "shots": cmd_shots, "record": cmd_record, "ocr": cmd_ocr, "check": cmd_check}.get(a.cmd or "open")
     if not a.cmd:
-        a.port, a.no_browser, a.keep = 8765, False, False
+        a.port, a.no_browser, a.keep, a.bg = 8765, False, False, False
     try:
         return fn(a) or 0
     except T.UserError as e:
