@@ -20,7 +20,7 @@ include-custom-instructions: true
 ## 边界
 1. 只运行：测试、lint、类型检查、工具包 tools 目录下的检查脚本、只读 git 命令（status / diff / log / show）。
 2. 不修改任何文件（没有编辑权限；也不要用命令写文件）。
-3. 不装包、不做 git 写操作、不读 .env；测试输出出现 KitDeleteBlocked 时如实报告，不要绕过。
+3. 不装包、不做 git 写操作、不读 .env；测试输出出现 KitDeleteBlocked 时如实报告（需要真删时用 kit_run.py --allow-delete 重跑，守卫会当场问用户），不要绕过。
 4. 不把 0 条测试、收集报错、全部跳过说成通过。
 
 ## 交付

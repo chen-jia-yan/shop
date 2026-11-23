@@ -616,6 +616,37 @@ def approval_confirm(session: str, digest: str) -> str:
     return ""
 
 
+# ---------------------------------------------------------------- 本次会话碰过的文件
+
+SESSION_FILES_PATH = DATA_DIR / "session_files.json"
+
+
+def session_files(session_id: str = "") -> dict[str, Any]:
+    """本次会话里 Copilot 新建的文件（created）和成功改过的文件（edited），路径已经 norm。
+
+    守卫用它判断：它自己新建的文件，删除时不用问。换了会话（sessionId 不同）就从空开始。
+    """
+    data = load_json(SESSION_FILES_PATH, {}) or {}
+    if session_id and data.get("session") != session_id:
+        data = {"session": session_id}
+    data.setdefault("created", [])
+    data.setdefault("edited", [])
+    return data
+
+
+def session_add(kind: str, paths: list[str], session_id: str = "") -> None:
+    data = session_files(session_id)
+    if session_id:
+        data["session"] = session_id
+    items = list(data.get(kind, []))
+    for p in paths:
+        n = norm(p)
+        if n not in items:
+            items.append(n)
+    data[kind] = items[-500:]
+    save_json(SESSION_FILES_PATH, data)
+
+
 # ---------------------------------------------------------------- 共享模块（和同事一起开发的代码）
 
 

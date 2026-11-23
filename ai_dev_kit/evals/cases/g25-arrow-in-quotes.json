@@ -1,0 +1,8 @@
+{
+  "id": "g25-arrow-in-quotes",
+  "type": "guard",
+  "title": "反向：引号里的 > 和 ; 不能被当成重定向或拆开",
+  "incident": "用户反馈：简单任务被守卫拦好几次；python -c 里的比较和箭头曾被当成写文件",
+  "payload": {"toolName": "powershell", "toolArgs": {"command": "python \"{kit}/tools/kit_run.py\" -- uv run python -c \"import sys; print('a -> b', len(sys.argv) > 0)\""}},
+  "expect": "none"
+}

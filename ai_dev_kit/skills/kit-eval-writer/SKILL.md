@@ -40,7 +40,7 @@ description: 把一次真实事故（Copilot 犯过的错、漏掉的检查）�
    `{{PYTHON}} {{KIT_ROOT}}/tools/kit_new.py case <用例id> --type <类型>`
 4. **填内容**（字段说明）：
    - 通用：`id`、`type`、`title`（这条防什么）、`incident`（来自哪次事故）
-   - guard：`payload`（`toolName` + `toolArgs`，模拟 Copilot 的一次工具调用），`expect`（deny / ask / none），可选 `expect_rule`（例如 delete-needs-consent）、`guard_config`、`context`（project / other，默认 project）、`mode`（chat / workbench / project）、`shared` + `shared_allow`（共享模块）、`baseline: true`（已记录基线）、`files`（预先写进临时目录的文件 {路径: 内容}）；命令里可以用 `{kit}` 表示工具包目录
+   - guard：`payload`（`toolName` + `toolArgs`，模拟 Copilot 的一次工具调用），`expect`（deny / ask / none），可选 `expect_rule`（例如 data-delete、scratch-delete、auto-kit-run）、`guard_config`、`context`（project / other，默认 project）、`mode`（chat / workbench / project）、`shared` + `shared_allow`（共享模块）、`baseline: true`（已记录基线）、`files`（预先写进临时目录的文件 {路径: 内容}）；命令里可以用 `{kit}` 表示工具包目录
    - static：`check`（检查名，见 `checks.py --list`），`before`（改动前的文件 {路径: 内容}），`after`（改动后的文件，内容为 null 表示删除），`expect`（fail / pass），可选 `scope`、`project`
    - prompt：`text`，`expect_missing`（goal / location / context / constraints / done / verify / output / examples），可选 `expect_max_score` / `expect_min_score`
    - output：`output`（测试命令原始输出），`exit_code`，`check_name`（默认 tests），`expect`（fail / pass）

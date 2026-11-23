@@ -157,6 +157,8 @@ def on_tool(payload: dict[str, Any], failed: bool) -> tuple[dict[str, Any], int]
         kind = kitlib.approval_confirm(session, kitlib.args_digest(args))
         if kind:
             kitlib.log_event("guard", {"decision": "user-approved", "kind": kind, "session": session[:12]})
+            if kind.startswith("out-of-scope:"):
+                _scope_add(kind.split(":", 1)[1], str(payload.get("cwd") or os.getcwd()))
         _metrics("tool", payload)
     text = str(payload.get("error") or "") if failed else _tool_text(payload)
     hints: list[str] = []
@@ -180,8 +182,21 @@ def on_tool(payload: dict[str, Any], failed: bool) -> tuple[dict[str, Any], int]
     return ({"additionalContext": hint} if hint else {}), 0
 
 
+def _scope_add(rel: str, cwd: str) -> None:
+    """你在确认框里同意改了方案外的文件：把它补进修改范围，验证时不再报越界、之后也不再问。"""
+    scope_root, scope = kitlib.find_scope(cwd)
+    if not scope_root or not scope or scope.get("files") is None:
+        return
+    if kitlib.match_any(rel, list(scope.get("files", [])) + list(scope.get("globs", []))):
+        return
+    scope["files"] = list(scope.get("files", [])) + [rel]
+    scope["added_during_task"] = list(scope.get("added_during_task", [])) + [rel]
+    kitlib.save_json(scope_root / kitlib.SCOPE_DIRNAME / kitlib.SCOPE_FILENAME, scope)
+    kitlib.log_event("guard", {"decision": "scope-added", "file": rel})
+
+
 def delete_blocked_hint(payload: dict[str, Any], text: str, session: str) -> str:
-    """测试或脚本运行中有删除被拦下：登记一条“待同意”，并告诉模型怎么向用户说明。"""
+    """测试或脚本运行中有删除被拦下：告诉模型怎么继续（默认：直接加 --allow-delete 重跑，守卫会当场问用户）。"""
     if "KitDeleteBlocked" not in text and "想删除数据" not in text:
         return ""
     args = payload.get("toolArgs") or payload.get("tool_input") or {}
@@ -193,6 +208,11 @@ def delete_blocked_hint(payload: dict[str, Any], text: str, session: str) -> str
     details = re.findall(r"禁删保护：(.{0,160}?)，已拦下", text)[:4]
     risk = kit_rules.assess(text[-4000:])
     risk.what = details or ["测试或脚本运行中的删除调用（详见上面的报错）"]
+    ask_mode = str(((kitlib.load_config().get("guard", {}) or {}).get("ask_mode", "ask"))).lower()
+    if ask_mode != "deny":
+        return (f"{HINT_TAG} 运行中有删除数据的操作被拦下了，数据没被删。如果这次删除是需要的：不用停下来问，"
+                f"直接用 kit_run.py --allow-delete -- <原命令> 重新运行，守卫会弹确认框（带下面的风险评估）让用户当场决定；"
+                f"如果是测试里不该有的清理代码，改成用假对象，然后继续。\n{risk.render()}")
     kitlib.delete_request(session, kitlib.delete_core(command), risk.render())
     return (f"{HINT_TAG} 运行中有删除数据的操作被拦下了，数据没被删。如果这次删除是需要的："
             f"把下面的风险评估告诉用户，等用户回复“同意”后，用 kit_run.py --allow-delete -- <原命令> 重新运行；"
@@ -207,7 +227,8 @@ def subagent_context(payload: dict[str, Any]) -> str:
     cwd = str(payload.get("cwd") or os.getcwd())
     info = kitlib.current_mode(cfg, cwd)
     lines = [f"[ai-dev-kit] 当前模式：{info['label']}。",
-             "红线：不读 .env；删除数据要先评估风险、等用户同意（测试和脚本用 kit_run.py 运行）；不用 git add .；共享模块保持接口兼容；"
+             "红线：不读 .env；删除数据时守卫会当场请用户确认（同意就继续，不要先停下来问）；不用 git add .；共享模块保持接口兼容；"
+             "被守卫拒绝就跳过那一步、继续其余工作；"
              "同类的改动先列全再一次做完；"
              "没运行的验证不要说通过。"]
     proj = info.get("project")

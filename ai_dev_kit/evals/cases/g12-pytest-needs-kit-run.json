@@ -1,9 +1,9 @@
 {
   "id": "g12-pytest-needs-kit-run",
   "type": "guard",
-  "title": "项目里直接跑 pytest 要求改用 kit_run（带删除保护）",
+  "title": "项目里直接跑 pytest：不拦，守卫自动套上 kit_run.py 禁删保护",
   "incident": "测试里的清理代码可能在没人注意时删掉真实数据",
   "payload": {"toolName": "powershell", "toolArgs": {"command": "uv run pytest tests -q"}},
-  "expect": "deny",
-  "expect_rule": "need-kit-run"
+  "expect": "none",
+  "expect_rule": "auto-kit-run"
 }

@@ -1,23 +1,27 @@
-"""ai-dev-kit 桌面机器人：左边是会动的小机器人，右边是一块科技感的数据面板（HUD）。
+"""ai-dev-kit 桌面机器人：一个小机器人 + 头顶的对话泡泡 + 一块随时能打开的数据面板。
 
-机器人
+机器人（小尺寸，只占一小块地方）
 - 读取 ~/.ai-dev-kit/status.json（总调度在每个阶段写入），换表情和动作：
     分析 / 出方案 → 思考；改代码 → 敲键盘、齿轮转；跑验证 → 进度条；评审 → 戴眼镜拿放大镜
     完成 → 星星眼、撒花；卡住了 → 冒汗；守卫拦下危险操作 → 举盾牌
-- 该你了（等你确认、等你回答、等你决定是否删除数据、一轮做完）→ 跳起来，面板亮提醒卡。
 - 很久没动静会打瞌睡；眼睛跟着鼠标看。
 
-右侧面板（数据都来自本机真实记录，没有示例数据；没用过时显示“还没有数据”）
-- 顶部：当前模式（随手问 / 工作台 / 项目开发）、统计范围（今天 / 近 7 天）、时间
-- 数据条：AI 干活时长、等你的时长、token（拿不到真实值时标“估算”）、对话轮数
-- 任务进度：分段进度条，每段是方案里的一步，当前步在闪
-- 排行榜：时间都去哪了 / 用到的技能和代理 / 工具调用 / token 去向，每 6 秒自动轮播，条形图会动态重排
-- 提醒卡：轮到你时停止轮播，显示要你做什么，并给出一键复制的回复（例如“确认”“同意”）
+对话泡泡（单独的小窗口，不用时不占地方）
+- 执行中：每换一个阶段弹一个小泡泡，几秒后自己消失
+- 该你了（等你确认方案、Copilot 弹了确认框、要不要删数据、一轮做完了）：橙色提醒泡泡，
+  带一键复制的回复，事情处理完自己收起；点一下泡泡也能收起
+
+数据面板（单独的窗口，什么时候都能看，任务结束后也能看）
+- 打开 / 关闭：双击机器人、点机器人右下角的小图标、或右键 → 打开数据面板
+- 顶上一排按钮切换：总览（时长、Token、上一轮、守卫）/ 时间 / 能力 / 工具 / Token / 最近几轮
+- 默认背景透明，只显示动态进度条和小标签；右键面板可以换深色背景、调透明度
+- 拖标题栏移动，拖右下角小三角或右边、下边的边框调大小，内容跟着放大；大小和位置都会记住
+- 数据都来自本机真实记录（~/.ai-dev-kit/metrics/），没有示例数据；没用过时显示“还没有数据”
 
 操作
-- 单击机器人：现在进行到哪、你该做什么；拖动：移动位置
-- 单击面板上的小圆点：切换排行榜；单击“今天 / 近7天”：切换统计范围
-- 右键：常用工具、模式切换、面板显示 / 收起、设置（菜单来自 registry.json，新增按钮不用改代码）
+- 单击机器人：现在进行到哪、你该做什么；双击：数据面板；拖动：移动（泡泡和面板跟着走）
+- 右键机器人：常用工具、模式切换、设置（菜单来自 registry.json，新增按钮不用改代码）
+- 任务只在 Copilot 终端里说，机器人不需要输入任何东西
 
 运行：双击 widget/start_widget.bat，或 pythonw widget/dev_widget.pyw
 """
@@ -90,7 +94,7 @@ RULE_TEXT = {
     "shared-baseline": "改共享模块前没记基线", "out-of-scope": "越界修改", "shell-write": "用命令写文件",
     "ruff-format": "ruff format", "forbidden-marker": "加屏蔽标记", "invisible-char": "写入隐形字符",
     "fullwidth-space": "写入全角空格", "custom-deny": "自定义禁止的命令", "need-kit-run": "没用删除保护跑测试",
-    "delete-rejected": "你拒绝过的删除", "nodelete-tamper": "改删除保护开关",
+    "delete-rejected": "你拒绝过的删除", "nodelete-tamper": "改删除保护开关", "dangerous-delete": "删 .git 或整个目录",
 }
 QUIET_RULES = {"delete-needs-consent", "delete-needs-flag"}  # 这两种由提醒卡处理，不举盾牌
 LOOKS: dict[str, dict[str, str]] = {
@@ -129,10 +133,13 @@ NEXT_STEP = {
 
 def load_state() -> dict[str, Any]:
     state = kitlib.load_json(STATE_PATH, {}) or {}
-    defaults = {"scale": 1.0, "topmost": True, "quiet": False, "profile": "", "hud": True, "span": "today"}
+    defaults = {"robot_scale": 0.75, "topmost": True, "quiet": False, "profile": "", "span": "today",
+                "panel_open": bool(state.get("hud", True)), "panel_bg": "clear"}
     for k, v in defaults.items():
         state.setdefault(k, v)
     state.pop("skin", None)  # 旧版本的小猫造型已经去掉
+    for old in ("hud", "scale"):  # 2.0 的面板和机器人在一个窗口里；2.1 起分开，大小分别记
+        state.pop(old, None)
     return state
 
 
@@ -169,26 +176,358 @@ def fit(text: str, max_px: float, size: float) -> str:
     return out + "…"
 
 
-# ================================================================= 右侧面板
+# ================================================================= 对话泡泡
 
 
-class Hud:
-    """右侧数据面板：只读本机真实数据，没有数据时显示空状态。"""
+class Bubble:
+    """机器人头顶的对话泡泡：单独的小窗口，不用时不占任何地方。
+
+    - 普通泡泡（在改代码、跑完了）几秒后自己消失
+    - 提醒泡泡（该你了）橙色边框，一直显示到事情处理完，或者你点一下收起
+    - 可以带按钮：一键复制回复、看风险评估、打开数据面板
+    """
 
     def __init__(self, pet: "Pet") -> None:
+        tk = pet.tk
         self.pet = pet
-        self.summary: dict[str, Any] = {}
-        self.channels: list[dict[str, Any]] = []
-        self.loaded_at = 0.0
-        self.ch_index = 0
-        self.ch_switched = time.time()
-        self.bars: dict[str, dict[str, float]] = {}
+        self.win = tk.Toplevel(pet.root)
+        self.win.overrideredirect(True)
+        self.win.attributes("-topmost", True)
+        bg = KEY if IS_WINDOWS else PAPER
+        if IS_WINDOWS:
+            self.win.attributes("-transparentcolor", KEY)
+        self.win.configure(bg=bg)
+        self.c = tk.Canvas(self.win, highlightthickness=0, bd=0, bg=bg, cursor="hand2")
+        self.c.pack(fill="both", expand=True)
+        self.c.bind("<ButtonRelease-1>", self.on_click)
+        self.win.withdraw()
+        self.msg: dict[str, Any] = {}
+        self.until = 0.0
         self.hits: list[tuple[float, float, float, float, Callable[[], None]]] = []
-        self.hover = False
-        self.alert: dict[str, Any] = {}
-        self.alert_key = ""
-        self.mode_label = ""
+        self.anchor: tuple[int, int, int, int] | None = None
+
+    @property
+    def key(self) -> str:
+        return str(self.msg.get("key", ""))
+
+    @property
+    def attention(self) -> bool:
+        return bool(self.msg.get("attention"))
+
+    def show(self, text: str, seconds: float = 5, attention: bool = False, title: str = "",
+             buttons: list[tuple[str, Callable[[], None]]] | None = None, key: str = "", color: str = "") -> None:
+        self.msg = {"text": text, "title": title, "attention": attention, "buttons": list(buttons or []),
+                    "key": key, "color": color or ("#ea580c" if attention else INK)}
+        self.until = time.time() + seconds
+        self.anchor = None
+        self.tick()
+
+    def visible(self) -> bool:
+        return bool(self.msg)
+
+    def hide(self) -> None:
+        self.msg = {}
+        self.anchor = None
+        self.win.withdraw()
+
+    def tick(self) -> None:
+        """每一帧调用：到时间就收起；机器人被拖动了就跟着走。"""
+        if not self.msg:
+            return
+        if time.time() > self.until:
+            self.hide()
+            return
+        root = self.pet.root
+        anchor = (root.winfo_x(), root.winfo_y(), self.pet.W, self.pet.Hpx)
+        if anchor != self.anchor:
+            self.anchor = anchor
+            self.render(*anchor)
+            self.win.deiconify()
+            self.win.lift()
+
+    def on_click(self, e: Any) -> None:
+        for x1, y1, x2, y2, cb in self.hits:
+            if x1 <= e.x <= x2 and y1 <= e.y <= y2:
+                cb()
+                return
+        if self.key:
+            self.pet.dismissed.add(self.key)  # 你收起的提醒不会再弹出来
+        self.hide()
+
+    def render(self, px: int, py: int, pw: int, ph: int) -> None:
+        c = self.c
+        c.delete("all")
+        self.hits = []
+        m = self.msg
+        s = max(1.0, self.pet.s * 1.2)
+        pad, tail, bw = 11 * s, 12 * s, 2
+        maxw = 250 * s
+        color = m["color"]
+        y = 0.0
+        if m["title"]:
+            tid = c.create_text(0, y, text=m["title"], anchor="nw", width=maxw, fill=color, tags="fg",
+                                font=(FONT, -int(12.5 * s), "bold"))
+            y = c.bbox(tid)[3] + 4 * s
+        tid = c.create_text(0, y, text=m["text"], anchor="nw", width=maxw, fill=INK, tags="fg",
+                            font=(FONT, -int(12 * s)), justify="left")
+        x1, _, x2, y2 = c.bbox("fg")
+        content_w, content_h = x2 - x1, y2
+        row: list[tuple[str, Callable[[], None], float]] = []
+        bx = 0.0
+        for label, cb in m["buttons"]:
+            w = text_px(label, 11 * s) + 18 * s
+            row.append((label, cb, bx))
+            bx += w + 6 * s
+        if row:
+            content_w = max(content_w, bx - 6 * s)
+            content_h += 8 * s + 20 * s
+        w = int(content_w + pad * 2 + bw * 2)
+        h = int(content_h + pad * 2 + bw * 2)
+        sw = self.pet.root.winfo_screenwidth()
+        bx_win = int(min(max(4, px + pw // 2 - w // 2), sw - w - 4))
+        above = py - h - tail > 0
+        by_win = int(py - h - tail + 6 * s) if above else int(py + ph - 4 * s)
+        top = 0 if above else tail
+        fill = "#fff7ed" if m["attention"] else "#ffffff"
+        rrect(c, bw, top + bw, w - bw, top + h - bw, 12 * s, fill=fill, outline=color, width=bw)
+        tx = min(max(16 * s, px + pw / 2 - bx_win), w - 16 * s)
+        if above:
+            yb = top + h - bw
+            c.create_polygon(tx - 8 * s, yb - 1, tx + 8 * s, yb - 1, tx + 2 * s, yb + tail, fill=fill, outline="")
+            c.create_line(tx - 8 * s, yb, tx + 2 * s, yb + tail, tx + 8 * s, yb, fill=color, width=bw)
+        else:
+            yt = tail + bw
+            c.create_polygon(tx - 8 * s, yt + 1, tx + 8 * s, yt + 1, tx + 2 * s, 0, fill=fill, outline="")
+            c.create_line(tx - 8 * s, yt, tx + 2 * s, 0, tx + 8 * s, yt, fill=color, width=bw)
+        ox, oy = pad + bw, top + pad + bw
+        c.move("fg", ox, oy)
+        c.tag_raise("fg")
+        by = oy + y2 + 8 * s
+        for i, (label, cb, rx) in enumerate(row):
+            bw_btn = text_px(label, 11 * s) + 18 * s
+            primary = i == 0
+            rrect(c, ox + rx, by, ox + rx + bw_btn, by + 20 * s, 9 * s, fill=color if primary else "#ffffff",
+                  outline=color)
+            c.create_text(ox + rx + bw_btn / 2, by + 10 * s, text=label, fill="#ffffff" if primary else color,
+                          font=(FONT, -int(11 * s), "bold"))
+            self.hits.append((ox + rx, by, ox + rx + bw_btn, by + 20 * s, cb))
+        self.win.geometry(f"{w}x{h + int(tail)}+{bx_win}+{by_win}")
+        c.configure(width=w, height=h + int(tail))
+
+
+# ================================================================= 数据面板
+
+
+TABS = [("overview", "总览"), ("time", "时间"), ("caps", "能力"), ("tools", "工具"), ("tokens", "Token"),
+        ("turns", "最近几轮")]
+THEMES = {
+    # clear：背景透明，只留进度条和带底色的小标签；dark：深色卡片
+    "clear": {"bg": KEY if IS_WINDOWS else BG, "chip": CARD, "ink": TEXT, "sub": DIM, "track": CARD2, "edge": "#334155"},
+    "dark": {"bg": BG, "chip": CARD, "ink": TEXT, "sub": DIM, "track": CARD2, "edge": LINE},
+}
+
+
+class Panel:
+    """数据面板：单独的窗口，什么时候想看都能打开（任务结束后也能看）。
+
+    - 打开 / 关闭：双击机器人、点机器人右下角的小图标、或右键 → 数据面板
+    - 顶上一排按钮切换内容：总览 / 时间 / 能力 / 工具 / Token / 最近几轮
+    - 拖标题栏移动；拖右下角小三角或右边、下边的边框调大小，内容跟着放大缩小；大小和位置都会记住
+    - 默认背景透明，只显示进度条；右键面板可以换成深色背景、调整体透明度
+    """
+
+    MIN_W, MIN_H = 300, 190
+    DEFAULT_W, DEFAULT_H = 440, 290
+
+    def __init__(self, pet: "Pet") -> None:
+        tk = pet.tk
+        self.pet = pet
+        self.win = tk.Toplevel(pet.root)
+        self.win.overrideredirect(True)
+        self.win.attributes("-topmost", bool(pet.state.get("topmost", True)))
+        self.c = tk.Canvas(self.win, highlightthickness=0, bd=0)
+        self.c.pack(fill="both", expand=True)
+        self.c.bind("<ButtonPress-1>", self.on_press)
+        self.c.bind("<B1-Motion>", self.on_drag)
+        self.c.bind("<ButtonRelease-1>", self.on_release)
+        self.c.bind("<Button-3>", self.show_menu)
+        self.c.bind("<Button-2>", self.show_menu)
+        self.c.bind("<Motion>", self.on_motion)
+        self.c.bind("<Leave>", lambda _e: setattr(self, "hover", False))
+        st = pet.state
+        self.w = max(self.MIN_W, int(st.get("panel_w", self.DEFAULT_W)))
+        self.h = max(self.MIN_H, int(st.get("panel_h", self.DEFAULT_H)))
+        self.dx: int | None = st.get("panel_dx")
+        self.dy: int | None = st.get("panel_dy")
+        self.tab = str(st.get("panel_tab", "overview"))
+        self.tab_switched = time.time()
+        self.summary: dict[str, Any] = {}
+        self.channels: dict[str, dict[str, Any]] = {}
+        self.loaded_at = 0.0
         self.load_error = ""
+        self.mode_label = ""
+        self.anim: dict[str, float] = {}
+        self.hits: list[tuple[float, float, float, float, Any]] = []
+        self.press: tuple[Any, int, int, int, int, int, int] | None = None
+        self.hover = False
+        self.anchor: tuple[int, int] | None = None
+        self.win.withdraw()
+        self.apply_theme()
+
+    # -------------------------------------------------- 窗口
+
+    @property
+    def is_open(self) -> bool:
+        return bool(self.pet.state.get("panel_open", True))
+
+    def theme(self) -> dict[str, str]:
+        return THEMES.get(str(self.pet.state.get("panel_bg", "clear")), THEMES["clear"])
+
+    @property
+    def clear(self) -> bool:
+        return self.pet.state.get("panel_bg", "clear") == "clear"
+
+    def apply_theme(self) -> None:
+        th = self.theme()
+        if IS_WINDOWS:
+            self.win.attributes("-transparentcolor", KEY if self.clear else "")
+        self.win.configure(bg=th["bg"])
+        self.c.configure(bg=th["bg"])
+        try:
+            self.win.attributes("-alpha", float(self.pet.state.get("panel_alpha", 1.0)))
+        except Exception:
+            pass
+
+    def show(self) -> None:
+        self.pet.state["panel_open"] = True
+        self.loaded_at = 0
+        self.anim.clear()
+        self.anchor = None
+        self.place()
+        self.win.deiconify()
+        self.win.lift()
+
+    def hide(self) -> None:
+        self.pet.state["panel_open"] = False
+        self.save()
+        self.win.withdraw()
+
+    def place(self) -> None:
+        """面板跟着机器人：默认放在机器人左边、底边对齐；你拖过之后记住相对位置。"""
+        root = self.pet.root
+        rx, ry = root.winfo_x(), root.winfo_y()
+        self.anchor = (rx, ry)
+        dx, dy = self.dx, self.dy
+        if dx is None or dy is None:
+            dx = -(self.w + 8) if rx - self.w - 8 >= 0 else self.pet.W + 8
+            dy = self.pet.Hpx - self.h
+        sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
+        x = max(0, min(rx + int(dx), sw - self.w))
+        y = max(0, min(ry + int(dy), sh - self.h))
+        self.win.geometry(f"{self.w}x{self.h}+{x}+{y}")
+
+    def save(self) -> None:
+        self.pet.state.update({"panel_w": self.w, "panel_h": self.h, "panel_dx": self.dx, "panel_dy": self.dy,
+                               "panel_tab": self.tab})
+        self.pet.save_state()
+
+    def set_bg(self, mode: str) -> None:
+        self.pet.state["panel_bg"] = mode
+        self.apply_theme()
+        self.pet.save_state()
+
+    def set_alpha(self, value: float) -> None:
+        self.pet.state["panel_alpha"] = value
+        self.apply_theme()
+        self.pet.save_state()
+
+    def reset(self) -> None:
+        self.w, self.h, self.dx, self.dy = self.DEFAULT_W, self.DEFAULT_H, None, None
+        self.place()
+        self.save()
+
+    def set_tab(self, key: str) -> None:
+        self.tab = key
+        self.tab_switched = time.time()
+        self.anim.clear()
+        self.save()
+
+    def toggle_span(self) -> None:
+        self.pet.set_span("week" if self.pet.state.get("span", "today") == "today" else "today")
+
+    def show_menu(self, e: Any) -> None:
+        tk = self.pet.tk
+        m = self.pet._menu(self.win)
+        bv = tk.StringVar(value=str(self.pet.state.get("panel_bg", "clear")))
+        m.add_radiobutton(label="背景：透明（只看进度条）", value="clear", variable=bv, command=lambda: self.set_bg("clear"))
+        m.add_radiobutton(label="背景：深色", value="dark", variable=bv, command=lambda: self.set_bg("dark"))
+        alpha = self.pet._menu(m)
+        for label, a in (("不透明", 1.0), ("90%", 0.9), ("75%", 0.75), ("60%", 0.6)):
+            alpha.add_command(label=label, command=lambda v=a: self.set_alpha(v))
+        m.add_cascade(label="整体透明度", menu=alpha)
+        rv = tk.BooleanVar(value=bool(self.pet.state.get("panel_rotate", False)))
+        m.add_checkbutton(label=f"自动轮播（每 {int(ROTATE_SECONDS)} 秒换一页）", variable=rv,
+                          command=lambda: self.pet.set_state("panel_rotate", not self.pet.state.get("panel_rotate"), "好的"))
+        m.add_separator()
+        m.add_command(label="恢复默认大小和位置", command=self.reset)
+        m.add_command(label="关闭面板", command=self.pet.toggle_panel)
+        m.tk_popup(e.x_root, e.y_root)
+
+    # -------------------------------------------------- 鼠标：拖标题栏移动，拖边框 / 右下角调大小
+
+    def _hit(self, x: float, y: float) -> Any:
+        for x1, y1, x2, y2, name in reversed(self.hits):
+            if x1 <= x <= x2 and y1 <= y <= y2:
+                return name
+        edge = 8
+        right, bottom = x >= self.w - edge, y >= self.h - edge
+        if right and bottom:
+            return "resize"
+        if right:
+            return "resize-x"
+        if bottom:
+            return "resize-y"
+        return "move" if not self.clear else ""
+
+    def on_motion(self, e: Any) -> None:
+        self.hover = True
+        name = self._hit(e.x, e.y)
+        cursor = {"resize": "size_nw_se" if IS_WINDOWS else "bottom_right_corner", "resize-x": "sb_h_double_arrow",
+                  "resize-y": "sb_v_double_arrow", "move": "fleur"}.get(name if isinstance(name, str) else "", "hand2")
+        try:
+            self.c.configure(cursor=cursor)
+        except Exception:
+            self.c.configure(cursor="")
+
+    def on_press(self, e: Any) -> None:
+        self.press = (self._hit(e.x, e.y), e.x_root, e.y_root, self.win.winfo_x(), self.win.winfo_y(), self.w, self.h)
+
+    def on_drag(self, e: Any) -> None:
+        if not self.press:
+            return
+        name, x0, y0, wx, wy, ww, wh = self.press
+        dx, dy = e.x_root - x0, e.y_root - y0
+        if name == "move":
+            self.win.geometry(f"+{wx + dx}+{wy + dy}")
+        elif isinstance(name, str) and name.startswith("resize"):
+            if name in ("resize", "resize-x"):
+                self.w = max(self.MIN_W, ww + dx)
+            if name in ("resize", "resize-y"):
+                self.h = max(self.MIN_H, wh + dy)
+            self.win.geometry(f"{self.w}x{self.h}+{wx}+{wy}")
+
+    def on_release(self, e: Any) -> None:
+        if not self.press:
+            return
+        name, x0, y0 = self.press[:3]
+        moved = abs(e.x_root - x0) + abs(e.y_root - y0) > 3
+        self.press = None
+        if moved and isinstance(name, str) and (name == "move" or name.startswith("resize")):
+            root = self.pet.root
+            self.dx, self.dy = self.win.winfo_x() - root.winfo_x(), self.win.winfo_y() - root.winfo_y()
+            self.save()
+        elif not moved and callable(name):
+            name()
 
     # -------------------------------------------------- 数据
 
@@ -200,10 +539,10 @@ class Hud:
             import kit_metrics
 
             self.summary = kit_metrics.summary(self.pet.state.get("span", "today"))
-            self.channels = kit_metrics.channels(self.summary, top=5)
+            self.channels = {ch["key"]: ch for ch in kit_metrics.channels(self.summary, top=6)}
             self.load_error = ""
         except Exception as exc:  # 统计坏了不影响机器人
-            self.summary, self.channels = {}, []
+            self.summary, self.channels = {}, {}
             self.load_error = repr(exc)[:80]
         cwd = str(self.pet.status.get("cwd") or "")
         try:
@@ -217,333 +556,203 @@ class Hud:
                 self.mode_label = "自动"
         except Exception:
             self.mode_label = ""
-        self._refresh_alert()
-
-    def _refresh_alert(self) -> None:
-        """轮到你的事情，按重要程度只取一件。"""
-        alert: dict[str, Any] = {}
-        try:
-            pending = kitlib.pending_deletes()
-        except Exception:
-            pending = []
-        stage = str(self.pet.status.get("stage", "idle"))
-        if pending:
-            req = pending[-1]
-            risk = str(req.get("risk", ""))
-            level = next((ln.split("：", 1)[1] for ln in risk.splitlines() if ln.startswith("风险：")), "")
-            alert = {"key": "del:" + str(req.get("digest")), "title": "等你决定：要删除数据",
-                     "body": f"风险 {level or '未评估'} · " + str(req.get("command", "")),
-                     "color": BAD if level == "高" else WARN,
-                     "buttons": [("复制“同意”", "同意，可以删"), ("复制“不要删”", "不要删")],
-                     "detail": risk}
-        elif stage in ATTENTION:
-            msg = str(self.pet.status.get("msg") or "")
-            buttons: list[tuple[str, str]] = []
-            if stage == "waiting":
-                buttons = [("复制“确认”", "确认")]
-            elif stage == "committing":
-                buttons = [("复制“已提交”", "已提交，继续下一步")]
-            alert = {"key": f"stage:{stage}:{self.pet.status.get('updated')}", "title": "该你了：" + STAGE_TEXT[stage],
-                     "body": msg or NEXT_STEP.get(stage, ""), "color": WARN, "buttons": buttons}
-        else:
-            try:
-                import kit_metrics
-
-                note = kit_metrics.read_alert()
-            except Exception:
-                note = {}
-            if note:
-                kind = str(note.get("kind", ""))
-                title = {"permission_prompt": "该你了：需要你确认一个操作",
-                         "elicitation_dialog": "该你了：有问题需要你回答"}.get(kind, "该你了：这一轮做完了")
-                alert = {"key": f"note:{note.get('ts')}", "title": title,
-                         "body": str(note.get("msg") or "去 Copilot 窗口看看"), "color": WARN if kind != "turn_done" else ACCENT,
-                         "buttons": []}
-        if alert and alert["key"] != self.alert_key:
-            self.alert_key = alert["key"]
-            if not self.pet.state.get("quiet") or alert["color"] != ACCENT:
-                try:
-                    self.pet.root.bell()
-                except Exception:
-                    pass
-        if not alert:
-            self.alert_key = ""
-        self.alert = alert
-
-    def wants_attention(self) -> bool:
-        return bool(self.alert) and self.alert.get("color") != ACCENT
-
-    # -------------------------------------------------- 交互
-
-    def click(self, x: float, y: float) -> bool:
-        for x1, y1, x2, y2, cb in reversed(self.hits):
-            if x1 <= x <= x2 and y1 <= y <= y2:
-                cb()
-                return True
-        if self.channels and not self.alert:
-            self.next_channel()
-            return True
-        return False
-
-    def next_channel(self, step: int = 1) -> None:
-        if not self.channels:
-            return
-        self.ch_index = (self.ch_index + step) % len(self.channels)
-        self.ch_switched = time.time()
-        self.bars = {}
-
-    def set_channel(self, i: int) -> None:
-        self.ch_index = i
-        self.ch_switched = time.time()
-        self.bars = {}
-
-    def toggle_span(self) -> None:
-        span = "week" if self.pet.state.get("span", "today") == "today" else "today"
-        self.pet.state["span"] = span
-        self.pet.save_state()
-        self.loaded_at = 0
-        self.bars = {}
-        self.refresh()
 
     # -------------------------------------------------- 绘制
 
-    def draw(self, c: Any, x0: float, y0: float, w: float, h: float, t: float) -> None:
-        s = self.pet.s
-        self.refresh()
-        self.hits = []
-        x1, y1, x2, y2 = x0, y0, x0 + w, y0 + h
-        # 外框：呼吸的描边；轮到你时变成橙色
-        glow = (math.sin(t * 2.4) + 1) / 2
-        edge = mix(LINE, self.alert.get("color", ACCENT) if self.wants_attention() else ACCENT, 0.25 + 0.35 * glow)
-        rrect(c, x1, y1, x2, y2, 16 * s, fill=BG, outline=edge, width=max(1, int(1.5 * s)))
-        # 背景网格 + 慢慢往下扫的扫描线
-        gy = y1 + 10 * s
-        while gy < y2 - 8 * s:
-            c.create_line(x1 + 10 * s, gy, x2 - 10 * s, gy, fill=GRID)
-            gy += 12 * s
-        scan = y1 + 12 * s + ((t * 18 * s) % (h - 24 * s))
-        c.create_line(x1 + 12 * s, scan, x2 - 12 * s, scan, fill=mix(GRID, ACCENT, 0.18))
-
-        pad = 12 * s
-        cx1, cx2 = x1 + pad, x2 - pad
-        y = y1 + pad
-        y = self._header(c, cx1, cx2, y, t)
-        y = self._stats(c, cx1, cx2, y + 6 * s)
-        y = self._progress(c, cx1, cx2, y + 8 * s, t)
-        remain = y2 - pad - (y + 8 * s)
-        if self.alert:
-            self._alert_card(c, cx1, cx2, y + 8 * s, remain, t)
-        else:
-            self._channel(c, cx1, cx2, y + 8 * s, remain, t)
-
-    def _header(self, c: Any, x1: float, x2: float, y: float, t: float) -> float:
-        s = self.pet.s
-        live = mix(OK, "#0b3b2e", (math.sin(t * 3) + 1) / 4)
-        c.create_oval(x1, y + 4 * s, x1 + 7 * s, y + 11 * s, fill=live, outline="")
-        c.create_text(x1 + 12 * s, y + 7.5 * s, text="AI·DEV HUD", anchor="w", fill=TEXT, font=(MONO, -int(11 * s), "bold"))
-        mx = x1 + 92 * s
-        if self.mode_label:
-            label = self.mode_label
-            tw = text_px(label, 10 * s) + 14 * s
-            rrect(c, mx, y, mx + tw, y + 15 * s, 7 * s, fill=CARD2, outline=mix(CARD2, ACCENT2, 0.6))
-            c.create_text(mx + tw / 2, y + 7.5 * s, text=label, fill=ACCENT2, font=(FONT, -int(10 * s)))
-        clock = time.strftime("%H:%M")
-        c.create_text(x2, y + 7.5 * s, text=clock, anchor="e", fill=DIM, font=(MONO, -int(10.5 * s)))
-        span = "今天" if self.pet.state.get("span", "today") == "today" else "近7天"
-        sw = text_px(span, 10 * s) + 14 * s
-        sx2 = x2 - 40 * s
-        rrect(c, sx2 - sw, y, sx2, y + 15 * s, 7 * s, fill=CARD2, outline=LINE)
-        c.create_text(sx2 - sw / 2, y + 7.5 * s, text=span, fill=TEXT, font=(FONT, -int(10 * s)))
-        self.hits.append((sx2 - sw, y, sx2, y + 15 * s, self.toggle_span))
-        return y + 15 * s
-
-    def _stats(self, c: Any, x1: float, x2: float, y: float) -> float:
-        import kit_metrics
-
-        s = self.pet.s
-        d = self.summary or {}
-        est = d.get("token_estimated") or d.get("token_mixed")
-        tiles = [
-            ("AI 干活", kit_metrics.fmt_sec(d.get("ai_sec", 0)) if d.get("ai_sec") else "—", ACCENT),
-            ("等你", kit_metrics.fmt_sec(d.get("wait_sec", 0)) if d.get("wait_sec") else "—", WARN),
-            ("Token" + ("·估算" if est else ""), kit_metrics.fmt_tok(d.get("token_total", 0)) if d.get("token_total") else "—", ACCENT2),
-            ("对话", f"{d.get('turns', 0)} 轮" if d.get("turns") else "—", OK),
-        ]
-        gap = 6 * s
-        tw = (x2 - x1 - gap * 3) / 4
-        th = 38 * s
-        for i, (label, value, color) in enumerate(tiles):
-            tx = x1 + i * (tw + gap)
-            rrect(c, tx, y, tx + tw, y + th, 8 * s, fill=CARD, outline=LINE)
-            c.create_rectangle(tx + 6 * s, y + 1, tx + 22 * s, y + 3 * s, fill=color, outline="")
-            c.create_text(tx + 7 * s, y + 12 * s, text=fit(label, tw - 10 * s, 9 * s), anchor="w", fill=DIM,
-                          font=(FONT, -int(9 * s)))
-            c.create_text(tx + 7 * s, y + 27 * s, text=fit(value, tw - 10 * s, 12 * s), anchor="w",
-                          fill=TEXT if value != "—" else FAINT, font=(MONO, -int(12 * s), "bold"))
-        return y + th
-
-    def _progress(self, c: Any, x1: float, x2: float, y: float, t: float) -> float:
-        s = self.pet.s
-        st = self.pet.status
-        stage = str(st.get("stage", "idle"))
-        task = str(st.get("task") or "")
-        steps = list(st.get("steps") or [])
-        total = int(st.get("total") or len(steps) or 0)
-        step = int(st.get("step") or 0)
-        h = 40 * s
-        rrect(c, x1, y, x2, y + h, 8 * s, fill=CARD, outline=LINE)
-        if not task and stage == "idle":
-            c.create_text(x1 + 10 * s, y + 13 * s, text="任务进度", anchor="w", fill=DIM, font=(FONT, -int(9.5 * s)))
-            c.create_text(x1 + 10 * s, y + 28 * s, text="暂无进行中的任务 · 在 Copilot 里说需求即可", anchor="w",
-                          fill=FAINT, font=(FONT, -int(10 * s)))
-            return y + h
-        head = fit(task or STAGE_TEXT.get(stage, stage), x2 - x1 - 80 * s, 10.5 * s)
-        c.create_text(x1 + 10 * s, y + 11 * s, text=head, anchor="w", fill=TEXT, font=(FONT, -int(10.5 * s), "bold"))
-        tag = STAGE_SHORT.get(stage, stage)
-        color = WARN if stage in ATTENTION else BAD if stage == "error" else OK if stage == "done" else ACCENT
-        c.create_text(x2 - 10 * s, y + 11 * s, text=tag, anchor="e", fill=color, font=(FONT, -int(10 * s), "bold"))
-        bx1, bx2, by = x1 + 10 * s, x2 - 10 * s, y + 23 * s
-        if total > 0:
-            done = total if stage == "done" else max(0, step - 1)
-            gap = 3 * s
-            seg = (bx2 - bx1 - gap * (total - 1)) / total
-            for i in range(total):
-                sx = bx1 + i * (seg + gap)
-                if i < done:
-                    fill = OK
-                elif i == done and stage != "done":
-                    fill = mix(CARD2, color, 0.45 + 0.45 * (math.sin(t * 4) + 1) / 2)
-                else:
-                    fill = CARD2
-                rrect(c, sx, by, sx + seg, by + 6 * s, 3 * s, fill=fill, outline="")
-            name = steps[min(max(step, 1), len(steps)) - 1] if steps and step else ""
-            sub = f"第 {min(max(step, 1), total)}/{total} 步" + (f" · {name}" if name else "")
-            if stage == "done":
-                sub = f"全部 {total} 步完成"
-        else:
-            # 没有分步信息：用一条流动的光带表示正在进行
-            rrect(c, bx1, by, bx2, by + 6 * s, 3 * s, fill=CARD2, outline="")
-            pos = (t * 0.45) % 1.0
-            gx = bx1 + (bx2 - bx1) * pos
-            rrect(c, max(bx1, gx - 30 * s), by, min(bx2, gx + 30 * s), by + 6 * s, 3 * s, fill=color, outline="")
-            sub = str(st.get("msg") or STAGE_TEXT.get(stage, ""))
-        c.create_text(bx1, y + 35 * s, text=fit(sub, bx2 - bx1, 9 * s), anchor="w", fill=DIM, font=(FONT, -int(9 * s)))
-        return y + h
-
-    def _channel(self, c: Any, x1: float, x2: float, y: float, h: float, t: float) -> None:
-        import kit_metrics
-
-        s = self.pet.s
-        rrect(c, x1, y, x2, y + h, 8 * s, fill=CARD, outline=LINE)
-        if not self.channels:
-            c.create_text((x1 + x2) / 2, y + h / 2, text="统计暂时读不到" + (f"\n{self.load_error}" if self.load_error else ""),
-                          fill=FAINT, font=(FONT, -int(10 * s)), justify="center")
+    def tick(self, t: float) -> None:
+        if not self.is_open:
             return
-        nonempty = [i for i, ch in enumerate(self.channels) if ch["items"]]
-        if (not self.hover and time.time() - self.ch_switched > ROTATE_SECONDS and nonempty):
-            following = [i for i in nonempty if i > self.ch_index] or nonempty
-            self.set_channel(following[0])
-        self.ch_index %= len(self.channels)
-        ch = self.channels[self.ch_index]
-        c.create_text(x1 + 10 * s, y + 11 * s, text=ch["title"], anchor="w", fill=TEXT, font=(FONT, -int(10.5 * s), "bold"))
-        # 页码小圆点（可点击切换）
-        for i in range(len(self.channels)):
-            dx = x2 - 10 * s - (len(self.channels) - 1 - i) * 11 * s
-            r = 3 * s if i == self.ch_index else 2.2 * s
-            fill = ACCENT if i == self.ch_index else (FAINT if self.channels[i]["items"] else LINE)
-            c.create_oval(dx - r, y + 11 * s - r, dx + r, y + 11 * s + r, fill=fill, outline="")
-            self.hits.append((dx - 5 * s, y + 4 * s, dx + 5 * s, y + 18 * s, lambda k=i: self.set_channel(k)))
-        # 轮播倒计时细线
-        if nonempty and not self.hover:
-            frac = min(1.0, (time.time() - self.ch_switched) / ROTATE_SECONDS)
-            c.create_line(x1 + 10 * s, y + 21 * s, x1 + 10 * s + (x2 - x1 - 20 * s) * frac, y + 21 * s, fill=mix(CARD, ACCENT, 0.5))
-        items = ch["items"]
+        root = self.pet.root
+        if self.press is None and self.anchor != (root.winfo_x(), root.winfo_y()):
+            self.place()  # 机器人被拖动了，面板跟着走
+        self.draw(t)
+
+    def _ease(self, key: str, target: float) -> float:
+        cur = self.anim.get(key, 0.0)
+        cur += (target - cur) * 0.16
+        if abs(target - cur) < 0.002:
+            cur = target
+        self.anim[key] = cur
+        return cur
+
+    def chip(self, x: float, y: float, text: str, u: float, anchor: str = "w", bold: bool = False,
+             color: str = "", fill: str = "", size: float = 11.0, cb: Any = None) -> tuple[float, float, float, float]:
+        """带底色的小标签：透明背景下文字也清楚，不会有毛边。返回标签的外框。"""
+        th = self.theme()
+        c = self.c
+        tid = c.create_text(x, y, text=text, anchor=anchor, fill=color or th["ink"],
+                            font=(FONT, -int(size * u), "bold" if bold else "normal"))
+        x1, y1, x2, y2 = c.bbox(tid)
+        box = (x1 - 6 * u, y1 - 2.5 * u, x2 + 6 * u, y2 + 2.5 * u)
+        rrect(c, *box, 7 * u, fill=fill or th["chip"], outline=th["edge"] if self.clear else "", width=1)
+        c.tag_raise(tid)
+        if cb is not None:
+            self.hits.append((*box, cb))
+        return box
+
+    def bar(self, x1: float, y: float, x2: float, u: float, frac: float, color: str, key: str, t: float,
+            segments: list[tuple[float, str]] | None = None, live: bool = False) -> None:
+        """动态进度条：从当前长度缓慢长到目标长度；live=True 时有一道亮光扫过。"""
+        c = self.c
+        hh = 10 * u
+        rrect(c, x1, y - hh / 2, x2, y + hh / 2, hh / 2, fill=self.theme()["track"], outline="")
+        f = self._ease(key, max(0.0, min(1.0, frac)))
+        if f <= 0.003:
+            return
+        end = max(x1 + hh, x1 + (x2 - x1) * f)
+        if segments:
+            pos = x1
+            for share, col in segments:
+                nxt = min(end, pos + (end - x1) * share)
+                if nxt - pos >= 1:
+                    rrect(c, pos, y - hh / 2, nxt, y + hh / 2, hh / 2, fill=col, outline="")
+                pos = nxt
+        else:
+            rrect(c, x1, y - hh / 2, end, y + hh / 2, hh / 2, fill=mix(color, BG, 0.25), outline="")
+            rrect(c, x1, y - hh / 2, x1 + (end - x1) * 0.6, y + hh / 2, hh / 2, fill=color, outline="")
+        if live:
+            sx = x1 + ((t * 0.45) % 1.0) * (end - x1)
+            c.create_rectangle(max(x1, sx - 8 * u), y - hh / 2 + 2, min(end, sx + 8 * u), y + hh / 2 - 2,
+                               fill="#ffffff", outline="")
+
+    def draw(self, t: float) -> None:
+        self.refresh()
+        c, th = self.c, self.theme()
+        c.delete("all")
+        self.hits = []
+        W, H = self.w, self.h
+        u = max(0.85, min(2.2, min(W / self.DEFAULT_W, H / self.DEFAULT_H)))
+        # 细边框：透明背景时也能看出面板范围，并且可以拖边框调大小
+        rrect(c, 1, 1, W - 1, H - 1, 12 * u, fill="" if self.clear else th["bg"], outline=th["edge"],
+              width=2 if self.clear else 1)
+        # 标题栏（拖它移动）
+        head = 26 * u
+        rrect(c, 4, 4, W - 4, 4 + head, 10 * u, fill=th["chip"], outline="")
+        self.hits.append((4, 4, W - 4, 4 + head, "move"))
+        mid = 4 + head / 2
+        live = mix(OK, "#0b3b2e", (math.sin(t * 3) + 1) / 4)
+        c.create_oval(12 * u, mid - 3.5 * u, 19 * u, mid + 3.5 * u, fill=live, outline="")
+        c.create_text(25 * u, mid, text="AI·DEV 数据", anchor="w", fill=TEXT, font=(MONO, -int(11.5 * u), "bold"))
+        x = 112 * u
+        if self.mode_label:
+            box = self.chip(x, mid, self.mode_label, u, color=ACCENT2, fill=CARD2, size=10)
+            x = box[2] + 6 * u
+        span = "今天" if self.pet.state.get("span", "today") == "today" else "近7天"
+        self.chip(x, mid, span + " ▾", u, fill=CARD2, size=10, cb=self.toggle_span)
+        c.create_text(W - 16 * u, mid, text="✕", fill=DIM, font=(FONT, -int(12 * u), "bold"))
+        self.hits.append((W - 28 * u, 4, W - 4, 4 + head, self.pet.toggle_panel))
+        # 切换按钮
+        y = 4 + head + 16 * u
+        x = 10 * u
+        if self.pet.state.get("panel_rotate") and not self.hover and time.time() - self.tab_switched > ROTATE_SECONDS:
+            keys = [k for k, _ in TABS]
+            self.set_tab(keys[(keys.index(self.tab) + 1) % len(keys)] if self.tab in keys else keys[0])
+        for key, label in TABS:
+            on = key == self.tab
+            box = self.chip(x, y, label, u, bold=on, color=BG if on else TEXT, fill=ACCENT if on else th["chip"], size=10.5,
+                            cb=lambda k=key: self.set_tab(k))
+            x = box[2] + 5 * u
+        top, bottom = y + 16 * u, H - 14 * u
+        if self.load_error:
+            self.chip(12 * u, (top + bottom) / 2, "统计暂时读不到：" + self.load_error, u, color=FAINT, size=10)
+        elif self.tab == "overview":
+            self._overview(top, bottom, W, u, t)
+        else:
+            self._ranking(self.channels.get(self.tab, {}), top, bottom, W, u)
+        # 右下角小三角：拖它调大小
+        g = 16 * u
+        c.create_polygon(W - 3, H - g, W - 3, H - 3, W - g, H - 3, fill=ACCENT if self.hover else th["edge"], outline="")
+        self.hits.append((W - g - 4, H - g - 4, W, H, "resize"))
+
+    def _overview(self, top: float, bottom: float, W: float, u: float, t: float) -> None:
+        import kit_metrics
+
+        d = self.summary or {}
+        running = self.pet.effective_stage() in ("working", "tool", "checking", "reviewing", "analyzing", "planning")
+        rows = 4
+        gap = (bottom - top) / rows
+        ys = [top + gap * (i + 0.5) for i in range(rows)]
+        lx, bx1, bx2, vx = 12 * u, 78 * u, W - 150 * u, W - 12 * u
+        # 1. 时长：AI 干活 + 等你，一条两色进度条
+        ai, wait = float(d.get("ai_sec") or 0), float(d.get("wait_sec") or 0)
+        total = ai + wait
+        self.chip(lx, ys[0], "时长", u, bold=True)
+        segs = [(ai / total, ACCENT), (wait / total, WARN)] if total else None
+        self.bar(bx1, ys[0], bx2, u, 1.0 if total else 0.0, ACCENT, "ov-time", t, segs, live=running)
+        self.chip(vx, ys[0], (f"AI {kit_metrics.fmt_sec(ai)} · 等你 {kit_metrics.fmt_sec(wait)}" if total else "还没有数据"),
+                  u, anchor="e", size=10)
+        # 2. Token：用量 / 每日参考额度
+        tok = float(d.get("token_total") or 0)
+        budget = float((self.pet.cfg.get("metrics", {}) or {}).get("token_budget_day", 1_000_000))
+        if self.pet.state.get("span") == "week":
+            budget *= 7
+        frac = tok / budget if budget else 0.0
+        color = BAD if frac > 0.9 else WARN if frac > 0.6 else ACCENT2
+        est = "（估算）" if d.get("token_estimated") else "（部分估算）" if d.get("token_mixed") else ""
+        self.chip(lx, ys[1], "Token", u, bold=True)
+        self.bar(bx1, ys[1], bx2, u, frac, color, "ov-tok", t, live=running)
+        self.chip(vx, ys[1], (f"{kit_metrics.fmt_tok(tok)} / {kit_metrics.fmt_tok(budget)}{est}" if tok else "还没有数据"),
+                  u, anchor="e", size=10)
+        # 3. 上一轮：耗时和 token（任务结束后也一直留着）
+        last = kit_metrics.last_turn(d)
+        longest = max([float(r.get("sec") or 0) for r in d.get("recent", [])] + [1.0])
+        self.chip(lx, ys[2], "上一轮", u, bold=True)
+        self.bar(bx1, ys[2], bx2, u, float(last.get("sec") or 0) / longest, OK, "ov-last", t)
+        self.chip(vx, ys[2], (f"{kit_metrics.fmt_sec(float(last.get('sec') or 0))} · "
+                              f"{kit_metrics.fmt_tok(float(last.get('tokens') or 0))}" if last else "还没有数据"),
+                  u, anchor="e", size=10)
+        # 4. 守卫和对话轮数
+        g = d.get("guard", {}) or {}
+        self.chip(lx, ys[3], "守卫", u, bold=True)
+        x = bx1
+        for label, n, col in (("拦下", int(g.get("deny", 0)), BAD), ("问你", int(g.get("ask", 0)), WARN),
+                              ("禁删拦截", int(d.get("nodelete_blocks", 0)), ACCENT2)):
+            box = self.chip(x, ys[3], f"{label} {n}", u, color=BG if n else DIM, fill=col if n else self.theme()["chip"],
+                            size=10)
+            x = box[2] + 6 * u
+        self.chip(vx, ys[3], f"对话 {d.get('turns', 0)} 轮", u, anchor="e", size=10)
+
+    def _ranking(self, ch: dict[str, Any], top: float, bottom: float, W: float, u: float) -> None:
+        import kit_metrics
+
+        items = list(ch.get("items") or [])
+        if ch.get("title"):
+            self.chip(12 * u, top + 4 * u, ch["title"], u, bold=True, size=10.5)
         if not items:
             hint = {"time": "用一轮对话后，这里显示时间花在哪个项目、等了你多久",
                     "caps": "用到技能或代理后，这里显示排行",
                     "tools": "模型调用工具后，这里显示调用次数排行",
-                    "tokens": "一轮对话结束后，这里显示 token 去向"}.get(ch["key"], "还没有数据")
-            c.create_text((x1 + x2) / 2, y + (h + 22 * s) / 2, text="还没有数据\n" + hint, fill=FAINT,
-                          font=(FONT, -int(9.5 * s)), justify="center", width=x2 - x1 - 30 * s)
+                    "tokens": "一轮对话结束后，这里显示 token 去向",
+                    "turns": "一轮对话结束后，这里显示每轮花了多久"}.get(str(ch.get("key")), "还没有数据")
+            self.chip(12 * u, (top + bottom) / 2 + 8 * u, "还没有数据：" + hint, u, color=FAINT, size=10)
             return
-        top = y + 28 * s
-        row_h = min(22 * s, (h - 34 * s) / max(5, len(items)))
-        rank_w, value_w = 18 * s, 58 * s
-        bar_x1 = x1 + 10 * s + rank_w
-        bar_x2 = x2 - 10 * s - value_w
+        start = top + 20 * u
+        row_h = min(28 * u, (bottom - start) / max(5, len(items)))
+        label_w = max(80 * u, (W - 24 * u) * 0.32)
+        bx1, bx2 = 12 * u + label_w + 8 * u, W - 90 * u
         vmax = max(v for _, v in items) or 1.0
         for i, (label, value) in enumerate(items):
             key = f"{ch['key']}:{label}"
-            anim = self.bars.setdefault(key, {"w": 0.0, "y": float(i)})
-            anim["w"] += (value / vmax - anim["w"]) * 0.16
-            anim["y"] += (i - anim["y"]) * 0.2
-            ry = top + anim["y"] * row_h
+            pos = self.anim.setdefault("y:" + key, float(i))
+            pos += (i - pos) * 0.2
+            self.anim["y:" + key] = pos
+            ry = start + (pos + 0.5) * row_h
             color = PALETTE[i % len(PALETTE)]
-            # 名次
-            if i < 3:
-                c.create_oval(x1 + 10 * s, ry + row_h / 2 - 7 * s, x1 + 24 * s, ry + row_h / 2 + 7 * s,
-                              fill=mix(CARD, color, 0.35), outline="")
-            c.create_text(x1 + 17 * s, ry + row_h / 2, text=str(i + 1), fill=TEXT if i < 3 else DIM,
-                          font=(MONO, -int(9.5 * s), "bold"))
-            # 条形：底槽 + 渐变色条 + 末端高光
-            bh = row_h * 0.64
-            by1, by2 = ry + (row_h - bh) / 2, ry + (row_h + bh) / 2
-            rrect(c, bar_x1, by1, bar_x2, by2, bh / 2, fill=CARD2, outline="")
-            bw = max(bh, (bar_x2 - bar_x1) * anim["w"])
-            rrect(c, bar_x1, by1, bar_x1 + bw, by2, bh / 2, fill=mix(color, BG, 0.25), outline="")
-            rrect(c, bar_x1, by1, bar_x1 + bw * 0.55, by2, bh / 2, fill=color, outline="")
-            c.create_oval(bar_x1 + bw - bh * 0.8, by1 + 1, bar_x1 + bw - 1, by2 - 1, fill=mix(color, "#ffffff", 0.45), outline="")
-            inside = text_px(label, 9.5 * s) + 12 * s < bw
-            if inside:
-                c.create_text(bar_x1 + 7 * s, ry + row_h / 2, text=label, anchor="w", fill=BG, font=(FONT, -int(9.5 * s), "bold"))
-            else:
-                c.create_text(bar_x1 + bw + 5 * s, ry + row_h / 2, text=fit(label, bar_x2 - bar_x1 - bw - 6 * s, 9.5 * s),
-                              anchor="w", fill=TEXT, font=(FONT, -int(9.5 * s)))
-            unit = ch["unit"]
+            self.chip(12 * u, ry, fit(f"{i + 1}. {label}", label_w - 12 * u, 10 * u), u, size=10,
+                      color=TEXT if i < 3 else DIM)
+            self.bar(bx1, ry, bx2, u, value / vmax, color, key, 0.0)
+            unit = ch.get("unit")
             shown = (kit_metrics.fmt_sec(value) if unit == "sec" else kit_metrics.fmt_tok(value) if unit == "tok"
                      else f"{int(value)} 次")
-            c.create_text(x2 - 10 * s, ry + row_h / 2, text=shown, anchor="e", fill=TEXT, font=(MONO, -int(9.5 * s)))
-
-    def _alert_card(self, c: Any, x1: float, x2: float, y: float, h: float, t: float) -> None:
-        s = self.pet.s
-        a = self.alert
-        color = a.get("color", WARN)
-        pulse = (math.sin(t * 5) + 1) / 2
-        rrect(c, x1, y, x2, y + h, 8 * s, fill=mix(CARD, color, 0.08), outline=mix(LINE, color, 0.5 + 0.5 * pulse),
-              width=max(1, int(2 * s)))
-        c.create_rectangle(x1 + 1, y + 8 * s, x1 + 4 * s, y + h - 8 * s, fill=color, outline="")
-        c.create_text(x1 + 12 * s, y + 13 * s, text=fit(a.get("title", ""), x2 - x1 - 24 * s, 11 * s), anchor="w",
-                      fill=color, font=(FONT, -int(11 * s), "bold"))
-        body = str(a.get("body", ""))
-        body = body if len(body) <= 96 else body[:96] + "…"
-        c.create_text(x1 + 12 * s, y + 26 * s, text=body, anchor="nw", fill=TEXT, width=x2 - x1 - 24 * s,
-                      font=(FONT, -int(9.5 * s)))
-        buttons = list(a.get("buttons", []))
-        if a.get("detail"):
-            buttons.append(("看风险评估", ""))
-        bx = x1 + 12 * s
-        by = y + h - 24 * s
-        for label, reply in buttons:
-            bw = text_px(label, 9.5 * s) + 18 * s
-            primary = reply and reply == buttons[0][1]
-            rrect(c, bx, by, bx + bw, by + 17 * s, 8 * s, fill=color if primary else CARD2,
-                  outline=color if not primary else "")
-            c.create_text(bx + bw / 2, by + 8.5 * s, text=label, fill=BG if primary else TEXT, font=(FONT, -int(9.5 * s), "bold"))
-            if reply:
-                cb = (lambda r=reply: (self.pet.copy(r), self.pet.say(f"已复制“{r}”，去 Copilot 里粘贴发送", 4)))
-            else:
-                cb = (lambda d=a.get("detail", ""): self.pet.show_output("删除前的风险评估", d))
-            self.hits.append((bx, by, bx + bw, by + 17 * s, cb))
-            bx += bw + 6 * s
+            self.chip(W - 12 * u, ry, shown, u, anchor="e", size=10)
 
 
 # ================================================================= 机器人
 
 
 class Pet:
-    ROBOT_W = 230
-    PANEL_W = 350
-    H = 290
+    ROBOT_W = 150  # 只放机器人；泡泡和数据面板是单独的窗口
+    H = 200
 
     def __init__(self, root: Any) -> None:
         import tkinter as tk
@@ -552,7 +761,7 @@ class Pet:
         self.root = root
         self.state = load_state()
         self.cfg = kitlib.load_config()
-        self.s = float(self.state["scale"])
+        self.s = float(self.state["robot_scale"])
         self.t0 = time.time()
         self.events: queue.Queue[tuple[Any, ...]] = queue.Queue()
         self.status: dict[str, Any] = {"stage": "idle"}
@@ -562,17 +771,21 @@ class Pet:
         self.blocked_until = 0.0
         self.blocked_text = ""
         self.tool_running = ""
-        self.bubble_text = ""
-        self.bubble_until = 0.0
-        self.bubble_sticky = False
         self.blink_at = time.time() + 2
         self.particles: list[dict[str, Any]] = []
         self.prev_stage = "idle"
         self.guard_log_pos: dict[str, int] = {}
         self.press: tuple[int, int, int, int] | None = None
         self.moved = False
+        self.click_job: Any = None
         self.output_win: Any = None
-        self.hud = Hud(self)
+        self.alert: dict[str, Any] = {}
+        self.alert_key = ""
+        self.alert_checked = 0.0
+        self.dismissed: set[str] = set()
+        self.ask_info: dict[str, Any] = {}  # 守卫刚弹了确认框（Copilot 在等你选）
+        self.W = int(self.ROBOT_W * self.s)
+        self.Hpx = int(self.H * self.s)
 
         if not self.state.get("profile"):
             self.state["profile"] = self.cfg.get("default_profile", "")
@@ -586,27 +799,30 @@ class Pet:
         self.canvas = tk.Canvas(root, highlightthickness=0, bd=0, bg=bg, cursor="hand2")
         self.canvas.pack(fill="both", expand=True)
         self.apply_scale(self.s, keep_position=False)
+        self.bubble = Bubble(self)
+        self.panel = Panel(self)
 
         self.canvas.bind("<ButtonPress-1>", self.on_press)
         self.canvas.bind("<B1-Motion>", self.on_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_release)
+        self.canvas.bind("<Double-Button-1>", self.on_double)
         self.canvas.bind("<Button-3>", self.show_menu)
         self.canvas.bind("<Button-2>", self.show_menu)
-        self.canvas.bind("<Motion>", self.on_motion)
-        self.canvas.bind("<Leave>", lambda _e: setattr(self.hud, "hover", False))
 
         self._init_guard_positions()
         if not self.state.get("tour_done"):
             self.tour = [
-                "嗨～我是你的开发小助手",
-                "右边是今天的数据：时间、token、用到的能力",
-                "轮到你的时候我会跳起来，面板上有一键复制的回复",
-                "点我看进度，右键有工具和模式切换",
+                "嗨～我是你的开发小助手，平时你只管在 Copilot 终端里干活",
+                "轮到你的时候，我会在头顶弹泡泡提醒你，泡泡上有一键复制的回复",
+                "双击我（或点我右下角的小图标）打开数据面板，随时都能看",
+                "面板可以拖动、拖右下角调大小；右键面板换背景，右键我有工具和设置",
             ]
             self.root.after(800, self._next_tip)
         else:
             self.tour = []
-            self.say("我在这儿～点我看进度", 4)
+            self.say("我在这儿～点我看进度，双击看数据", 4)
+        if self.panel.is_open:
+            root.after(300, self.panel.show)
         root.after(FPS_MS, self.tick)
         root.after(300, self.poll)
 
@@ -626,7 +842,7 @@ class Pet:
 
     def apply_scale(self, s: float, keep_position: bool = True) -> None:
         self.s = s
-        self.W = int((self.ROBOT_W + (self.PANEL_W if self.state.get("hud", True) else 0)) * s)
+        self.W = int(self.ROBOT_W * s)
         self.Hpx = int(self.H * s)
         sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
         x = int(self.state.get("x", sw - self.W - 40))
@@ -639,15 +855,104 @@ class Pet:
 
     def save_state(self) -> None:
         try:
-            self.state.update({"x": self.root.winfo_x(), "y": self.root.winfo_y(), "scale": self.s})
+            self.state.update({"x": self.root.winfo_x(), "y": self.root.winfo_y(), "robot_scale": self.s})
             kitlib.save_json(STATE_PATH, self.state)
         except Exception:
             pass
 
     def say(self, text: str, seconds: float = 5, sticky: bool = False) -> None:
-        self.bubble_text = text
-        self.bubble_sticky = sticky
-        self.bubble_until = time.time() + seconds
+        """弹一个普通泡泡；有“该你了”的提醒正在显示时不盖住它。"""
+        if self.bubble.attention and not sticky and self.bubble.key:
+            return
+        self.bubble.show(text, seconds=3600 if sticky else seconds, attention=sticky)
+
+    def toggle_panel(self) -> None:
+        if self.panel.is_open:
+            self.panel.hide()
+        else:
+            self.panel.show()
+        self.save_state()
+
+    def wants_attention(self) -> bool:
+        return bool(self.alert) and self.alert.get("color") != ACCENT
+
+    def _refresh_alert(self) -> None:
+        """轮到你的事情，按重要程度只取一件，用提醒泡泡弹出来（不占面板的位置）。"""
+        alert: dict[str, Any] = {}
+        try:
+            import kit_metrics
+
+            note_ts = float((kit_metrics.read_alert(max_age=600) or {}).get("ts", 0))
+        except Exception:
+            note_ts = 0.0
+        if self.ask_info and note_ts > float(self.ask_info.get("ts", 0)):
+            self.ask_info = {}  # 之后又有新的提醒（例如这一轮做完了），确认框那件事已经过去
+        try:
+            pending = kitlib.pending_deletes()
+        except Exception:
+            pending = []
+        stage = str(self.status.get("stage", "idle"))
+        if self.ask_info and time.time() - float(self.ask_info.get("ts", 0)) < 600:
+            info = self.ask_info
+            alert = {"key": "ask:" + str(info.get("ts")), "title": "该你了：Copilot 在等你确认",
+                     "body": str(info.get("reason") or "") + "\n去 Copilot 窗口选“同意”或“不同意”（不要选“不再询问”）。"
+                     "不同意时可以顺手写一句原因，它会照着调整、接着做。",
+                     "color": BAD if info.get("rule") == "data-delete" else WARN, "buttons": [], "sticky": True}
+        elif pending:
+            req = pending[-1]
+            risk = str(req.get("risk", ""))
+            level = next((ln.split("：", 1)[1] for ln in risk.splitlines() if ln.startswith("风险：")), "")
+            alert = {"key": "del:" + str(req.get("digest")), "title": "该你了：要不要删除数据",
+                     "body": f"风险 {level or '未评估'} · " + str(req.get("command", ""))[:120],
+                     "color": BAD if level == "高" else WARN, "sticky": True,
+                     "buttons": [("复制“同意”", lambda: self._copy_reply("同意，可以删")),
+                                 ("复制“不要删”", lambda: self._copy_reply("不要删")),
+                                 ("看风险评估", lambda r=risk: self.show_output("删除前的风险评估", r))]}
+        elif stage in ATTENTION:
+            msg = str(self.status.get("msg") or "")
+            buttons: list[tuple[str, Callable[[], None]]] = []
+            if stage == "waiting":
+                buttons = [("复制“确认”", lambda: self._copy_reply("确认"))]
+            elif stage == "committing":
+                buttons = [("复制“已提交”", lambda: self._copy_reply("已提交，继续下一步"))]
+            alert = {"key": f"stage:{stage}:{self.status.get('updated')}", "title": "该你了：" + STAGE_TEXT[stage],
+                     "body": msg or NEXT_STEP.get(stage, ""), "color": WARN, "buttons": buttons, "sticky": True}
+        else:
+            try:
+                import kit_metrics
+
+                note = kit_metrics.read_alert(max_age=600)
+            except Exception:
+                note = {}
+            if note:
+                kind = str(note.get("kind", ""))
+                title = {"permission_prompt": "该你了：需要你确认一个操作",
+                         "elicitation_dialog": "该你了：有问题需要你回答"}.get(kind, "这一轮做完了")
+                done = kind == "turn_done"
+                alert = {"key": f"note:{note.get('ts')}", "title": title,
+                         "body": str(note.get("msg") or "去 Copilot 窗口看看"), "color": ACCENT if done else WARN,
+                         "sticky": not done, "buttons": [("看数据", self.panel.show)] if done else []}
+        old_key = self.alert_key
+        self.alert = alert
+        self.alert_key = str(alert.get("key", ""))
+        if self.alert_key and self.alert_key != old_key and self.alert_key not in self.dismissed:
+            if not self.state.get("quiet") or alert["color"] != ACCENT:
+                try:
+                    self.root.bell()
+                except Exception:
+                    pass
+            if not (self.state.get("quiet") and alert["color"] == ACCENT):
+                self.bubble.show(str(alert.get("body", "")), seconds=3600 if alert.get("sticky") else 8,
+                                 attention=bool(alert.get("sticky")), title=str(alert.get("title", "")),
+                                 buttons=alert.get("buttons"), key=self.alert_key, color=alert["color"]
+                                 if alert["color"] != ACCENT else "")
+        elif old_key and self.alert_key != old_key and self.bubble.key == old_key:
+            self.bubble.hide()  # 事情处理完了，提醒泡泡自己收起
+
+    def _copy_reply(self, text: str) -> None:
+        self.copy(text)
+        self.bubble.hide()
+        self.say(f"已复制“{text}”，去 Copilot 里粘贴发送", 4)
 
     def project(self) -> dict[str, Any] | None:
         """自动跟随 Copilot 当前所在的项目；不在项目里时返回 None。"""
@@ -666,7 +971,7 @@ class Pet:
         if self.tool_running:
             return "tool"
         stage = self.status.get("stage", "idle")
-        if self.hud.wants_attention() and stage not in ATTENTION:
+        if self.wants_attention() and stage not in ATTENTION:
             return "attention"
         if stage == "done" and now - float(self.status.get("updated", 0)) > 90:
             stage = "idle"
@@ -685,11 +990,14 @@ class Pet:
         return kitlib.DATA_DIR / "logs" / f"guard-{time.strftime('%Y%m%d')}.jsonl"
 
     def poll(self) -> None:
-        """每 0.8 秒：读进度、读守卫日志、处理后台工具结果。"""
+        """每 0.8 秒：读进度、读守卫日志、处理后台工具结果；每 1.6 秒看一次有没有轮到你的事。"""
         try:
             self._poll_status()
             self._poll_guard()
             self._poll_events()
+            if time.time() - self.alert_checked > 1.6:
+                self.alert_checked = time.time()
+                self._refresh_alert()
         except Exception:
             kitlib.log_event("pet_error", {"where": "poll", "error": traceback.format_exc(limit=2)})
         self.root.after(800, self.poll)
@@ -706,7 +1014,8 @@ class Pet:
 
         self.status = kit_status.read_status()
         self.last_activity = time.time()
-        self.hud.loaded_at = 0
+        self.panel.loaded_at = 0
+        self.alert_checked = 0
         stage = self.status.get("stage", "idle")
         if self.status.get("session") and self.status.get("updated") != getattr(self, "_session_seen", None):
             self._session_seen = self.status.get("updated")
@@ -723,7 +1032,9 @@ class Pet:
             text = STAGE_TEXT.get(stage, stage)
             if self.status.get("msg"):
                 text += "\n" + str(self.status["msg"])
-            if stage in ATTENTION or stage == "error":
+            if stage in ATTENTION:
+                self.alert_checked = 0  # “该你了”由提醒泡泡负责（带一键复制的按钮）
+            elif stage == "error":
                 self.say(text, 3600, sticky=True)
             elif stage == "done":
                 self.say(text, 8)
@@ -754,12 +1065,18 @@ class Pet:
             self.last_activity = time.time()
             self.last_tool_ping = time.time()
             rule = str(rec.get("rule") or "")
-            if rec.get("decision") == "deny" and rule not in QUIET_RULES:
+            decision = str(rec.get("decision") or "")
+            if decision == "ask":
+                # 守卫在 Copilot 里弹了确认框：机器人弹泡泡提醒你去选
+                reason = str(rec.get("reason") or "").splitlines()
+                self.ask_info = {"ts": time.time(), "rule": rule, "reason": reason[0] if reason else ""}
+            else:
+                self.ask_info = {}  # 又有新的工具调用了，说明确认框已经处理完
+            if decision == "deny" and rule not in QUIET_RULES:
                 self.blocked_text = RULE_TEXT.get(rule, rule or "危险操作")
                 self.blocked_until = time.time() + 4
-                self.say(f"拦住了一次：{self.blocked_text}", 5)
-            elif rule == "delete-needs-consent":
-                self.hud.loaded_at = 0  # 马上刷新提醒卡
+                self.say(f"拦住了一次：{self.blocked_text}（AI 会跳过这一步接着做）", 5)
+        self.alert_checked = 0  # 马上刷新提醒
 
     def _poll_events(self) -> None:
         while True:
@@ -842,9 +1159,26 @@ class Pet:
         self.draw_robot(P, t, anim, eyes, look, light, look_dx, look_dy)
         self.draw_effects(P, t, anim, light)
         self.draw_particles(P)
-        if self.state.get("hud", True):
-            self.hud.draw(c, self.robot_w + 2 * s, 10 * s, self.PANEL_W * s - 8 * s, self.Hpx - 20 * s, t)
-        self.draw_bubble()
+        self.draw_panel_button(t)
+        if self.bubble.attention and not self.bubble.key and self.status.get("stage") != "error":
+            self.bubble.until = min(self.bubble.until, time.time() + 2)  # “卡住了”解决后泡泡自己收起
+        self.bubble.tick()
+        self.panel.tick(t)
+
+    def panel_button_box(self) -> tuple[float, float, float, float]:
+        s = self.s
+        return (self.W - 26 * s, self.Hpx - 24 * s, self.W - 4 * s, self.Hpx - 4 * s)
+
+    def draw_panel_button(self, t: float) -> None:
+        """机器人右下角的小图标（三根小柱子）：点它打开 / 关闭数据面板。"""
+        c, s = self.canvas, self.s
+        x1, y1, x2, y2 = self.panel_button_box()
+        on = self.panel.is_open
+        rrect(c, x1, y1, x2, y2, 6 * s, fill=ACCENT if on else CARD, outline=INK, width=max(1, int(1.5 * s)))
+        for i, hgt in enumerate((0.45, 0.8, 0.6)):
+            bx = x1 + (5 + i * 5) * s
+            top = y2 - 4 * s - (y2 - y1 - 8 * s) * (hgt if on else hgt * (0.8 + 0.2 * math.sin(t * 3 + i)))
+            c.create_rectangle(bx, top, bx + 3 * s, y2 - 4 * s, fill=BG if on else ACCENT, outline="")
 
     def draw_eyes(self, P: Callable[..., tuple[float, float]], centers: list[tuple[float, float]], kind: str,
                   r: float, color: str, dx: float, dy: float) -> None:
@@ -1012,29 +1346,7 @@ class Pet:
             alive.append(p)
         self.particles = alive[-60:]
 
-    def draw_bubble(self) -> None:
-        if self.bubble_sticky and self.status.get("stage") not in ATTENTION | {"error"}:
-            self.bubble_sticky = False
-            self.bubble_until = min(self.bubble_until, time.time() + 2)
-        if not self.bubble_text or (not self.bubble_sticky and time.time() > self.bubble_until):
-            self.bubble_text = ""
-            return
-        c, s = self.canvas, self.s
-        x = self.robot_w / 2
-        tid = c.create_text(x, 10 * s, text=self.bubble_text, anchor="n", width=self.robot_w - 30 * s,
-                            fill=INK, font=(FONT, -int(12 * s)), justify="center")
-        x1, y1, x2, y2 = c.bbox(tid)
-        pad = 8 * s
-        bx1, by1, bx2, by2 = x1 - pad, y1 - pad * 0.7, x2 + pad, y2 + pad * 0.7
-        rrect(c, bx1, by1, bx2, by2, 12 * s, fill="#ffffff", outline=INK, width=max(2, int(2 * s)))
-        c.create_polygon(x - 7 * s, by2 - 1, x + 7 * s, by2 - 1, x + 2 * s, by2 + 10 * s, fill="#ffffff", outline="")
-        c.create_line(x - 7 * s, by2, x + 2 * s, by2 + 10 * s, x + 7 * s, by2, fill=INK, width=max(2, int(2 * s)))
-        c.tag_raise(tid)
-
     # ------------------------------------------------------------ 鼠标
-
-    def on_motion(self, e: Any) -> None:
-        self.hud.hover = bool(self.state.get("hud", True)) and e.x > self.robot_w
 
     def on_press(self, e: Any) -> None:
         self.press = (e.x_root, e.y_root, self.root.winfo_x(), self.root.winfo_y())
@@ -1047,22 +1359,44 @@ class Pet:
         x0, y0, wx, wy = self.press
         if abs(e.x_root - x0) + abs(e.y_root - y0) > 4:
             self.moved = True
-        self.root.geometry(f"+{wx + e.x_root - x0}+{wy + e.y_root - y0}")
+        self.root.geometry(f"+{wx + e.x_root - x0}+{wy + e.y_root - y0}")  # 泡泡和面板会跟着走
 
     def on_release(self, e: Any) -> None:
+        self.press = None
         if self.moved:
             self.save_state()
-        elif self.state.get("hud", True) and e.x > self.robot_w:
-            self.hud.click(e.x, e.y)
-        else:
-            self.toggle_status_bubble()
-        self.press = None
+            return
+        x1, y1, x2, y2 = self.panel_button_box()
+        if x1 <= e.x <= x2 and y1 <= e.y <= y2:
+            self.toggle_panel()
+            return
+        if self.click_job is None:  # 等一下，看是不是双击
+            self.click_job = self.root.after(260, self._single_click)
+
+    def _single_click(self) -> None:
+        self.click_job = None
+        self.toggle_status_bubble()
+
+    def on_double(self, _e: Any) -> None:
+        """双击机器人：打开 / 关闭数据面板。"""
+        if self.click_job is not None:
+            self.root.after_cancel(self.click_job)
+            self.click_job = None
+        self.toggle_panel()
 
     def toggle_status_bubble(self) -> None:
         """单击机器人：显示现在的进度，以及你现在要做什么。再点一次收起。"""
-        if self.bubble_text:
-            self.bubble_text = ""
-            self.bubble_sticky = False
+        if self.bubble.visible() and not self.bubble.key:
+            self.bubble.hide()
+            return
+        if self.bubble.key and self.alert and self.bubble.key == self.alert_key:
+            self.dismissed.add(self.alert_key)
+            self.bubble.hide()
+            return
+        if self.alert and self.alert_key in self.dismissed:
+            self.dismissed.discard(self.alert_key)  # 你收起过的提醒：点机器人再看一次
+            self.alert_key = ""
+            self._refresh_alert()
             return
         st = self.status
         stage = st.get("stage", "idle")
@@ -1073,11 +1407,8 @@ class Pet:
             lines.append(f"第 {st['step']}/{st['total']} 步")
         if st.get("msg") and stage != "idle":
             lines.append(str(st["msg"]))
-        if self.hud.alert:
-            lines.append("→ " + str(self.hud.alert.get("title", "")))
-        else:
-            lines.append("→ " + NEXT_STEP.get(stage, ""))
-        self.say("\n".join(lines), 10)
+        lines.append("→ " + NEXT_STEP.get(stage, ""))
+        self.bubble.show("\n".join(lines), seconds=10, buttons=[("看数据", self.panel.show)])
 
     # ------------------------------------------------------------ 菜单
 
@@ -1094,7 +1425,7 @@ class Pet:
         proj = self.project()
         m = self._menu(self.root)
         m.add_command(label="◎  现在进行到哪了？", command=self.toggle_status_bubble)
-        m.add_command(label="✎  说需求（先体检，不花额度）", command=self.new_request_dialog)
+        m.add_command(label=("▣  关闭数据面板" if self.panel.is_open else "▣  打开数据面板（双击我也可以）"), command=self.toggle_panel)
         for a in [a for a in actions if a.get("pin")]:
             m.add_command(label=f"{a.get('icon', '')}  {a.get('label', a.get('id'))}",
                           command=lambda act=a: self.run_action(act))
@@ -1122,8 +1453,13 @@ class Pet:
 
         settings = self._menu(m)
         settings.add_command(label=f"当前项目：{proj.get('name') if proj else '不在项目里'}（自动跟随 Copilot）", state="disabled")
-        hv = tk.BooleanVar(value=bool(self.state.get("hud", True)))
-        settings.add_checkbutton(label="显示右侧数据面板", variable=hv, command=self.toggle_hud)
+        bg_menu = self._menu(settings)
+        bv = tk.StringVar(value=str(self.state.get("panel_bg", "clear")))
+        bg_menu.add_radiobutton(label="透明（只看进度条）", value="clear", variable=bv, command=lambda: self.panel.set_bg("clear"))
+        bg_menu.add_radiobutton(label="深色", value="dark", variable=bv, command=lambda: self.panel.set_bg("dark"))
+        bg_menu.add_separator()
+        bg_menu.add_command(label="恢复默认大小和位置", command=self.panel.reset)
+        settings.add_cascade(label="数据面板背景", menu=bg_menu)
         spv = tk.StringVar(value=self.state.get("span", "today"))
         span_menu = self._menu(settings)
         span_menu.add_radiobutton(label="今天", value="today", variable=spv, command=lambda: self.set_span("today"))
@@ -1136,9 +1472,9 @@ class Pet:
                                       command=lambda v=name: self.set_state("profile", v, f"生成的提示词按“{v}”版本"))
         settings.add_cascade(label="提示词版本（完整 / 省 token）", menu=prof_menu)
         size_menu = self._menu(settings)
-        for label, sc in (("小", 0.8), ("中", 1.0), ("大", 1.25)):
+        for label, sc in (("小（默认）", 0.75), ("中", 0.95), ("大", 1.2)):
             size_menu.add_command(label=label, command=lambda v=sc: (self.apply_scale(v), self.save_state()))
-        settings.add_cascade(label="大小", menu=size_menu)
+        settings.add_cascade(label="机器人大小（面板大小直接拖右下角）", menu=size_menu)
         tv = tk.BooleanVar(value=bool(self.state["topmost"]))
         settings.add_checkbutton(label="总在最前", variable=tv, command=self.toggle_topmost)
         qv = tk.BooleanVar(value=bool(self.state["quiet"]))
@@ -1154,28 +1490,26 @@ class Pet:
 
     def set_mode(self, mode: str) -> None:
         kitlib.set_mode(None if mode == "auto" else mode, "")
-        self.hud.loaded_at = 0
+        self.panel.loaded_at = 0
+        self.alert_checked = 0
         label = "自动判断" if mode == "auto" else kitlib.MODES[mode]
         self.say(f"模式：{label}" + ("（12 小时后恢复自动）" if mode != "auto" else "") + "\n新开的会话生效", 4)
 
     def set_span(self, span: str) -> None:
         self.state["span"] = span
         self.save_state()
-        self.hud.loaded_at = 0
-        self.hud.bars = {}
+        self.panel.loaded_at = 0
+        self.alert_checked = 0
+        self.panel.anim.clear()
 
-    def toggle_hud(self) -> None:
-        self.state["hud"] = not self.state.get("hud", True)
-        self.apply_scale(self.s)
-        self.save_state()
 
     def replay_tour(self) -> None:
         self.state["tour_done"] = False
         self.tour = [
-            "右边是今天的数据：时间、token、用到的能力",
-            "排行榜每 6 秒换一个，点小圆点也能切换",
-            "轮到你的时候我会跳起来，面板上有一键复制的回复",
-            "右键：工具、模式切换、面板设置",
+            "轮到你的时候，我会在头顶弹泡泡，泡泡上有一键复制的回复",
+            "双击我打开数据面板：顶上的按钮切换内容，任务结束后也能看",
+            "面板拖标题栏移动、拖右下角调大小；右键面板换背景",
+            "右键我：工具、模式切换、设置",
         ]
         self._next_tip()
 
@@ -1187,6 +1521,7 @@ class Pet:
     def toggle_topmost(self) -> None:
         self.state["topmost"] = not self.state["topmost"]
         self.root.attributes("-topmost", bool(self.state["topmost"]))
+        self.panel.win.attributes("-topmost", bool(self.state["topmost"]))
         self.save_state()
 
     def quit(self) -> None:
@@ -1260,8 +1595,9 @@ class Pet:
             elif kind == "open_path":
                 self.open_path(kitlib.expand(action.get("path", ""), self.context()))
             elif kind == "builtin":
-                handler = {"new_request": self.new_request_dialog, "status": self.toggle_status_bubble,
-                           "memory_add": self.memory_dialog, "toggle_hud": self.toggle_hud}.get(action.get("builtin", ""))
+                handler = {"new_request": lambda: self.say("直接在 Copilot 终端里说需求就行，轮到你时我会弹泡泡提醒", 5),
+                           "status": self.toggle_status_bubble,
+                           "memory_add": self.memory_dialog, "toggle_hud": self.toggle_panel}.get(action.get("builtin", ""))
                 handler() if handler else self.say(f"不认识的内置功能：{action.get('builtin')}", 4)
             else:
                 self.say(f"不认识的按钮类型：{kind}", 4)
@@ -1366,89 +1702,6 @@ class Pet:
         foot.pack(fill="x", padx=14, pady=12)
         self._button(foot, "确定", ok, True).pack(side="right")
         self._button(foot, "取消", win.destroy).pack(side="right", padx=6)
-
-    def new_request_dialog(self) -> None:
-        """说需求：边写边体检（本地打分，不花额度），写好后复制开工指令。"""
-        tk = self.tk
-        import prompt_lint
-
-        self.bubble_text = ""
-        win = self._window("说需求", 580, 560)
-        tk.Label(win, text="用大白话说就行，比如：重复上传同一个文件时不要生成第二份数据", bg=BG, fg=DIM,
-                 font=(FONT, 10)).pack(anchor="w", padx=14, pady=(14, 6))
-        box = self._textbox(win, 6)
-        box.pack(fill="x", padx=14)
-        box.focus_set()
-        meter = tk.Canvas(win, height=34, bg=BG, highlightthickness=0)
-        meter.pack(fill="x", padx=14, pady=(10, 0))
-        result = tk.Text(win, height=12, wrap="word", font=(FONT, 10), relief="flat", bg=BG, fg=TEXT, bd=0,
-                         padx=2, pady=4)
-        result.pack(fill="both", expand=True, padx=14, pady=6)
-        result.tag_configure("ok", foreground=OK)
-        result.tag_configure("miss", foreground=WARN)
-        result.tag_configure("dim", foreground=DIM)
-        pending: list[str] = []
-
-        def draw_meter(score: int, level: str) -> None:
-            meter.delete("all")
-            w = max(200, meter.winfo_width())
-            color = OK if score >= 75 else WARN if score >= 50 else BAD
-            meter.create_text(0, 9, text="需求清晰度", anchor="w", fill=DIM, font=(FONT, 9))
-            meter.create_text(w, 9, text=f"{score} / 100 · {level}", anchor="e", fill=color, font=(MONO, 10, "bold"))
-            rrect(meter, 0, 20, w, 30, 5, fill=CARD2, outline="")
-            if score:
-                rrect(meter, 0, 20, max(10, w * score / 100), 30, 5, fill=color, outline="")
-
-        def check() -> None:
-            pending.clear()
-            text = box.get("1.0", "end-1c").strip()
-            result.configure(state="normal")
-            result.delete("1.0", "end")
-            if not text:
-                draw_meter(0, "还没写")
-                result.configure(state="disabled")
-                return
-            rep = prompt_lint.analyze(text)
-            draw_meter(int(rep["score"]), str(rep["level"]))
-            for d in rep["dimensions"]:
-                if d["ok"]:
-                    result.insert("end", f"✓ {d['label']}  ", "ok")
-            result.insert("end", "\n\n")
-            for d in rep["dimensions"]:
-                if not d["ok"]:
-                    result.insert("end", f"• {d['label']}：{d['question']}\n", "miss")
-            if rep["vague"]:
-                result.insert("end", f"• 含糊的说法：{'、'.join(rep['vague'])}\n", "miss")
-            if rep["task_count"] > 1:
-                result.insert("end", f"• 看起来有 {rep['task_count']} 件事，AI 会在方案里拆开。\n", "dim")
-            result.insert("end", "\n不用全部补齐：缺的部分 AI 会先查代码，查不到的一次问你。", "dim")
-            result.configure(state="disabled")
-
-        def on_key(_e: Any = None) -> None:
-            token = str(time.time())
-            pending.append(token)
-            win.after(350, lambda: check() if pending and pending[-1] == token else None)
-
-        box.bind("<KeyRelease>", on_key)
-        win.after(100, lambda: draw_meter(0, "还没写"))
-
-        def start() -> None:
-            text = box.get("1.0", "end-1c").strip()
-            if not text:
-                return
-            proj_info = self.project()
-            proj = proj_info.get("name") if proj_info else ""
-            kickoff = ("请按 /kit-autopilot 流程处理下面的需求" + (f"（项目：{proj}）" if proj else "")
-                       + "，同类改动一次列全再改，问题一次问完：\n" + text) if proj else text
-            self.copy(kickoff)
-            win.destroy()
-            self.say("已复制！去 Copilot 里粘贴，轮到你时我会提醒", 6)
-            self.burst(5)
-
-        foot = tk.Frame(win, bg=BG)
-        foot.pack(fill="x", padx=14, pady=(0, 14))
-        self._button(foot, "复制给 Copilot", start, True).pack(side="right")
-        self._button(foot, "关闭", win.destroy).pack(side="left")
 
     def memory_dialog(self) -> None:
         tk = self.tk

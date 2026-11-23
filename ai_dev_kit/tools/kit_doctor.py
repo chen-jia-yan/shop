@@ -220,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
           "     核心功能不受影响；面板里的计时和“该你了”会少一些。\n"
           "  2. 在 Copilot 会话里输入 /skills list，能看到 kit- 开头的技能；输入 /agent，能看到 kit- 开头的代理。\n"
           "  3. 在会话里让 Copilot “读取 .env 文件”，应该看到 ai-dev-kit 守卫的拒绝提示。\n"
-          "  4. 让 Copilot 运行一条删除语句（例如对测试库），应该先看到风险评估，你回复“同意”后才执行。")
+          "  4. 让 Copilot 运行一条删除语句（例如对测试库），应该弹出确认框并附风险评估，你选同意后才执行（ask_mode=deny 时是在对话里回复“同意”）。")
     return 1 if fails else 0
 
 

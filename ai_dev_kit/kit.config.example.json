@@ -91,12 +91,16 @@
     "enforce_scope": true,
     "extra_deny_command_patterns": [],
     "extra_ask_command_patterns": [],
-    "_说明": "三档：红线直接拦（读 .env、删数据、git add . 等）；黄线弹出确认（装包、项目外的 git 写操作、项目外写文件等，同一类在一次会话里只问一次）；其余放行并记录。"
+    "ask_mode": "ask",
+    "extra_scratch_dirs": [],
+    "extra_scratch_files": [],
+    "_说明": "四档：红线直接拦（读 .env、删 .git、git add . 等），被拦后 AI 跳过这一步继续别的；黄线当场弹确认框（删数据、删源码、改方案外的文件、装包等），你同意就接着执行，任务不中断；删缓存、构建目录、临时文件这类中间产物直接放行；其余交给 Copilot 自己的权限流程。ask_mode：ask=当场确认（默认）；deny=旧做法（拦下后在对话里回复“同意”再重跑），只在你的 Copilot 版本不弹确认框时改成 deny。extra_scratch_dirs / extra_scratch_files：再加几种算中间产物的目录名 / 文件名（可以用 * 通配），例如 \"reports_tmp\"、\"*.cache\"。"
   },
   "nodelete": {
     "enabled": true,
     "require_wrapper": true,
-    "_说明": "删除前先问：AI 要删数据时，守卫先拦下并给出风险评估（删什么、范围、能否恢复、建议），你在对话里回复“同意”后才放行那一条命令，用一次就失效；回复“不要”就一直拦。测试和脚本通过 tools/kit_run.py 运行，没经同意的删除调用会被拦下并报 KitDeleteBlocked；同意后用 kit_run.py --allow-delete 运行，每一次删除都记日志。require_wrapper=true 时，在项目里直接运行 pytest / python 脚本会被要求改用 kit_run.py。"
+    "auto_wrap": true,
+    "_说明": "删数据前当场确认：AI 要删数据时，守卫弹出确认框并附上风险评估（删什么、范围、能否恢复、建议），你选同意就执行那一条，下一次删除会重新问。测试和脚本在 tools/kit_run.py 下运行，里面的删除调用会被拦下并报 KitDeleteBlocked；确实要删时 AI 用 kit_run.py --allow-delete 重跑，也会弹确认框，每一次删除都记日志。auto_wrap=true（默认）：在项目里直接运行 pytest / python 脚本时，守卫自动给命令套上 kit_run.py，不再拦下要求重写；如果你的 Copilot 版本不支持自动改写命令，改成 false（会恢复成拦下并提示改用 kit_run.py）。"
   },
   "capabilities": {
     "auto_suggest": true,
@@ -105,7 +109,8 @@
   },
   "metrics": {
     "enabled": true,
-    "_说明": "记录每轮对话的时长、等你回复的时长、token（拿得到就用真实值，拿不到标“估算”）、用到的技能和工具，只存在本机 ~/.ai-dev-kit/metrics/，桌面机器人右侧的面板读这里。"
+    "token_budget_day": 1000000,
+    "_说明": "记录每轮对话的时长、等你回复的时长、token（拿得到就用真实值，拿不到标“估算”）、用到的技能和工具，只存在本机 ~/.ai-dev-kit/metrics/，桌面机器人的数据面板读这里。token_budget_day：面板“总览”里 Token 那一条的参考额度（每天），只用来画进度条，不会限制使用。"
   },
   "memory": {
     "digest_max_chars": 1200,

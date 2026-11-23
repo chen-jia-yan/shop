@@ -321,7 +321,7 @@ def summary(span: str = "today") -> dict[str, Any]:
 
 
 def channels(data: dict[str, Any], top: int = 6) -> list[dict[str, Any]]:
-    """面板上轮播的 4 个排行榜。没数据的榜单 items 为空，由界面显示空状态。"""
+    """面板上的 5 个榜单（点按钮切换）。没数据的榜单 items 为空，由界面显示空状态。"""
     def ranked(table: dict[str, Any]) -> list[tuple[str, float]]:
         return sorted(((k, float(v)) for k, v in table.items() if v), key=lambda x: -x[1])[:top]
 
@@ -337,7 +337,23 @@ def channels(data: dict[str, Any], top: int = 6) -> list[dict[str, Any]]:
         {"key": "caps", "title": "用到的技能和代理", "unit": "次", "items": ranked(data["caps"])},
         {"key": "tools", "title": "工具调用", "unit": "次", "items": ranked(data["tools"])},
         {"key": "tokens", "title": "token 去向" + est, "unit": "tok", "items": ranked(token_by_project)},
+        {"key": "turns", "title": "最近几轮（每轮耗时）", "unit": "sec", "items": last_turns(data, top)},
     ]
+
+
+def last_turns(data: dict[str, Any], top: int = 6) -> list[tuple[str, float]]:
+    """最近几轮对话：新的在上面，名字是“时:分 你说的开头”。"""
+    out: list[tuple[str, float]] = []
+    for r in reversed(list(data.get("recent", []))[-top:]):
+        when = time.strftime("%H:%M", time.localtime(float(r.get("ts") or 0)))
+        out.append((f"{when} {r.get('head') or r.get('project') or ''}".strip(), float(r.get("sec") or 0)))
+    return out
+
+
+def last_turn(data: dict[str, Any]) -> dict[str, Any]:
+    """最近一轮的记录（没有时返回空字典）。"""
+    recent = list(data.get("recent", []))
+    return dict(recent[-1]) if recent else {}
 
 
 def fmt_sec(sec: float) -> str:

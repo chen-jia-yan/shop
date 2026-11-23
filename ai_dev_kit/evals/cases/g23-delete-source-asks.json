@@ -1,0 +1,9 @@
+{
+  "id": "g23-delete-source-asks",
+  "type": "guard",
+  "title": "删源码目录：当场问（不是直接拒绝，也不是不管）",
+  "incident": "用户反馈：希望删除改成当场确认",
+  "payload": {"toolName": "powershell", "toolArgs": {"command": "Remove-Item -Recurse -Force src/tap_ai/legacy"}},
+  "expect": "ask",
+  "expect_rule": "file-delete"
+}

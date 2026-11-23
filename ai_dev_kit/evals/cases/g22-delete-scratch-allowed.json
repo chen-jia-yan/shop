@@ -1,0 +1,9 @@
+{
+  "id": "g22-delete-scratch-allowed",
+  "type": "guard",
+  "title": "删缓存（中间产物）直接放行，不打断任务",
+  "incident": "用户反馈：删除中间产物也被拦",
+  "payload": {"toolName": "powershell", "toolArgs": {"command": "Get-ChildItem -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force"}},
+  "expect": "allow",
+  "expect_rule": "scratch-delete"
+}

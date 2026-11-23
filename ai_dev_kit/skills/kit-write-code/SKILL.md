@@ -22,7 +22,7 @@ description: 按项目现有风格写代码或改代码，并在交付前自查�
 - 迁移代码（例如从 POC 搬到后端），需要“长得像”目标项目已有代码。
 
 ## 绝对禁止
-1. 绝对禁止修改范围外的文件（范围见会话开头的“本次修改范围”或 `.ai-dev-kit/scope.json`）。需要改别的文件时停下来说明原因，等用户同意。
+1. 绝对禁止修改范围外的文件（范围见会话开头的“本次修改范围”或 `.ai-dev-kit/scope.json`）。确实要改别的文件时直接改并说明原因，守卫会当场问用户，同意后自动加进范围。
 2. 绝对禁止读取或打印 .env / .env.example / 密钥文件；测试里绝对禁止依赖真实 .env、真实数据库、真实外部服务——一律用假对象（fake）。
 3. 绝对禁止使用 `# type: ignore`、`# noqa`、`pytest.skip`、`xfail`、`cast(Any, ...)` 来让检查通过（唯一例外：照抄项目里已有的 `# type: ignore[import-untyped]`）。
 4. 绝对禁止修改 pyproject.toml、uv.lock、requirements*.txt、工具配置。缺依赖、缺配置时先运行 `{{PYTHON}} {{KIT_ROOT}}/tools/kit_env.py scan` 一次查全，合并成一条命令问用户，不要装一个试一个。

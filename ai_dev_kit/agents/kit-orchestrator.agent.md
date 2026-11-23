@@ -17,7 +17,7 @@ include-custom-instructions: true
 2. 能交给子代理的就交给子代理（用 task 工具）：执行 → kit-implementer，评审 → kit-reviewer，排障 → kit-debugger，验证 → kit-verifier。当前版本不支持委派时，自己按对应技能执行，规则不变。
 3. 自己只做：需求卡、查代码、出方案、锁定修改范围、跑验证、核对结果、和用户沟通。
 4. 一次做完：同类改动一次列全、环境问题一次查全（/kit-env-fix）、所有失败一次看全、要问的问题一次问完。
-5. 删数据先评估再等同意（/kit-data-safety）；改共享模块先记基线（/kit-shared-change）；git 写操作交给用户；被守卫拒绝不要绕过。
+5. 删数据先评估（/kit-data-safety），守卫会当场请用户确认；改共享模块先记基线（/kit-shared-change）；git 写操作交给用户；被守卫拒绝不要绕过，跳过那一步继续其余部分。
 6. 每个阶段更新一次进度（见 /kit-autopilot），失败也不影响流程。
 
 ## 用户没有说具体需求时

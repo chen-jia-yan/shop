@@ -78,7 +78,7 @@ def _t_guard() -> None:
     expect(not bad, "；".join(bad))
 
 
-@case("守卫：删除数据流程（拦下 → 用户同意 → 放行一次 → 再来要重新问；拒绝后一直拦）")
+@case("守卫：删除数据流程（旧版本退路：拦下 → 用户同意 → 放行一次 → 再来要重新问；拒绝后一直拦）")
 def _t_delete_flow() -> None:
     import contextlib
     import io
@@ -87,6 +87,18 @@ def _t_delete_flow() -> None:
 
     with contextlib.redirect_stdout(io.StringIO()) as out:
         failed_steps = guard._selftest_delete_flow()
+    expect(failed_steps == 0, out.getvalue()[-800:])
+
+
+@case("守卫：当场确认（删数据弹确认框、测试自动套禁删保护、范围外文件当场问）")
+def _t_ask_flow() -> None:
+    import contextlib
+    import io
+
+    import guard
+
+    with contextlib.redirect_stdout(io.StringIO()) as out:
+        failed_steps = guard._selftest_ask_flow()
     expect(failed_steps == 0, out.getvalue()[-800:])
 
 
@@ -130,7 +142,7 @@ def _t_shared_area() -> None:
     expect(g.decide(dict(edit)).decision == "none", "记了基线后应当放行")
 
 
-@case("守卫：修改范围（scope）外的文件被拒绝，范围内放行")
+@case("守卫：修改范围（scope）外的文件当场问用户，范围内放行")
 def _t_scope_guard() -> None:
     import guard
 
@@ -142,7 +154,7 @@ def _t_scope_guard() -> None:
     outside = {"toolName": "edit", "toolArgs": {"path": str(root / "src" / "b.py"), "new_str": "x = 1"}, "cwd": str(root)}
     expect(g.decide(inside).decision == "none", "范围内文件被误拒")
     expect(g.decide(glob_ok).decision == "none", "通配范围内文件被误拒")
-    expect(g.decide(outside).decision == "deny", "范围外文件没有被拒绝")
+    expect(g.decide(outside).decision == "ask", "范围外文件应当当场问用户")
 
 
 @case("一次做完：同一文件改 3 次、同一测试跑 3 次、分 2 次装包时各提醒一次")
@@ -183,7 +195,7 @@ def _t_metrics() -> None:
     day = kit_metrics.load_day(kit_metrics._day(1_000_000_000))
     expect(day["turns"] == 2 and day["caps"].get("kit-debug-bug", 0) >= 1, f"日统计不对：{day}")
     titles = [ch["title"] for ch in kit_metrics.channels(day)]
-    expect(len(titles) == 4, f"排行榜应当有 4 个：{titles}")
+    expect(len(titles) == 5, f"榜单应当有 5 个：{titles}")
 
 
 @case("计量：没用过时是空的（不放任何示例数据）")

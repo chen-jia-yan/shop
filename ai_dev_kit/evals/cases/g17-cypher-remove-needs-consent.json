@@ -1,7 +1,8 @@
 {
   "id": "g17-cypher-remove-needs-consent",
   "type": "guard",
-  "title": "Cypher REMOVE 删属性：同样要先评估、等用户同意",
+  "title": "（旧版本退路 ask_mode=deny）Cypher REMOVE 删属性：同样要先评估、等用户同意",
+  "guard_config": {"ask_mode": "deny"},
   "incident": "REMOVE 删掉的属性或标签无法恢复",
   "payload": {"toolName": "powershell", "toolArgs": {"command": "cypher-shell \"MATCH (n:Doc {scope:'jp-poc'}) REMOVE n.tmp_flag\""}},
   "expect": "deny",

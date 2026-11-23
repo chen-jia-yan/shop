@@ -1,0 +1,9 @@
+{
+  "id": "g24-delete-git-denied",
+  "type": "guard",
+  "title": "删 .git 或整个项目目录：直接拒绝",
+  "incident": "灾难性删除没有“确认一下”的余地",
+  "payload": {"toolName": "powershell", "toolArgs": {"command": "Remove-Item -Recurse -Force .git"}},
+  "expect": "deny",
+  "expect_rule": "dangerous-delete"
+}
